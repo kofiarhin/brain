@@ -6,10 +6,12 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 
 ### Daily
 
+- Wake up around 04:00.
 - Drop off Luna at 08:00.
 - Pick up Luna at 15:00.
 - Help Laura with the baby.
 - Make time for the gym.
+- Wind down and end the day around 21:00.
 
 ### Sunday
 
@@ -27,6 +29,7 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 
 ## Working Style to Reinforce
 
+- Work from home and design schedules around a home environment.
 - Start deep work earlier.
 - Finish what is started.
 - Exercise consistently.
