@@ -68,7 +68,10 @@ Extract one useful lesson from the available context.
 
 ### Motivational Post
 
-Write a short post inspired by the strongest current theme.
+Include:
+- A short motivational message inspired by the strongest current theme.
+- One motivational quote from David Goggins.
+- One Stoic quote (for example from Marcus Aurelius, Seneca, or Epictetus).
 
 ### Unclear Items
 
