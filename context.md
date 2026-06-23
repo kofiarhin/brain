@@ -9,6 +9,9 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Ato is a newborn and is currently 6 weeks old.
 - Luna is 9 years old and lives at home.
 - Amber is 13 years old and lives at home.
+- Travis is 10 years old and lives in Ghana.
+- Jorja is 7 years old and lives in Ghana.
+- I usually speak with Travis and Jorja on Sunday afternoons.
 - Family responsibilities and helping with the baby are part of the normal daily routine.
 
 ## Recurring Commitments
@@ -26,7 +29,7 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 
 ### Sunday
 
-- Call Travis at 14:00.
+- Call Travis and Jorja in the afternoon.
 - Call Aba at 14:00.
 - Complete a weekly review and plan.
 
