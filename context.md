@@ -29,6 +29,11 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Prefer to have dinner before 17:00.
 - Wind down and end the day around 21:00.
 
+### Weekend
+
+- Schedule gym sessions in the morning.
+- Include a suggested workout focus for each gym day.
+
 ### Sunday
 
 - Call Travis and Jorja in the afternoon.
@@ -55,7 +60,9 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Prefer an earlier dinner and avoid scheduling dinner after 17:00.
 - Start deep work earlier.
 - Finish what is started.
-- Exercise consistently and schedule it immediately after the morning school drop-off.
+- Exercise consistently and schedule it immediately after the morning school drop-off on weekdays.
+- Schedule gym sessions in the morning on weekends.
+- When generating daily plans that include the gym, suggest a workout focus for that day.
 - Plan tomorrow before ending the day.
 - Publish content regularly.
 - Spend more time executing than researching.
