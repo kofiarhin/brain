@@ -2,26 +2,6 @@
 
 Append the newest review below this introduction. Use one date heading per day; do not create separate daily files.
 
-<!--
-# YYYY-MM-DD
-
-## Wins
-
-- 
-
-## Challenges
-
-- 
-
-## Lessons
-
-- 
-
-## Tomorrow
-
-- 
--->
-
 # 2026-06-23
 
 ## Wins
