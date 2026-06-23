@@ -17,22 +17,23 @@ Everything else remains an idea until one of these focus areas is completed.
 
 - Type: Client work for Mame Ama.
 - Weekly target: Reach 90% completion.
-- Status: Deployed to Vercel; app can receive orders through Telegram. Design and page layouts need improvement, and setup is incomplete.
+- Status: Deployed to Vercel and Heroku; app can receive orders through Telegram. Design is not yet at the desired standard, page layouts need improvement, and setup still needs a focused polish pass.
 - Next actions:
   - Source suitable premium design references.
-  - Redesign and optimize the pages.
-  - Complete the remaining setup.
+  - Source better images for the website.
+  - Redesign and optimize the highest-impact pages.
+  - Complete the remaining setup and polish.
 - Open question: Some legacy notes call this “Ema's Kitchen”; confirm whether that is the same project.
 
 ## Product Photography System
 
-- Status: Current results and lighting setup are below the desired standard.
+- Status: Current results and lighting setup are below the desired standard. A larger umbrella is still needed for product photography.
 - Equipment: Nikon D750; Nikon 35mm, 50mm, 85mm, and 70–200mm lenses; Godox AD300 Pro.
 - Next actions:
   - Organize and log all photography equipment.
+  - Research and choose a larger umbrella and a heavy-duty light stand.
   - Practice a basic one-light product setup.
   - Learn how to tether the camera to a laptop.
-  - Research a larger umbrella and a heavy-duty light stand.
 
 ## Mobile App / React Native
 
@@ -55,7 +56,7 @@ Everything else remains an idea until one of these focus areas is completed.
 ## Personal Operating System
 
 - Outcome: Maintain a low-friction system for capture, planning, execution, and review.
-- Next action: Use the new file structure for the next daily plan and end-of-day review.
+- Next action: Use `notes.txt` as the raw dumping ground, then run `update life` to process notes into the structured files.
 
 ## Income-Generating Product
 
