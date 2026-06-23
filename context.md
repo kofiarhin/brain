@@ -26,6 +26,7 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Go to the gym immediately after dropping off Luna.
 - Pick up Luna at 15:00.
 - Help Laura with Ato throughout the day and intentionally block time for baby duties.
+- Prefer to have dinner before 17:00.
 - Wind down and end the day around 21:00.
 
 ### Sunday
@@ -51,6 +52,7 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - High energy is usually in the early morning.
 - Protect the early morning for prayer, meditation, and deep work.
 - Avoid scheduling focused work between 07:00 and 08:00 because this time is dedicated to helping with the school routine.
+- Prefer an earlier dinner and avoid scheduling dinner after 17:00.
 - Start deep work earlier.
 - Finish what is started.
 - Exercise consistently and schedule it immediately after the morning school drop-off.
