@@ -41,7 +41,12 @@ Use this exact order:
 
 ### Day Plan
 
-Use a realistic 04:00–21:00 schedule and account for known commitments and the fact that I work from home.
+Use a realistic 04:00–21:00 schedule and account for:
+- Working from home.
+- Daily family responsibilities.
+- Helping Laura with the newborn, Ato.
+- Buffer time for interruptions and baby care.
+- Known commitments such as school drop-offs, pickups, and the gym.
 
 ### Must Do
 
