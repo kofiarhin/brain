@@ -20,12 +20,14 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 
 - Wake up around 04:00.
 - Start the day with prayer and meditation.
+- Spend time learning in the morning (reading, courses, or YouTube tutorials).
 - Reserve the early morning for deep work while energy is highest.
 - Between 07:00 and 08:00, help Laura get Luna ready for school.
 - Drop off Luna at 08:00.
 - Go to the gym immediately after dropping off Luna.
 - Pick up Luna at 15:00.
 - Help Laura with Ato throughout the day and intentionally block time for baby duties.
+- Block time in the afternoon for skill development.
 - Prefer to have dinner before 17:00.
 - Wind down and end the day around 21:00.
 
@@ -55,8 +57,11 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Work from home and design schedules around a home environment.
 - Build plans that account for family responsibilities and interruptions from caring for a newborn.
 - High energy is usually in the early morning.
-- Protect the early morning for prayer, meditation, and deep work.
+- Protect the early morning for prayer, meditation, learning, and deep work.
+- The preferred morning flow is: Meditation → Learning → Deep Work.
 - Avoid scheduling focused work between 07:00 and 08:00 because this time is dedicated to helping with the school routine.
+- Protect part of the afternoon for skill development and creative practice.
+- Alternate afternoon skill blocks between programming and photography/videography improvement.
 - Prefer an earlier dinner and avoid scheduling dinner after 17:00.
 - Start deep work earlier.
 - Finish what is started.
@@ -73,7 +78,10 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 
 - Improve portrait photography skills.
 - Improve product photography skills.
+- Improve videography and storytelling skills.
+- Continue improving programming skills.
 - Currently exploring both portrait and product photography to determine strengths and opportunities.
+- Use dedicated afternoon blocks for deliberate practice rather than passive consumption.
 
 ## Principles and Lessons
 
