@@ -32,5 +32,20 @@ Capture thoughts quickly here without organizing them first. During planning or 
 ## Quick Capture
 
 <!-- Add new, unprocessed items below as simple bullets.
-- 
+
+
+
+-
 -->
+
+- completed settting up of Ama's kitchen but the design is not what i want
+  -need to find design inspiration for this. also i need to soorce images for this
+
+- Laura took ato to the hospital and is fine now. was given some medications. hopefully everything turns out fine
+
+- took some pictures of laura with the baby look stunning. i need to edit the pictures and send some to laura
+
+- still havent found a larger umberlla for the product photography
+
+- need to log all photograph equiptments
+- i was able to setup telegram with amas-kitchen and deployed to vercel and heroku.
