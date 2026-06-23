@@ -21,6 +21,7 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Wake up around 04:00.
 - Start the day with prayer and meditation.
 - Reserve the early morning for deep work while energy is highest.
+- Between 07:00 and 08:00, help Laura get Luna ready for school.
 - Drop off Luna at 08:00.
 - Go to the gym immediately after dropping off Luna.
 - Pick up Luna at 15:00.
@@ -40,6 +41,7 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Content publishing is inconsistent.
 - Business, family, and personal goals compete for time.
 - A newborn at home means plans need flexibility and buffer time.
+- The 07:00–08:00 period is reserved for family responsibilities and should not be scheduled for deep work.
 - Glaucoma makes visually following piano tutorials difficult; an accessible learning method is needed.
 
 ## Working Style to Reinforce
@@ -48,6 +50,7 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Build plans that account for family responsibilities and interruptions from caring for a newborn.
 - High energy is usually in the early morning.
 - Protect the early morning for prayer, meditation, and deep work.
+- Avoid scheduling focused work between 07:00 and 08:00 because this time is dedicated to helping with the school routine.
 - Start deep work earlier.
 - Finish what is started.
 - Exercise consistently and schedule it immediately after the morning school drop-off.
