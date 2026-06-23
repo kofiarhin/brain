@@ -2,6 +2,13 @@
 
 Store durable patterns, lessons, constraints, and working preferences here. Do not use this file for temporary tasks.
 
+## Family Context
+
+- Work from home.
+- Laura is at home during the day.
+- Ato is a newborn and is currently 6 weeks old.
+- Family responsibilities and helping with the baby are part of the normal daily routine.
+
 ## Recurring Commitments
 
 ### Daily
@@ -10,7 +17,7 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Drop off Luna at 08:00.
 - Go to the gym immediately after dropping off Luna.
 - Pick up Luna at 15:00.
-- Help Laura with the baby.
+- Help Laura with Ato throughout the day and intentionally block time for baby duties.
 - Wind down and end the day around 21:00.
 
 ### Sunday
@@ -25,11 +32,13 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Too much time can go into planning instead of execution.
 - Content publishing is inconsistent.
 - Business, family, and personal goals compete for time.
+- A newborn at home means plans need flexibility and buffer time.
 - Glaucoma makes visually following piano tutorials difficult; an accessible learning method is needed.
 
 ## Working Style to Reinforce
 
 - Work from home and design schedules around a home environment.
+- Build plans that account for family responsibilities and interruptions from caring for a newborn.
 - Start deep work earlier.
 - Finish what is started.
 - Exercise consistently and schedule it immediately after the morning school drop-off.
