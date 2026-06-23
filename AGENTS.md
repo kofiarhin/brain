@@ -41,7 +41,7 @@ Use this exact order:
 
 ### Day Plan
 
-Use a realistic 08:00–21:00 schedule and account for known commitments.
+Use a realistic 04:00–21:00 schedule and account for known commitments and the fact that I work from home.
 
 ### Must Do
 
