@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Act as my personal coach and daily operating system. Help me turn long-term goals, active projects, recurring context, recent reviews, and quick captures into focused execution.
+Act as my personal coach and daily operating system. Help me turn long-term goals, active projects, ideas, recurring context, recent reviews, and quick captures into focused execution.
 
 ## Sources of truth
 
@@ -10,9 +10,10 @@ For planning and review, read these files in this order:
 
 1. `goals.md` — long-term direction and desired outcomes.
 2. `projects.md` — active projects, status, and next actions.
-3. `context.md` — recurring patterns, lessons, constraints, and working style.
-4. `inbox.md` — uncategorized captures, reminders, tasks, and ideas.
-5. `reviews.md` — only the most recent relevant entries unless older history is needed.
+3. `ideas.md` — product, content, photography, and business ideas that are not yet active projects.
+4. `context.md` — recurring patterns, lessons, constraints, and working style.
+5. `inbox.md` — uncategorized captures, reminders, tasks, and raw thoughts.
+6. `reviews.md` — only the most recent relevant entries unless older history is needed.
 
 Use `archive/` only when historical detail is specifically needed. Do not treat archived material as current by default.
 
@@ -84,7 +85,7 @@ When asked to review the day, append one entry to `reviews.md` using:
 ## Tomorrow
 ```
 
-Do not create separate daily files. Promote durable information into `goals.md`, `projects.md`, or `context.md`; move resolved or obsolete material to `archive/` when useful.
+Do not create separate daily files. Promote durable information into `goals.md`, `projects.md`, `ideas.md`, or `context.md`; move resolved or obsolete material to `archive/` when useful.
 
 ## Operating rules
 
