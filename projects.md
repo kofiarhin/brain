@@ -17,12 +17,12 @@ Everything else remains an idea until one of these focus areas is completed.
 
 - Type: Client work for Mame Ama.
 - Weekly target: Reach 90% completion.
-- Status: Deployed to Vercel and Heroku; app can receive orders through Telegram. Design is not yet at the desired standard, page layouts need improvement, and setup still needs a focused polish pass.
+- Status: Initial setup is complete. The app is deployed to Vercel and Heroku and can receive orders through Telegram. The design is not yet at the desired standard and needs a focused visual polish pass.
 - Next actions:
   - Source suitable premium design references.
   - Source better images for the website.
   - Redesign and optimize the highest-impact pages.
-  - Complete the remaining setup and polish.
+  - Complete the remaining visual polish.
 - Open question: Some legacy notes call this “Ema's Kitchen”; confirm whether that is the same project.
 
 ## Product Photography System
@@ -31,9 +31,11 @@ Everything else remains an idea until one of these focus areas is completed.
 - Equipment: Nikon D750; Nikon 35mm, 50mm, 85mm, and 70–200mm lenses; Godox AD300 Pro.
 - Next actions:
   - Organize and log all photography equipment.
+  - Research product photography concepts and references.
   - Research and choose a larger umbrella and a heavy-duty light stand.
   - Practice a basic one-light product setup.
   - Learn how to tether the camera to a laptop.
+  - Edit the recent photos of Laura and send her a selection.
 
 ## Mobile App / React Native
 
@@ -63,6 +65,11 @@ Everything else remains an idea until one of these focus areas is completed.
 - Outcome: Build one product that solves a real problem and earns income.
 - Exploration areas: Digital products, creator tools, AI products, small-business tools, a daily operating system app, an AI content planner, creator templates, a product photography toolkit, and photography presets.
 - Next action: Choose one validated problem before starting a build.
+
+## Unclear Items
+
+- Which person or project does “David has paid the money” relate to?
+- Clarify the purpose and timing of the additional £200 house payment to discuss with David.
 
 ## Project Template
 

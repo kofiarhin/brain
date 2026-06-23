@@ -35,3 +35,6 @@ Raw notes should stay here unless explicitly cleared or archived.
 - Need to log all photography equipment.
 
 - I was able to set up Telegram with Ama's Kitchen and deploy to Vercel and Heroku.
+- david has paid the money
+- need to talk to david about money 200 pounds extra for the house
+- research product photography ideas
