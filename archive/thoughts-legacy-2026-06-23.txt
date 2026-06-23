@@ -1,0 +1,219 @@
+# 🧠 KOFI DASHBOARD
+
+# 🎯 Goals
+
+## Financial
+- Start making real money from software development and photography.
+- Build profitable software products that generate recurring income.
+
+## Product
+- Launch and publish a mobile app by the end of the year.
+
+## Health
+- Get a six-pack by the end of the year.
+
+## Personal Brand
+- Build a strong personal brand through content creation.
+- Build in public and document the journey.
+
+## Personal Growth
+- Become more consistent with execution and shipping.
+
+# 🚀 Current Priorities
+
+1. Finish the Ama's Kitchen website.
+2. Improve product photography and lighting.
+3. Create and publish content consistently.
+4. Build products that generate income.
+5. Establish a sustainable daily routine.
+6. Learn React Native and build a mobile app.
+
+# 💻 Active Projects
+
+## Client Work
+- Ama's Kitchen website for Mame Ama.
+
+## Internal Projects
+- Personal Operating System.
+- Content Creation System.
+- Mobile App.
+- Product Photography System.
+
+## Exploration
+- Digital products.
+- Creator tools.
+- AI products.
+
+# 💡 Product Ideas
+
+## Software
+- Daily Operating System app.
+- AI Content Planner for creators.
+- Creator templates and tools.
+- Small business tools.
+
+## Photography
+- Product photography toolkit.
+- Photography presets.
+
+## Content
+- YouTube series documenting building products and businesses.
+
+# 📸 Photography
+
+## Current Gear
+
+### Camera
+- Nikon D750
+
+### Lenses
+- Nikon 35mm
+- Nikon 50mm
+- Nikon 85mm
+- Nikon 70-200mm
+
+### Lighting
+- Godox AD300 Pro
+
+## Shopping List
+- Heavy-duty light stand.
+- Light tripod.
+
+## Problems
+- Product photos are not turning out how I want.
+- Need to improve lighting.
+- Need a better setup.
+- Need more practice.
+
+## Learning
+- One-light product photography.
+- Basic product photography setups.
+- Tethering camera to laptop.
+- Lighting techniques.
+- Better product photography workflows.
+
+# 📂 Open Loops
+
+## Photography
+- Organise photography equipment.
+- Improve lighting setup.
+- Buy heavy-duty light stand.
+- Learn tethering setup.
+
+## Learning
+- Finish Net Ninja React Native course.
+- Build first React Native app.
+
+# 💰 Income Questions
+
+- How can I start making real money from my development skills?
+- What products can I build that solve real problems?
+- How can I combine software, photography, and content creation?
+
+# 🎥 Content Creation Questions
+
+- Should I build in public?
+- How can I document my journey consistently?
+- How can I create systems that compound over time?
+
+# 🏆 Accomplishments
+
+- Finished and launched the KareBraids website.
+- Set up a dedicated workspace.
+- Improved photography equipment and setup.
+- Built systems for organising work and planning.
+
+# ⚠️ Current Challenges
+
+- Product photography isn't where I want it to be.
+- Spending too much time planning.
+- Inconsistent content creation.
+- Balancing business, family, and personal goals.
+
+# 📅 Weekly Commitments
+
+## Daily
+- Drop off Luna at 8:00 AM.
+- Pick up Luna at 3:00 PM.
+- Help Laura with the baby.
+- Make time for the gym.
+
+## Sunday
+- Call Travis at 2:00 PM.
+- Call Aba at 2:00 PM.
+- Weekly review and planning.
+
+# 🔁 Habits To Improve
+
+- Start deep work earlier.
+- Finish what I start.
+- Exercise consistently.
+- Plan tomorrow before ending the day.
+- Publish content regularly.
+- Spend more time executing than researching.
+
+# 🧭 Principles
+
+- Execution beats perfection.
+- Momentum matters more than motivation.
+- Small wins compound.
+- Shipping creates opportunities.
+- The fastest way to learn is by building.
+- Focus on high-leverage work.
+
+# 🌅 Daily Reminders
+
+- What moves me closest to my goals today?
+- Prioritise progress over being busy.
+- Protect deep work time.
+- Create before consuming.
+- End the day with clear next steps.
+
+# 🎯 Current Focus
+
+1. Finish Ama's Kitchen website.
+2. Improve product photography.
+3. Learn React Native.
+4. Build and launch a mobile app.
+5. Create content consistently.
+6. Build one income-generating product.
+
+Everything else goes into the Ideas list until one of these is completed.
+
+
+
+
+Search for larger umbrella for product photography;
+i need a portable keyborad for tablet- seach amazon for that
+... guy turns.
+
+- Will go to the gym today
+
+-pick up and drop off luna
+- trying to redesign amas-kitchen-
+  -app workgin now can receive orders via telegram
+  -deployed it to vercel
+
+  -log all photography gears
+  -started learning piano but cant see too well when watching tutorials. want to figure out how to learn how to play the piano wihtout pretty much my eyes(glaucoma condition)
+
+  -aba's birthday coming up 4th july. need to find a way to send kuukua 200 pounds for her birthday
+  -Ato circumcision still not done
+  -need to talk to david about money issues (he is suppose to send me 50 pounds today)
+   dont want to give me pressure to get me it
+- Complete setup of Ema's Kitchen
+  Don't like the design and layout of the pages.
+  Source design inspiration and optimize the pages
+  to premium standard.
+
+- Goal of the week is 90% complete
+  Ema's Kitchen
+
+- Need to go to the hospital to check
+  on Ato's health.
+
+- Watch 2 React Native ...
+
+- Post on X and LinkedIn
+
+- React Native setup development
