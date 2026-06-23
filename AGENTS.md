@@ -138,3 +138,14 @@ Do not create separate daily files. Promote durable information into `goals.md`,
 - Do not invent facts.
 
 The goal is not to stay busy. The goal is to consistently accomplish meaningful goals.
+
+## Brain OS v2 Architecture
+
+- Frontend = CRUD only. It saves data to MongoDB, retrieves data from MongoDB, and displays generated data.
+- MongoDB = source of truth for notes, tasks, day plans, reviews, goals, projects, ideas, context, and deliverables.
+- Codex CLI = AI layer. Manual commands such as `update life`, `plan my day`, and `morning briefing` read from MongoDB, run the AI workflow, and write back to MongoDB.
+- `update life` reads notes and existing collections from MongoDB, classifies information, and updates MongoDB collections.
+- `plan my day` reads goals, projects, ideas, context, reviews, tasks, deliverables, and notes from MongoDB, then saves generated plans, tasks, and deliverables to MongoDB.
+- The frontend must not run AI pipelines, classify notes, determine priorities, call OpenAI, trigger `update life`, or trigger `plan my day`.
+- Do not add backend routes such as `POST /api/update-life`, `POST /api/plan-day`, or `POST /api/brain/*`.
+- Markdown files are exports/snapshots only, not the source of truth.
