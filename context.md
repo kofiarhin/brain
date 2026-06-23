@@ -7,6 +7,8 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Work from home.
 - Laura is at home during the day.
 - Ato is a newborn and is currently 6 weeks old.
+- Luna is 9 years old and lives at home.
+- Amber is 13 years old and lives at home.
 - Family responsibilities and helping with the baby are part of the normal daily routine.
 
 ## Recurring Commitments
@@ -14,6 +16,8 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 ### Daily
 
 - Wake up around 04:00.
+- Start the day with prayer and meditation.
+- Reserve the early morning for deep work while energy is highest.
 - Drop off Luna at 08:00.
 - Go to the gym immediately after dropping off Luna.
 - Pick up Luna at 15:00.
@@ -39,6 +43,8 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 
 - Work from home and design schedules around a home environment.
 - Build plans that account for family responsibilities and interruptions from caring for a newborn.
+- High energy is usually in the early morning.
+- Protect the early morning for prayer, meditation, and deep work.
 - Start deep work earlier.
 - Finish what is started.
 - Exercise consistently and schedule it immediately after the morning school drop-off.
@@ -47,6 +53,12 @@ Store durable patterns, lessons, constraints, and working preferences here. Do n
 - Spend more time executing than researching.
 - Protect deep-work time and reduce context switching.
 - Create before consuming.
+
+## Interests and Skill Development
+
+- Improve portrait photography skills.
+- Improve product photography skills.
+- Currently exploring both portrait and product photography to determine strengths and opportunities.
 
 ## Principles and Lessons
 
