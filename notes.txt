@@ -1,0 +1,37 @@
+# Notes
+
+This is the primary raw dumping ground. Write everything here first without organizing it.
+
+Use this file for:
+- thoughts
+- reminders
+- tasks
+- accomplishments
+- ideas
+- family updates
+- project updates
+- lessons
+- blockers
+- random observations
+
+When you say `update life`, the AI should process the latest notes and update the correct structured files: `goals.md`, `projects.md`, `ideas.md`, `context.md`, and `reviews.md`.
+
+Raw notes should stay here unless explicitly cleared or archived.
+
+---
+
+## 2026-06-24
+
+- Completed setting up Ama's Kitchen, but the design is not what I want.
+  - Need to find design inspiration for this.
+  - Need to source images for this.
+
+- Laura took Ato to the hospital and he is fine now. He was given some medications. Hopefully everything turns out fine.
+
+- Took some pictures of Laura with the baby. They look stunning. Need to edit the pictures and send some to Laura.
+
+- Still haven't found a larger umbrella for product photography.
+
+- Need to log all photography equipment.
+
+- I was able to set up Telegram with Ama's Kitchen and deploy to Vercel and Heroku.
