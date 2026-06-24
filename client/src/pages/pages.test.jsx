@@ -33,11 +33,23 @@ describe('Tasks page', () => {
 });
 
 describe('Dashboard', () => {
-  test('loads latest day plan', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ focus: 'Ship today', priorities: ['One'], schedule: [{ time: '09:00', title: 'Deep work', activity: 'Build the dashboard timeline', description: 'Ship the operational view' }], winCondition: ['Timeline shipped'] }) });
+  test('loads mission control analytics without duplicating the timeline', async () => {
+    const jsonResponses = [
+      { focus: 'Ship today', schedule: [{ time: '09:00-11:00', title: 'Deep work', activity: 'Build dashboard analytics', description: 'Ship the mission control view' }] },
+      [{ _id: 'n1', content: 'Raw thought' }],
+      [{ _id: 't1', title: 'Must task', status: 'open', dueDate: new Date().toISOString() }],
+      [{ _id: 'd1', title: 'Demo', status: 'open' }],
+      [{ _id: 'p1', name: 'Brain OS', status: 'active', nextActions: ['Ship dashboard'], blockers: [] }],
+      [{ _id: 'i1', title: 'Idea' }],
+      [{ _id: 'c1', category: 'routine', value: 'Gym' }],
+      []
+    ];
+    global.fetch = vi.fn().mockImplementation(() => Promise.resolve({ ok: true, json: async () => jsonResponses.shift() }));
     render(<Dashboard />, { wrapper: wrapper() });
-    expect(await screen.findByText('Operational Timeline')).toBeInTheDocument();
-    expect((await screen.findAllByText('Deep work')).length).toBeGreaterThan(0);
-    expect(screen.queryByText('Must Do')).not.toBeInTheDocument();
+    expect(await screen.findByText('Mission Control')).toBeInTheDocument();
+    expect(screen.getByText('Focus Allocation')).toBeInTheDocument();
+    expect(screen.getByText('Timeline Health')).toBeInTheDocument();
+    expect(screen.getByText('Project Progress')).toBeInTheDocument();
+    expect(screen.queryByText('Operational Timeline')).not.toBeInTheDocument();
   });
 });
