@@ -92,3 +92,76 @@ describe('forbidden AI endpoints', () => {
     await request(app).post('/api/brain/update-life').send({}).expect(404);
   });
 });
+
+describe('CORS', () => {
+  const deployedOrigin = 'https://brain-92pysn6ss-kofi-arhins-projects.vercel.app';
+
+  test.each([
+    'http://localhost:5173',
+    'https://brain-pi-black.vercel.app',
+    deployedOrigin,
+    'https://brain-feature-123.vercel.app',
+    'https://brain-feature-123-kofi-arhins-projects.vercel.app',
+  ])('allows requests from %s', async (origin) => {
+    const response = await request(app).get('/api/health').set('Origin', origin).expect(200);
+    expect(response.headers['access-control-allow-origin']).toBe(origin);
+  });
+
+  test('allows the configured CLIENT_URL', async () => {
+    const previousClientUrl = process.env.CLIENT_URL;
+    process.env.CLIENT_URL = 'https://brain-custom.example.com/';
+
+    try {
+      const response = await request(app)
+        .get('/api/health')
+        .set('Origin', 'https://brain-custom.example.com')
+        .expect(200);
+      expect(response.headers['access-control-allow-origin']).toBe('https://brain-custom.example.com');
+    } finally {
+      if (previousClientUrl === undefined) delete process.env.CLIENT_URL;
+      else process.env.CLIENT_URL = previousClientUrl;
+    }
+  });
+
+  test('handles preflight requests', async () => {
+    const response = await request(app)
+      .options('/api/tasks')
+      .set('Origin', deployedOrigin)
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'content-type,authorization')
+      .expect(204);
+
+    expect(response.headers['access-control-allow-origin']).toBe(deployedOrigin);
+    expect(response.headers['access-control-allow-methods']).toContain('POST');
+    expect(response.headers['access-control-allow-headers']).toBe('Content-Type,Authorization');
+  });
+
+  test('does not add an allow-origin header for untrusted origins', async () => {
+    const response = await request(app)
+      .get('/api/health')
+      .set('Origin', 'https://example.com')
+      .expect(200);
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  test('adds the allow-origin header to 404 responses', async () => {
+    const response = await request(app)
+      .get('/api/not-a-route')
+      .set('Origin', deployedOrigin)
+      .expect(404);
+    expect(response.headers['access-control-allow-origin']).toBe(deployedOrigin);
+  });
+
+  test('reports the CORS decision through the debug endpoint', async () => {
+    const response = await request(app)
+      .get('/api/cors-debug')
+      .set('Origin', deployedOrigin)
+      .expect(200);
+
+    expect(response.body).toEqual({
+      origin: deployedOrigin,
+      allowed: true,
+      accessControlAllowOrigin: deployedOrigin,
+    });
+  });
+});
