@@ -33,7 +33,7 @@ describe('Tasks page', () => {
 });
 
 describe('Dashboard', () => {
-  test('loads mission control analytics without duplicating the timeline', async () => {
+  test('loads premium mission control systems without duplicating the timeline', async () => {
     const jsonResponses = [
       { focus: 'Ship today', schedule: [{ time: '09:00-11:00', title: 'Deep work', activity: 'Build dashboard analytics', description: 'Ship the mission control view' }] },
       [{ _id: 'n1', content: 'Raw thought' }],
@@ -47,8 +47,9 @@ describe('Dashboard', () => {
     global.fetch = vi.fn().mockImplementation(() => Promise.resolve({ ok: true, json: async () => jsonResponses.shift() }));
     render(<Dashboard />, { wrapper: wrapper() });
     expect(await screen.findByText('Mission Control')).toBeInTheDocument();
-    expect(screen.getByText('Focus Allocation')).toBeInTheDocument();
-    expect(screen.getByText('Timeline Health')).toBeInTheDocument();
+    expect(await screen.findByText('Neural Constellation')).toBeInTheDocument();
+    expect(screen.getByText('Planetary Focus System')).toBeInTheDocument();
+    expect(screen.getByText('Weekly Skyline')).toBeInTheDocument();
     expect(screen.getByText('Project Progress')).toBeInTheDocument();
     expect(screen.queryByText('Operational Timeline')).not.toBeInTheDocument();
   });
