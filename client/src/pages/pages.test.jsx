@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, test, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { Notes } from './Notes';
 import { Tasks } from './Tasks';
 import { Dashboard } from './Dashboard';
@@ -9,6 +9,7 @@ import { Dashboard } from './Dashboard';
 function wrapper() { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>; }
 
 beforeEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); });
 
 describe('Notes page', () => {
   test('renders and saves a note', async () => {
@@ -33,8 +34,10 @@ describe('Tasks page', () => {
 
 describe('Dashboard', () => {
   test('loads latest day plan', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ focus: 'Ship today', priorities: ['One'], mustDo: [], deliverables: [], winCondition: [] }) });
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ focus: 'Ship today', priorities: ['One'], schedule: [{ time: '09:00', title: 'Deep work', activity: 'Build the dashboard timeline', description: 'Ship the operational view' }], winCondition: ['Timeline shipped'] }) });
     render(<Dashboard />, { wrapper: wrapper() });
-    expect(await screen.findByText('Ship today')).toBeInTheDocument();
+    expect(await screen.findByText('Operational Timeline')).toBeInTheDocument();
+    expect((await screen.findAllByText('Deep work')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Must Do')).not.toBeInTheDocument();
   });
 });
