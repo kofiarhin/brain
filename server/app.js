@@ -11,27 +11,64 @@ import reviewsRouter from './routes/reviews.js';
 import dayPlansRouter from './routes/dayPlans.js';
 import { notFound, errorHandler } from './middleware/error.js';
 
-const allowedOrigins = [
-  process.env.CLIENT_URL,
+const staticAllowedOrigins = new Set([
   'http://localhost:5173',
-].filter(Boolean);
+  'https://brain-pi-black.vercel.app',
+  'https://brain-92pysn6ss-kofi-arhins-projects.vercel.app',
+]);
+
+const vercelOriginPatterns = [
+  /^https:\/\/brain-[a-z0-9-]+\.vercel\.app$/i,
+  /^https:\/\/brain-[a-z0-9-]+-kofi-arhins-projects\.vercel\.app$/i,
+];
+
+function normalizeOrigin(value) {
+  if (!value) return null;
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value.replace(/\/$/, '');
+  }
+}
+
+export function isOriginAllowed(origin) {
+  if (!origin) return true;
+
+  const normalizedOrigin = normalizeOrigin(origin);
+  const configuredClientOrigin = normalizeOrigin(process.env.CLIENT_URL);
+
+  return staticAllowedOrigins.has(normalizedOrigin)
+    || normalizedOrigin === configuredClientOrigin
+    || vercelOriginPatterns.some((pattern) => pattern.test(normalizedOrigin));
+}
 
 function corsOrigin(origin, callback) {
-  if (!origin) return callback(null, true);
-  if (allowedOrigins.includes(origin)) return callback(null, true);
-  if (/^https:\/\/brain-[a-z0-9-]+-kofi-arhins-projects\.vercel\.app$/.test(origin)) {
-    return callback(null, true);
-  }
-  if (origin === 'https://brain-pi-black.vercel.app') return callback(null, true);
-  return callback(null, false);
+  callback(null, isOriginAllowed(origin));
 }
+
+const corsOptions = {
+  origin: corsOrigin,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204,
+};
 
 export function createApp() {
   const app = express();
-  app.use(cors({ origin: corsOrigin }));
+  app.options('*', cors(corsOptions));
+  app.use(cors(corsOptions));
   app.use(express.json());
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/api/cors-debug', (req, res) => {
+    const origin = req.get('origin') || null;
+    res.json({
+      origin,
+      allowed: isOriginAllowed(origin),
+      accessControlAllowOrigin: res.get('Access-Control-Allow-Origin') || null,
+    });
+  });
   app.use('/api/notes', notesRouter);
   app.use('/api/tasks', tasksRouter);
   app.use('/api/deliverables', deliverablesRouter);
