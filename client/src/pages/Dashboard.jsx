@@ -1,7 +1,13 @@
-import { useMemo } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/resources';
 import { Card } from '../components/Card';
+
+const NeuralDust = lazy(() => import('../components/mission-control/NeuralDust'));
+const NeuralConstellation = lazy(() => import('../components/mission-control/NeuralConstellation'));
+const PlanetaryFocusSystem = lazy(() => import('../components/mission-control/PlanetaryFocusSystem'));
+const WeeklySkyline = lazy(() => import('../components/mission-control/WeeklySkyline'));
+const BrainHealthReactor = lazy(() => import('../components/mission-control/BrainHealthReactor'));
 
 const EMPTY_ARRAY = [];
 const CHART_COLORS = ['#22d3ee', '#a78bfa', '#34d399', '#f59e0b', '#f472b6', '#60a5fa'];
@@ -79,6 +85,7 @@ function buildDashboard(data) {
   const ideas = asArray(data.ideas);
   const context = asArray(data.context);
   const reviews = asArray(data.reviews);
+  const goals = asArray(data.goals);
   const schedule = asArray(data.plan?.schedule);
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
   const activeProjects = projects.filter((project) => normalizeStatus(project.status || 'active') === 'active');
@@ -115,6 +122,17 @@ function buildDashboard(data) {
 
   return {
     plan: data.plan,
+    neuralNodes: [
+      { label: 'Notes', count: notes.length, color: '#22d3ee' },
+      { label: 'Tasks', count: tasks.length, color: '#a78bfa' },
+      { label: 'Projects', count: projects.length, color: '#34d399' },
+      { label: 'Deliverables', count: deliverables.length, color: '#f59e0b' },
+      { label: 'Goals', count: goals.length, color: '#f472b6' },
+      { label: 'Reviews', count: reviews.length, color: '#60a5fa' },
+      { label: 'Context', count: context.length, color: '#2dd4bf' },
+      { label: 'Ideas', count: ideas.length, color: '#c084fc' }
+    ],
+    brainScore: Math.max(15, Math.min(100, 100 - notes.length * 2 - overdueBlocks.length * 8 - openTasks.filter(isDueTodayOrEarlier).length * 4 + completedTasksThisWeek.length * 6 + (reviews.some((review) => new Date(review.date) >= startOfDay()) ? 10 : 0))),
     kpis: [
       { label: 'Tasks Due', value: openTasks.filter(isDueTodayOrEarlier).length, hint: `${openTasks.length} open` },
       { label: 'Deliverables', value: openDeliverables.length, hint: `${deliverables.filter(isComplete).length} complete` },
@@ -190,8 +208,8 @@ export function Dashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard', 'analytics'],
     queryFn: async () => {
-      const [planResult, notes, tasks, deliverables, projects, ideas, context, reviews] = await Promise.allSettled([
-        api.dayPlans.latest(), api.notes.list(), api.tasks.list(), api.deliverables.list(), api.projects.list(), api.ideas.list(), api.context.list(), api.reviews.list()
+      const [planResult, notes, tasks, deliverables, projects, ideas, context, reviews, goals] = await Promise.allSettled([
+        api.dayPlans.latest(), api.notes.list(), api.tasks.list(), api.deliverables.list(), api.projects.list(), api.ideas.list(), api.context.list(), api.reviews.list(), api.goals.list()
       ]);
       return buildDashboard({
         plan: planResult.status === 'fulfilled' ? planResult.value : null,
@@ -201,7 +219,8 @@ export function Dashboard() {
         projects: projects.status === 'fulfilled' ? projects.value : [],
         ideas: ideas.status === 'fulfilled' ? ideas.value : [],
         context: context.status === 'fulfilled' ? context.value : [],
-        reviews: reviews.status === 'fulfilled' ? reviews.value : []
+        reviews: reviews.status === 'fulfilled' ? reviews.value : [],
+        goals: goals.status === 'fulfilled' ? goals.value : []
       });
     }
   });
@@ -209,39 +228,47 @@ export function Dashboard() {
   const dashboard = useMemo(() => data, [data]);
   if (isLoading || !dashboard) return <p>Loading mission control...</p>;
 
-  return <div className="space-y-6">
-    <div className="rounded-3xl border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.96))] p-5 shadow-2xl sm:p-7">
-      <p className="text-sm font-medium uppercase tracking-[0.24em] text-cyan-300">Mission Control</p>
-      <h1 className="mt-2 text-3xl font-bold text-slate-50 sm:text-4xl">Dashboard</h1>
-      <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-400">High-level analytics for priorities, capacity, brain inputs, and execution health. The Day Plan page remains the source for the actual timeline.</p>
+  return <div className="relative space-y-6 overflow-hidden rounded-[2rem] p-1">
+    <Suspense fallback={null}><NeuralDust /></Suspense>
+    <div className="rounded-3xl border border-cyan-400/20 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.22),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(167,139,250,0.18),transparent_30%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))] p-5 shadow-2xl sm:p-7">
+      <p className="text-sm font-medium uppercase tracking-[0.32em] text-cyan-300">Mission Control</p>
+      <h1 className="mt-2 text-4xl font-black text-slate-50 sm:text-6xl">Living Digital Brain</h1>
+      <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">A futuristic personal operating system for sensing collection gravity, focus allocation, weekly execution, and brain maintenance health.</p>
     </div>
 
     <StatGrid items={dashboard.kpis} />
 
-    <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-      <Card title="Focus Allocation"><PieChart data={dashboard.focusAllocation} /></Card>
-      <Card title="Timeline Health"><StatGrid items={dashboard.timelineHealth} /></Card>
+    <Suspense fallback={<p className="text-sm text-slate-500">Booting neural renderer...</p>}>
+      <NeuralConstellation nodes={dashboard.neuralNodes} />
+    </Suspense>
+
+    <section className="grid gap-4 xl:grid-cols-2">
+      <Suspense fallback={<Card title="Planetary Focus System"><PieChart data={dashboard.focusAllocation} /></Card>}>
+        <PlanetaryFocusSystem allocation={dashboard.focusAllocation} />
+      </Suspense>
+      <Suspense fallback={<Card title="Weekly Skyline"><BarChart data={dashboard.weeklyProductivity} /></Card>}>
+        <WeeklySkyline data={dashboard.weeklyProductivity} />
+      </Suspense>
     </section>
+
+    <Suspense fallback={<Card title="Brain Health"><StatGrid items={dashboard.brainHealth} /></Card>}>
+      <BrainHealthReactor score={dashboard.brainScore} signals={dashboard.brainHealth} />
+    </Suspense>
 
     <section className="grid gap-4 xl:grid-cols-2">
       <Card title="Project Progress"><div className="space-y-4">{dashboard.activeProjects.length ? dashboard.activeProjects.map((project) => <div key={project._id || project.name}>
         <div className="flex items-center justify-between gap-3 text-sm"><span className="font-semibold text-slate-200">{project.name}</span><span className="text-cyan-300">{project.progress}%</span></div>
         <div className="mt-2 h-2 rounded-full bg-slate-800"><div className="h-2 rounded-full bg-gradient-to-r from-cyan-400 to-violet-400" style={{ width: `${project.progress}%` }} /></div>
       </div>) : <p className="text-sm text-slate-500">No active projects found.</p>}</div></Card>
-      <Card title="Brain Health"><div className="grid gap-3 sm:grid-cols-2">{dashboard.brainHealth.map((item) => <div className="rounded-xl bg-slate-950/60 p-3" key={item.label}><p className="text-xs uppercase tracking-[0.16em] text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-bold">{item.value}</p></div>)}</div></Card>
-    </section>
-
-    <section className="grid gap-4 xl:grid-cols-[1fr_0.9fr]">
-      <Card title="Weekly Productivity"><BarChart data={dashboard.weeklyProductivity} /></Card>
-      <Card title="Deliverables Pipeline"><div className="space-y-3">{Object.entries(dashboard.pipeline).map(([label, value]) => <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3" key={label}><span className="text-sm text-slate-300">{label}</span><span className="text-xl font-bold text-slate-50">{value}</span></div>)}</div></Card>
+      <Card title="AI Insights"><ul className="space-y-3">{dashboard.insights.map((insight) => <li className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm leading-relaxed text-slate-300" key={insight}>{insight}</li>)}</ul></Card>
     </section>
 
     <section className="grid gap-4 xl:grid-cols-2">
+      <Card title="Deliverables Pipeline"><div className="space-y-3">{Object.entries(dashboard.pipeline).map(([label, value]) => <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3" key={label}><span className="text-sm text-slate-300">{label}</span><span className="text-xl font-bold text-slate-50">{value}</span></div>)}</div></Card>
       <Card title="Upcoming"><div className="space-y-4">
         <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4"><p className="text-xs uppercase tracking-[0.18em] text-cyan-300">Next event</p><p className="mt-2 font-semibold text-slate-100">{dashboard.upcoming.next ? getTitle(dashboard.upcoming.next) : 'No upcoming scheduled events'}</p></div>
         <div className="space-y-2">{dashboard.upcoming.list.length ? dashboard.upcoming.list.map((item) => <p className="rounded-xl bg-slate-950/60 p-3 text-sm text-slate-300" key={`${item.time}-${item.index}`}>{item.time} · {getTitle(item)}</p>) : <p className="text-sm text-slate-500">No additional upcoming events.</p>}</div>
       </div></Card>
-      <Card title="AI Insights"><ul className="space-y-3">{dashboard.insights.map((insight) => <li className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm leading-relaxed text-slate-300" key={insight}>{insight}</li>)}</ul></Card>
     </section>
   </div>;
 }
