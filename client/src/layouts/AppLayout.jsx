@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 
 const nav = [
   ['/', 'Dashboard'], ['/notes', 'Notes'], ['/day-plan', 'Day Plan'], ['/tasks', 'Tasks'],
@@ -13,11 +13,11 @@ function Navigation({ onNavigate }) {
   </nav>;
 }
 
-function Brand() {
-  return <div>
+function Brand({ onNavigate }) {
+  return <Link to="/" onClick={onNavigate} className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900">
     <h1 className="text-xl font-bold">Brain OS</h1>
     <p className="mt-1 text-sm text-slate-400">MongoDB = Memory · Codex = Brain</p>
-  </div>;
+  </Link>;
 }
 
 export function AppLayout() {
@@ -41,10 +41,7 @@ export function AppLayout() {
 
   return <div className="min-h-screen bg-slate-950 text-slate-100 md:flex">
     <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-800 bg-slate-950/95 px-4 py-3 backdrop-blur md:hidden">
-      <div>
-        <p className="text-sm font-semibold">Brain OS</p>
-        <p className="text-xs text-slate-400">MongoDB = Memory · Codex = Brain</p>
-      </div>
+      <Brand />
       <button
         type="button"
         aria-label="Open navigation menu"
@@ -70,7 +67,7 @@ export function AppLayout() {
       />
       <aside className="relative z-10 h-full w-72 max-w-[85vw] border-r border-slate-800 bg-slate-900 p-4 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
-          <Brand />
+          <Brand onNavigate={() => setIsMenuOpen(false)} />
           <button
             type="button"
             aria-label="Close navigation menu"
