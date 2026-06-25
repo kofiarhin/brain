@@ -6,12 +6,11 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "start": "node server/index.js",
     "server": "nodemon server/index.js",
     "client": "npm --prefix client run dev",
     "install:all": "npm install && npm --prefix client install",
     "test": "npm run test:server && npm run test:client",
-    "test:server": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
+    "test:server": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:client": "npm --prefix client run test"
   },
   "dependencies": {

@@ -7,8 +7,24 @@ function fakeModel(name) {
   return class FakeModel {
     static modelName = name;
     static reset() { records = []; }
+    static normalize(payload) {
+      if (name !== 'task') return payload;
+      const next = {
+        category: 'general',
+        agentReady: false,
+        status: 'open',
+        ...payload,
+      };
+      if (!['projects', 'family', 'personal', 'admin', 'general'].includes(next.category)) {
+        const error = new Error(`Task validation failed: category: \`${next.category}\` is not a valid enum value`);
+        error.name = 'ValidationError';
+        throw error;
+      }
+      return next;
+    }
     static async create(payload) {
-      const item = { _id: `${name}-${records.length + 1}`, status: payload.status || undefined, ...payload, createdAt: new Date(), updatedAt: new Date() };
+      const normalizedPayload = this.normalize(payload);
+      const item = { _id: `${name}-${records.length + 1}`, status: normalizedPayload.status || undefined, ...normalizedPayload, createdAt: new Date(), updatedAt: new Date() };
       records.push(item);
       return clone(item);
     }
@@ -17,7 +33,8 @@ function fakeModel(name) {
     static async findByIdAndUpdate(id, payload) {
       const index = records.findIndex((item) => item._id === id);
       if (index === -1) return null;
-      records[index] = { ...records[index], ...payload, updatedAt: new Date() };
+      const normalizedPayload = this.normalize({ ...records[index], ...payload });
+      records[index] = { ...records[index], ...normalizedPayload, updatedAt: new Date() };
       return clone(records[index]);
     }
     static async findByIdAndDelete(id) {
@@ -74,6 +91,37 @@ describe('task completion', () => {
     const reopened = await request(app).patch(`/api/tasks/${created.body._id}/reopen`).expect(200);
     expect(reopened.body.status).toBe('open');
     expect(reopened.body.completedAt).toBeNull();
+  });
+
+  test('defaults task category and agent readiness', async () => {
+    const created = await request(app).post('/api/tasks').send({ title: 'Default task' }).expect(201);
+    expect(created.body.category).toBe('general');
+    expect(created.body.agentReady).toBe(false);
+  });
+
+  test('creates and updates task category and agent readiness', async () => {
+    const created = await request(app)
+      .post('/api/tasks')
+      .send({ title: 'Codex task', category: 'projects', agentReady: true })
+      .expect(201);
+
+    expect(created.body.category).toBe('projects');
+    expect(created.body.agentReady).toBe(true);
+
+    const updated = await request(app)
+      .patch(`/api/tasks/${created.body._id}`)
+      .send({ category: 'family', agentReady: false })
+      .expect(200);
+
+    expect(updated.body.category).toBe('family');
+    expect(updated.body.agentReady).toBe(false);
+  });
+
+  test('rejects invalid task categories', async () => {
+    await request(app)
+      .post('/api/tasks')
+      .send({ title: 'Bad category', category: 'invalid' })
+      .expect(400);
   });
 });
 

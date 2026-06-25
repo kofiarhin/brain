@@ -1,9 +1,12 @@
 import mongoose from 'mongoose';
 
+export const taskCategories = ['projects', 'family', 'personal', 'admin', 'general'];
+
 const taskSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
   description: { type: String, default: '' },
-  category: { type: String, default: 'general' },
+  category: { type: String, enum: taskCategories, default: 'general' },
+  agentReady: { type: Boolean, default: false },
   priority: { type: String, enum: ['must', 'should', 'nice', 'low', 'medium', 'high'], default: 'should' },
   status: { type: String, enum: ['open', 'complete', 'archived'], default: 'open' },
   completedAt: { type: Date, default: null },

@@ -30,6 +30,71 @@ describe('Tasks page', () => {
     await userEvent.click(screen.getByText('Complete'));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/complete'), expect.objectContaining({ method: 'PATCH' })));
   });
+
+  test('filters tasks by category and agent readiness', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        { _id: '1', title: 'Project task', priority: 'must', status: 'open', category: 'projects', agentReady: true },
+        { _id: '2', title: 'Family task', priority: 'should', status: 'open', category: 'family', agentReady: false },
+        { _id: '3', title: 'Inbox task', priority: 'nice', status: 'open' },
+        { _id: '4', title: 'Hidden agent task', priority: 'must', status: 'complete', category: 'projects', agentReady: true },
+      ],
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByDisplayValue('Project task')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Agent' }));
+    expect(screen.getByDisplayValue('Project task')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Family task')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Hidden agent task')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Family' }));
+    expect(screen.getByDisplayValue('Family task')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Project task')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'General' }));
+    expect(screen.getByDisplayValue('Inbox task')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Family task')).not.toBeInTheDocument();
+  });
+
+  test('creates a task with category and agent readiness', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ _id: '1', title: 'New task', priority: 'must', category: 'projects', agentReady: true }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'New task', priority: 'must', status: 'open', category: 'projects', agentReady: true }] });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    await screen.findByText('Create Task');
+    await userEvent.type(screen.getByLabelText('Task title'), 'New task');
+    await userEvent.selectOptions(screen.getByLabelText('Task priority'), 'must');
+    await userEvent.selectOptions(screen.getByLabelText('Task category'), 'projects');
+    await userEvent.click(screen.getByLabelText(/^Assignable to Codex$/));
+    await userEvent.click(screen.getByRole('button', { name: /save task/i }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks'), expect.objectContaining({ method: 'POST' })));
+    const postCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks') && options?.method === 'POST');
+    expect(JSON.parse(postCall[1].body)).toEqual({ title: 'New task', priority: 'must', category: 'projects', agentReady: true });
+  });
+
+  test('updates task category and agent readiness', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Editable task', priority: 'must', status: 'open', category: 'general', agentReady: false }] })
+      .mockResolvedValue({ ok: true, json: async () => [{ _id: '1', title: 'Editable task', priority: 'must', status: 'open', category: 'projects', agentReady: true }] });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByDisplayValue('Editable task')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Category for Editable task'), 'projects');
+    await userEvent.click(screen.getByLabelText('Assignable to Codex for Editable task'));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1'), expect.objectContaining({ method: 'PATCH' })));
+    const patchBodies = global.fetch.mock.calls
+      .filter(([url, options]) => url.includes('/tasks/1') && options?.method === 'PATCH')
+      .map(([, options]) => JSON.parse(options.body));
+    expect(patchBodies).toContainEqual({ category: 'projects' });
+    expect(patchBodies).toContainEqual({ agentReady: true });
+  });
 });
 
 describe('Dashboard', () => {
@@ -47,10 +112,10 @@ describe('Dashboard', () => {
     global.fetch = vi.fn().mockImplementation(() => Promise.resolve({ ok: true, json: async () => jsonResponses.shift() }));
     render(<Dashboard />, { wrapper: wrapper() });
     expect(await screen.findByText('Mission Control')).toBeInTheDocument();
-    expect(await screen.findByText('Neural Constellation')).toBeInTheDocument();
-    expect(screen.getByText('Planetary Focus System')).toBeInTheDocument();
-    expect(screen.getByText('Weekly Skyline')).toBeInTheDocument();
-    expect(screen.getByText('Project Progress')).toBeInTheDocument();
+    expect(await screen.findByText('Today Score')).toBeInTheDocument();
+    expect(screen.getByText('Project Rings')).toBeInTheDocument();
+    expect(screen.getByText('Brain Health')).toBeInTheDocument();
+    expect(screen.getByText('Brain Globe')).toBeInTheDocument();
     expect(screen.queryByText('Operational Timeline')).not.toBeInTheDocument();
   });
 });
