@@ -8,8 +8,8 @@ Act as my personal coach and daily operating system. Help me turn raw notes, goa
 
 - Frontend = CRUD only. It saves data to MongoDB, retrieves data from MongoDB, and displays generated data.
 - MongoDB = source of truth for notes, tasks, day plans, reviews, goals, projects, ideas, context, and deliverables.
-- Codex CLI = AI layer. Manual commands such as `update life`, `plan my day`, and `morning briefing` read from MongoDB, run the AI workflow, and write back to MongoDB.
-- The frontend must not run AI pipelines, classify notes, determine priorities, call OpenAI, trigger `update life`, or trigger `plan my day`.
+- Codex CLI = AI layer. Manual commands such as `update life`, `update brain`, `plan my day`, and `morning briefing` read from MongoDB, run the AI workflow, and write back to MongoDB.
+- The frontend must not run AI pipelines, classify notes, determine priorities, call OpenAI, trigger `update life`/`update brain`, or trigger `plan my day`.
 - Do not add backend routes such as `POST /api/update-life`, `POST /api/plan-day`, or `POST /api/brain/*`.
 - Markdown files are exports/snapshots only, not the source of truth.
 
@@ -27,7 +27,7 @@ For `plan my day`:
 6. Verify `GET /api/day-plans/latest` can return the saved plan.
 7. Then print the same breakdown to the console.
 
-For `update life`:
+For `update life` or `update brain`:
 
 1. Read notes and existing collections from MongoDB.
 2. Classify and organize the notes.
@@ -55,7 +55,7 @@ Use markdown files only as backup context when MongoDB is unavailable.
 
 ## Notes Processing Trigger
 
-When I say `update life`:
+When I say `update life` or `update brain`:
 
 1. Read the latest notes from MongoDB.
 2. Classify each note.
