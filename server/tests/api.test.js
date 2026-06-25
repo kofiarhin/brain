@@ -8,11 +8,38 @@ function fakeModel(name) {
     static modelName = name;
     static reset() { records = []; }
     static normalize(payload) {
+      if (name === 'project') {
+        const next = {
+          progressPercent: 0,
+          priority: 'medium',
+          focusToday: false,
+          executionState: 'planning',
+          blockers: [],
+          productionChecklist: [],
+          nextActionableSteps: [],
+          progressUpdates: [],
+          ...payload,
+        };
+        if (!['low', 'medium', 'high'].includes(next.priority)) {
+          const error = new Error(`Project validation failed: priority: \`${next.priority}\` is not a valid enum value`);
+          error.name = 'ValidationError';
+          throw error;
+        }
+        if (!['planning', 'in_progress', 'blocked', 'review_required', 'ready_for_production', 'completed'].includes(next.executionState)) {
+          const error = new Error(`Project validation failed: executionState: \`${next.executionState}\` is not a valid enum value`);
+          error.name = 'ValidationError';
+          throw error;
+        }
+        next.progressPercent = Math.max(0, Math.min(100, Number(next.progressPercent) || 0));
+        return next;
+      }
       if (name !== 'task') return payload;
       const next = {
         category: 'general',
         agentReady: false,
         status: 'open',
+        reviewRequired: false,
+        reviewStatus: 'pending',
         ...payload,
       };
       if (!['projects', 'family', 'personal', 'admin', 'general'].includes(next.category)) {
@@ -117,11 +144,92 @@ describe('task completion', () => {
     expect(updated.body.agentReady).toBe(false);
   });
 
+  test('creates a task linked to a project actionable step', async () => {
+    const project = await request(app)
+      .post('/api/projects')
+      .send({ name: 'Brain OS project', nextActionableSteps: [{ title: 'Ship execution loop' }] })
+      .expect(201);
+
+    const created = await request(app)
+      .post('/api/tasks')
+      .send({
+        title: 'Ship execution loop',
+        projectId: project.body._id,
+        projectActionId: '656f0f0f0f0f0f0f0f0f0f0f',
+        codexPrompt: 'Implement the execution loop',
+        reviewRequired: true,
+      })
+      .expect(201);
+
+    expect(created.body.projectId).toBe(project.body._id);
+    expect(created.body.projectActionId).toBe('656f0f0f0f0f0f0f0f0f0f0f');
+    expect(created.body.codexPrompt).toBe('Implement the execution loop');
+    expect(created.body.reviewRequired).toBe(true);
+    expect(created.body.reviewStatus).toBe('pending');
+  });
+
   test('rejects invalid task categories', async () => {
     await request(app)
       .post('/api/tasks')
       .send({ title: 'Bad category', category: 'invalid' })
       .expect(400);
+  });
+});
+
+describe('projects CRUD', () => {
+  test('creates and updates project execution fields', async () => {
+    const created = await request(app)
+      .post('/api/projects')
+      .send({
+        name: 'Project execution loop',
+        problemStatement: 'Projects need executable state',
+        vision: 'Codex-ready project plans',
+        prd: 'Store PRD context in MongoDB',
+        definitionOfDone: 'CRUD UI and saved actionable steps',
+        summary: 'Execution state captured',
+        progressPercent: 25,
+        priority: 'high',
+        focusToday: true,
+        executionState: 'in_progress',
+        blockers: ['Need tests'],
+        agentPrompt: 'Use project context',
+        productionReadiness: 'Needs manual review',
+        productionChecklist: [{ title: 'Tests pass', done: false }],
+        nextActionableSteps: [{
+          title: 'Build custom Projects page',
+          done: false,
+          priority: 'high',
+          codexPrompt: 'Replace generic Projects page',
+          reviewRequired: true,
+        }],
+        progressUpdates: [{
+          progressPercent: 10,
+          summary: 'Started implementation',
+          nextActionableSteps: ['Build UI'],
+          blockers: ['None'],
+        }],
+      })
+      .expect(201);
+
+    expect(created.body.priority).toBe('high');
+    expect(created.body.focusToday).toBe(true);
+    expect(created.body.nextActionableSteps[0].codexPrompt).toBe('Replace generic Projects page');
+    expect(created.body.productionChecklist[0].title).toBe('Tests pass');
+
+    const updated = await request(app)
+      .patch(`/api/projects/${created.body._id}`)
+      .send({
+        progressPercent: 75,
+        executionState: 'review_required',
+        blockers: [],
+        nextActionableSteps: [{ title: 'Manual review', done: false, priority: 'medium' }],
+      })
+      .expect(200);
+
+    expect(updated.body.progressPercent).toBe(75);
+    expect(updated.body.executionState).toBe('review_required');
+    expect(updated.body.blockers).toEqual([]);
+    expect(updated.body.nextActionableSteps[0].title).toBe('Manual review');
   });
 });
 

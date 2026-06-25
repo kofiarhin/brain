@@ -65,3 +65,17 @@ Tasks and deliverables also support:
 Day plans support:
 
 - `GET /api/day-plans/latest`
+
+## Project Execution Loop
+
+Projects are stored in MongoDB and edited through the CRUD-only frontend. Codex CLI uses saved project data during planning and execution:
+
+1. Capture the project problem statement and PRD.
+2. Break the work into incomplete `nextActionableSteps`.
+3. During daily planning, Codex reads active projects, prefers `focusToday: true`, ignores blocked/completed/production-ready projects, and converts selected steps into linked day tasks.
+4. Codex executes from saved context such as `codexPrompt`, `summary`, `problemStatement`, `prd`, blockers, and `definitionOfDone`.
+5. Completed Codex work leaves the project in `review_required`.
+6. Manual review updates progress, summary, blockers, checklist items, and next steps.
+7. The next day plan reads the updated project state and repeats the loop.
+
+No frontend AI generation is part of this loop.

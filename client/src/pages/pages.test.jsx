@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { Notes } from './Notes';
 import { Tasks } from './Tasks';
 import { Dashboard } from './Dashboard';
+import { Projects } from './Projects';
 
 function wrapper() { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>; }
 
@@ -105,6 +106,55 @@ describe('Tasks page', () => {
       .filter(([url, options]) => url.includes('/tasks/1') && options?.method === 'PATCH')
       .map(([, options]) => JSON.parse(options.body));
     expect(patchBodies).toContainEqual({ category: 'projects', agentReady: true });
+  });
+});
+
+describe('Projects page', () => {
+  test('renders project execution CRUD fields', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{
+        _id: 'p1',
+        name: 'Brain OS',
+        status: 'active',
+        priority: 'high',
+        focusToday: true,
+        executionState: 'in_progress',
+        progressPercent: 40,
+        problemStatement: 'Projects need execution context',
+        vision: 'Codex-ready project loop',
+        prd: 'Store project PRD in MongoDB',
+        definitionOfDone: 'Project can be planned and reviewed',
+        summary: 'Custom CRUD state',
+        blockers: ['Manual review needed'],
+        agentPrompt: 'Use saved project context',
+        productionReadiness: 'Needs checklist',
+        productionChecklist: [{ title: 'Build passes', done: false }],
+        nextActionableSteps: [{
+          title: 'Ship Projects UI',
+          done: false,
+          priority: 'high',
+          codexPrompt: 'Implement custom CRUD page',
+          reviewRequired: true,
+        }],
+        progressUpdates: [{ date: '2026-06-25T00:00:00.000Z', progressPercent: 20, summary: 'Started', nextActionableSteps: ['Ship UI'], blockers: [] }],
+      }],
+    });
+
+    render(<Projects />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('Projects')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Project name')).toHaveValue('Brain OS'));
+    expect(screen.getByLabelText('Problem statement')).toHaveValue('Projects need execution context');
+    expect(screen.getByLabelText('PRD')).toHaveValue('Store project PRD in MongoDB');
+    expect(screen.getByLabelText('Definition of done')).toHaveValue('Project can be planned and reviewed');
+    expect(screen.getByLabelText('Agent prompt')).toHaveValue('Use saved project context');
+    expect(screen.getByLabelText('Checklist title 1')).toHaveValue('Build passes');
+    expect(screen.getByLabelText('Step title 1')).toHaveValue('Ship Projects UI');
+    expect(screen.getByLabelText('Codex prompt 1')).toHaveValue('Implement custom CRUD page');
+    expect(screen.getByText('Progress Updates / History')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /update project/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /delete project/i })).toBeInTheDocument();
   });
 });
 
