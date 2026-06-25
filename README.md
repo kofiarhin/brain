@@ -6,7 +6,7 @@ A full-stack MERN Personal Operating System where MongoDB is memory, Codex CLI i
 
 - **Frontend:** CRUD only. Saves data, retrieves data, and displays generated data.
 - **MongoDB:** Source of truth for notes, tasks, plans, reviews, goals, projects, ideas, context, and deliverables.
-- **Codex CLI:** AI layer. Run commands such as `update life`, `plan my day`, and `morning briefing` manually from Codex. Codex reads MongoDB, reasons over the data, and writes updates back to MongoDB.
+- **Codex CLI:** AI layer. Run commands such as `update life`, `update brain`, `plan my day`, and `morning briefing` manually from Codex. Codex reads MongoDB, reasons over the data, and writes updates back to MongoDB.
 
 The application does **not** expose AI routes such as `/api/update-life`, `/api/plan-day`, or `/api/brain/*`.
 
