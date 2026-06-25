@@ -26,7 +26,7 @@ describe('Tasks page', () => {
   test('completes a task', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Must task', priority: 'must', status: 'open' }] }).mockResolvedValueOnce({ ok: true, json: async () => ({ _id: '1', title: 'Must task', status: 'complete' }) }).mockResolvedValueOnce({ ok: true, json: async () => [] });
     render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByDisplayValue('Must task')).toBeInTheDocument();
+    expect(await screen.findByText('Must task')).toBeInTheDocument();
     await userEvent.click(screen.getByText('Complete'));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/complete'), expect.objectContaining({ method: 'PATCH' })));
   });
@@ -43,20 +43,26 @@ describe('Tasks page', () => {
     });
 
     render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByDisplayValue('Project task')).toBeInTheDocument();
+    expect(await screen.findByText('Project task')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Agent' }));
-    expect(screen.getByDisplayValue('Project task')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('Family task')).not.toBeInTheDocument();
-    expect(screen.queryByDisplayValue('Hidden agent task')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /All 3/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Agent 1/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Projects 1/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Family 1/ })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Family' }));
-    expect(screen.getByDisplayValue('Family task')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('Project task')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Agent 1/ }));
+    expect(screen.getByText('Tasks marked as assignable to Codex.')).toBeInTheDocument();
+    expect(screen.getByText('Project task')).toBeInTheDocument();
+    expect(screen.queryByText('Family task')).not.toBeInTheDocument();
+    expect(screen.queryByText('Hidden agent task')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'General' }));
-    expect(screen.getByDisplayValue('Inbox task')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('Family task')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Family 1/ }));
+    expect(screen.getByText('Family task')).toBeInTheDocument();
+    expect(screen.queryByText('Project task')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /General 1/ }));
+    expect(screen.getByText('Inbox task')).toBeInTheDocument();
+    expect(screen.queryByText('Family task')).not.toBeInTheDocument();
   });
 
   test('creates a task with category and agent readiness', async () => {
@@ -84,16 +90,21 @@ describe('Tasks page', () => {
       .mockResolvedValue({ ok: true, json: async () => [{ _id: '1', title: 'Editable task', priority: 'must', status: 'open', category: 'projects', agentReady: true }] });
 
     render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByDisplayValue('Editable task')).toBeInTheDocument();
+    expect(await screen.findByText('Editable task')).toBeInTheDocument();
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getAllByText('General').length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Category for Editable task')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Edit'));
     await userEvent.selectOptions(screen.getByLabelText('Category for Editable task'), 'projects');
     await userEvent.click(screen.getByLabelText('Assignable to Codex for Editable task'));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1'), expect.objectContaining({ method: 'PATCH' })));
     const patchBodies = global.fetch.mock.calls
       .filter(([url, options]) => url.includes('/tasks/1') && options?.method === 'PATCH')
       .map(([, options]) => JSON.parse(options.body));
-    expect(patchBodies).toContainEqual({ category: 'projects' });
-    expect(patchBodies).toContainEqual({ agentReady: true });
+    expect(patchBodies).toContainEqual({ category: 'projects', agentReady: true });
   });
 });
 
