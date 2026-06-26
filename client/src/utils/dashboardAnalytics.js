@@ -127,10 +127,10 @@ export function buildDashboard(data) {
 
   const openTasks = tasks.filter(isOpen);
   const completedTasks = tasks.filter(isComplete);
-  const openDeliverables = deliverables.filter(isOpen);
-  const completedDeliverables = deliverables.filter(isComplete);
+  const openTaskOutputs = deliverables.filter(isOpen);
+  const completedTaskOutputs = deliverables.filter(isComplete);
   const activeProjects = projects.filter((project) => isOpen(project) && normalizeStatus(project.status || 'active') !== 'inactive');
-  const waitingItems = [...openTasks, ...openDeliverables, ...activeProjects, ...asArray(plan?.forgotten)].filter(isWaiting);
+  const waitingItems = [...openTasks, ...openTaskOutputs, ...activeProjects, ...asArray(plan?.forgotten)].filter(isWaiting);
   const dueTasks = openTasks.filter((task) => isTodayOrEarlier(task.dueDate || task.date));
   const reviewsDue = reviews.filter((review) => isOpen(review) || isTodayOrEarlier(review.dueDate || review.date));
 
@@ -151,13 +151,13 @@ export function buildDashboard(data) {
   }, {});
 
   const taskTrend = buildDailyBuckets(tasks, isComplete);
-  const deliverableTrend = buildDailyBuckets(deliverables, isComplete);
+  const taskOutputTrend = buildDailyBuckets(deliverables, isComplete);
   const noteTrend = buildDailyBuckets(notes);
-  const heatmap = taskTrend.map((day, index) => ({ ...day, value: day.value + deliverableTrend[index].value + noteTrend[index].value }));
+  const heatmap = taskTrend.map((day, index) => ({ ...day, value: day.value + taskOutputTrend[index].value + noteTrend[index].value }));
 
   const todayScore = clamp(62
     + completedTasks.filter((item) => dateForItem(item) && dateForItem(item) >= startOfDay()).length * 6
-    + completedDeliverables.filter((item) => dateForItem(item) && dateForItem(item) >= startOfDay()).length * 8
+    + completedTaskOutputs.filter((item) => dateForItem(item) && dateForItem(item) >= startOfDay()).length * 8
     + (schedule.length ? 8 : -10)
     + (asArray(plan?.winCondition).length ? 6 : -8)
     - dueTasks.length * 5
@@ -195,15 +195,15 @@ export function buildDashboard(data) {
     plan,
     todayScore,
     scoreLabel: todayScore >= 80 ? 'On track' : todayScore >= 60 ? 'Stable' : todayScore >= 40 ? 'Needs attention' : 'Overloaded',
-    kpis: { openTasks: openTasks.length, openDeliverables: openDeliverables.length, activeProjects: activeProjects.length, waiting: waitingItems.length, reviewsDue: reviewsDue.length },
+    kpis: { openTasks: openTasks.length, openTaskOutputs: openTaskOutputs.length, activeProjects: activeProjects.length, waiting: waitingItems.length, reviewsDue: reviewsDue.length },
     timeRemaining: { blocks: remainingRanges.length, hours: remainingMinutes / 60, categories: Object.entries(remainingByCategory).map(([label, minutes]) => ({ label, minutes })) },
     focusAllocation,
     heatmap,
     projectRings,
-    trends: [{ label: 'Tasks completed', data: taskTrend }, { label: 'Deliverables shipped', data: deliverableTrend }, { label: 'Notes created', data: noteTrend }],
+    trends: [{ label: 'Tasks completed', data: taskTrend }, { label: 'Task outputs shipped', data: taskOutputTrend }, { label: 'Notes created', data: noteTrend }],
     lifeRadar,
     brainHealth: { score: brainHealthScore, stats: [{ label: 'Notes', value: notes.length }, { label: 'Ideas', value: ideas.length }, { label: 'Context', value: context.length }, { label: 'Reviews due', value: reviewsDue.length }, { label: 'Open loops', value: waitingItems.length }] },
-    globeNodes: [{ label: 'Notes', count: notes.length, color: '#22d3ee' }, { label: 'Tasks', count: tasks.length, color: '#a78bfa' }, { label: 'Projects', count: projects.length, color: '#34d399' }, { label: 'Deliverables', count: deliverables.length, color: '#f59e0b' }, { label: 'Goals', count: goals.length, color: '#f472b6' }, { label: 'Reviews', count: reviews.length, color: '#60a5fa' }, { label: 'Context', count: context.length, color: '#2dd4bf' }, { label: 'Ideas', count: ideas.length, color: '#c084fc' }],
+    globeNodes: [{ label: 'Notes', count: notes.length, color: '#22d3ee' }, { label: 'Tasks', count: tasks.length, color: '#a78bfa' }, { label: 'Projects', count: projects.length, color: '#34d399' }, { label: 'Task Outputs', count: deliverables.length, color: '#f59e0b' }, { label: 'Goals', count: goals.length, color: '#f472b6' }, { label: 'Reviews', count: reviews.length, color: '#60a5fa' }, { label: 'Context', count: context.length, color: '#2dd4bf' }, { label: 'Ideas', count: ideas.length, color: '#c084fc' }],
     insights
   };
 }

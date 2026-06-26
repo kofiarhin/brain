@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useResource } from '../hooks/useResource';
 import { Card } from '../components/Card';
 import { getLondonDateKey } from '../utils/londonDate';
@@ -82,32 +82,10 @@ function previewText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim() || 'No deliverable defined';
 }
 
-function openTaskDetailsFromCard(event, taskId) {
-  if (event.target.closest('a,button')) return;
-  window.location.assign(`/tasks/${taskId}`);
-}
-
-async function copyTextToClipboard(text) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.top = '-9999px';
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textarea);
-}
-
 function TaskSummary({ task }) {
   const taskCategory = normalizeCategory(task.category);
   const status = statusLabel(task.status);
-  return <a href={`/tasks/${task._id}`} className="min-w-0 flex-1 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800">
+  return <div className="min-w-0 flex-1">
     <h2 className="break-words text-base font-semibold leading-6 text-slate-50 sm:text-lg">{task.title}</h2>
     <div className="mt-2 flex flex-wrap gap-2">
       <span className={badgeClass(status === 'Done' ? 'done' : status === 'Archived' ? 'archived' : 'open')}>{status}</span>
@@ -119,56 +97,22 @@ function TaskSummary({ task }) {
       <div><dt className="text-xs uppercase text-slate-500">Related Project</dt><dd className="truncate">{relatedProjectLabel(task)}</dd></div>
       <div><dt className="text-xs uppercase text-slate-500">Expected Deliverable</dt><dd className="truncate">{previewText(task.expectedDeliverable)}</dd></div>
     </dl>
-  </a>;
+  </div>;
 }
 
-function CompletedTaskCard({ task, tasks }) {
-  return <li className="cursor-pointer rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20" onClick={(event) => openTaskDetailsFromCard(event, task._id)}>
-    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+function CompletedTaskCard({ task }) {
+  return <li>
+    <a href={`/tasks/${task._id}`} className="block rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20 transition hover:border-blue-500/50 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950">
       <TaskSummary task={task} />
-      <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.reopen.mutate(task._id)}>Undo</button>
-    </div>
+    </a>
   </li>;
 }
 
-function TaskCard({ task, tasks }) {
-  const status = statusLabel(task.status);
-  const [copyStatus, setCopyStatus] = useState('idle');
-  const copyResetRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (copyResetRef.current) clearTimeout(copyResetRef.current);
-    };
-  }, []);
-
-  const resetCopyStatusSoon = (nextStatus) => {
-    setCopyStatus(nextStatus);
-    if (copyResetRef.current) clearTimeout(copyResetRef.current);
-    copyResetRef.current = setTimeout(() => setCopyStatus('idle'), 2000);
-  };
-
-  const copyTitle = async () => {
-    try {
-      await copyTextToClipboard(task.title || '');
-      resetCopyStatusSoon('copied');
-    } catch {
-      resetCopyStatusSoon('failed');
-    }
-  };
-
-  return <li className="cursor-pointer rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20" onClick={(event) => openTaskDetailsFromCard(event, task._id)}>
-    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+function TaskCard({ task }) {
+  return <li>
+    <a href={`/tasks/${task._id}`} className="block rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20 transition hover:border-blue-500/50 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950">
       <TaskSummary task={task} />
-      <div className="flex flex-wrap gap-2 md:justify-end">
-        <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={copyTitle}>{copyStatus === 'copied' ? 'Copied!' : copyStatus === 'failed' ? 'Copy failed' : 'Copy'}</button>
-        {status === 'Done'
-          ? <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.reopen.mutate(task._id)}>Reopen</button>
-          : <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.complete.mutate(task._id)}>Complete</button>}
-        <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.archive.mutate(task._id)}>Archive</button>
-        <a className="rounded-md border border-blue-500/60 px-3 py-2 text-sm font-medium text-blue-100 hover:bg-blue-500/10" href={`/tasks/${task._id}`}>Details</a>
-      </div>
-    </div>
+    </a>
   </li>;
 }
 
@@ -232,11 +176,11 @@ export function Tasks() {
     {selectedTab === 'completed' ? categories.map(([category, groupTitle]) => {
       const groupItems = completedItems.filter((task) => normalizeCategory(task.category) === category);
       if (groupItems.length === 0) return null;
-      return <Card key={category} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <CompletedTaskCard key={task._id} task={task} tasks={tasks} />)}</ul></Card>;
+      return <Card key={category} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <CompletedTaskCard key={task._id} task={task} />)}</ul></Card>;
     }) : groups.map(([priority, groupTitle]) => {
       const groupItems = filteredItems.filter((task) => normalizePriority(task.priority) === priority);
       if (groupItems.length === 0) return null;
-      return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} tasks={tasks} />)}</ul></Card>;
+      return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} />)}</ul></Card>;
     })}
     {selectedTab === 'completed' && completedItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No tasks completed today.</p> : null}
     {selectedTab !== 'completed' && filteredItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No open tasks in this tab.</p> : null}

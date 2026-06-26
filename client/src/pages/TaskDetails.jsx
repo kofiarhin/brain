@@ -35,6 +35,9 @@ const emptyDraft = {
   projectId: '',
   description: '',
   expectedDeliverable: '',
+  deliverableTitle: '',
+  deliverableDescription: '',
+  deliverableUrl: '',
   acceptanceCriteria: '',
   notes: '',
   codexPrompt: '',
@@ -49,6 +52,9 @@ function taskToDraft(task) {
     projectId: task?.projectId || '',
     description: task?.description || '',
     expectedDeliverable: task?.expectedDeliverable || '',
+    deliverableTitle: task?.deliverableTitle || '',
+    deliverableDescription: task?.deliverableDescription || '',
+    deliverableUrl: task?.deliverableUrl || '',
     acceptanceCriteria: task?.acceptanceCriteria || '',
     notes: task?.notes || '',
     codexPrompt: task?.codexPrompt || '',
@@ -82,8 +88,9 @@ function SelectInput({ label, value, options, onChange }) {
   </label>;
 }
 
-function TextAreaSection({ title, value, onChange, rows = 8 }) {
+function TextAreaSection({ title, value, onChange, rows = 8, help = '' }) {
   return <Card title={title}>
+    {help ? <p className="mb-3 text-sm text-slate-400">{help}</p> : null}
     <textarea
       aria-label={title}
       className="min-h-48 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
@@ -117,6 +124,12 @@ export function TaskDetails() {
     queryClient.invalidateQueries({ queryKey: ['tasks', id] });
   };
 
+  const refreshTaskWorkspace = (task) => {
+    queryClient.setQueryData(['tasks', id], task);
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    setDraft(taskToDraft(task));
+  };
+
   const update = useMutation({
     mutationFn: (payload) => api.tasks.update(id, payload),
     onSuccess: (task) => {
@@ -135,9 +148,9 @@ export function TaskDetails() {
     },
   });
 
-  const complete = useMutation({ mutationFn: () => api.tasks.complete(id), onSuccess: (task) => { queryClient.setQueryData(['tasks', id], task); invalidate(); } });
-  const reopen = useMutation({ mutationFn: () => api.tasks.reopen(id), onSuccess: (task) => { queryClient.setQueryData(['tasks', id], task); invalidate(); } });
-  const archive = useMutation({ mutationFn: () => api.tasks.archive(id), onSuccess: (task) => { queryClient.setQueryData(['tasks', id], task); invalidate(); } });
+  const complete = useMutation({ mutationFn: () => api.tasks.complete(id), onSuccess: refreshTaskWorkspace });
+  const reopen = useMutation({ mutationFn: () => api.tasks.reopen(id), onSuccess: refreshTaskWorkspace });
+  const archive = useMutation({ mutationFn: () => api.tasks.archive(id), onSuccess: refreshTaskWorkspace });
 
   const setField = (field) => (value) => setDraft((current) => ({ ...current, [field]: value }));
 
@@ -151,7 +164,8 @@ export function TaskDetails() {
   };
 
   const task = taskQuery.data;
-  const isComplete = String(task?.status || draft.status).toLowerCase() === 'complete';
+  const isComplete = String(draft.status || task?.status).toLowerCase() === 'complete';
+  const actionLabel = isComplete ? 'Reopen task' : 'Complete task';
 
   if (taskQuery.isLoading) return <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-slate-300">Loading task...</div>;
   if (taskQuery.isError) return <div className="space-y-4">
@@ -160,17 +174,18 @@ export function TaskDetails() {
   </div>;
 
   return <form onSubmit={save} className="space-y-6">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <button type="button" className="mb-3 rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={() => navigate('/tasks')}>Back</button>
-        <h1 className="break-words text-2xl font-bold sm:text-3xl">{task?.title || 'Task Details'}</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task workspace</p>
+        <h1 className="mt-1 break-words text-2xl font-bold sm:text-3xl">{draft.title || task?.title || 'Task Details'}</h1>
       </div>
       <div className="flex flex-wrap gap-2">
         <button type="submit" className="rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-500">{saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save'}</button>
-        <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => archive.mutate()}>Archive</button>
         {isComplete
-          ? <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => reopen.mutate()}>Reopen</button>
-          : <button type="button" className="rounded-lg border border-emerald-500/60 px-4 py-3 font-medium text-emerald-100 hover:bg-emerald-500/10" onClick={() => complete.mutate()}>Complete</button>}
+          ? <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => reopen.mutate()}>{actionLabel}</button>
+          : <button type="button" className="rounded-lg border border-emerald-500/60 px-4 py-3 font-medium text-emerald-100 hover:bg-emerald-500/10" onClick={() => complete.mutate()}>{actionLabel}</button>}
+        <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => archive.mutate()}>Archive task</button>
         <button type="button" className="rounded-lg border border-red-500/60 px-4 py-3 font-medium text-red-100 hover:bg-red-500/10" onClick={() => remove.mutate()}>Delete</button>
       </div>
     </div>
@@ -187,21 +202,38 @@ export function TaskDetails() {
       </div>
     </Card>
 
-    <TextAreaSection title="Description" value={draft.description} onChange={setField('description')} />
-    <TextAreaSection title="Expected Deliverable" value={draft.expectedDeliverable} onChange={setField('expectedDeliverable')} />
+    <TextAreaSection title="Description" value={draft.description} onChange={setField('description')} help="Execution context for the work to do." />
+
+    <Card title="Deliverable">
+      <p className="mb-4 text-sm text-slate-400">Optional output details attached to this task. Completing the task is the lifecycle event.</p>
+      <div className="space-y-4">
+        <label className="block text-sm text-slate-300">
+          <span className="mb-1 block text-xs uppercase text-slate-400">Expected Deliverable</span>
+          <textarea
+            aria-label="Expected Deliverable"
+            className="min-h-36 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
+            rows={5}
+            value={draft.expectedDeliverable}
+            onChange={(event) => setField('expectedDeliverable')(event.target.value)}
+          />
+        </label>
+        <TextInput label="Produced Deliverable Title" value={draft.deliverableTitle} onChange={setField('deliverableTitle')} />
+        <TextInput label="Produced Deliverable Link" value={draft.deliverableUrl} onChange={setField('deliverableUrl')} />
+        <label className="block text-sm text-slate-300">
+          <span className="mb-1 block text-xs uppercase text-slate-400">Produced Deliverable Notes</span>
+          <textarea
+            aria-label="Produced Deliverable Notes"
+            className="min-h-36 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
+            rows={5}
+            value={draft.deliverableDescription}
+            onChange={(event) => setField('deliverableDescription')(event.target.value)}
+          />
+        </label>
+      </div>
+    </Card>
+
     <TextAreaSection title="Acceptance Criteria" value={draft.acceptanceCriteria} onChange={setField('acceptanceCriteria')} />
     <TextAreaSection title="Notes" value={draft.notes} onChange={setField('notes')} />
     <TextAreaSection title="Codex Prompt" value={draft.codexPrompt} onChange={setField('codexPrompt')} rows={10} />
-
-    <Card title="Actions">
-      <div className="flex flex-wrap gap-2">
-        <button type="submit" className="rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-500">Save</button>
-        <button type="button" className="rounded-lg border border-red-500/60 px-4 py-3 font-medium text-red-100 hover:bg-red-500/10" onClick={() => remove.mutate()}>Delete</button>
-        <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => archive.mutate()}>Archive</button>
-        {isComplete
-          ? <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => reopen.mutate()}>Reopen</button>
-          : <button type="button" className="rounded-lg border border-emerald-500/60 px-4 py-3 font-medium text-emerald-100 hover:bg-emerald-500/10" onClick={() => complete.mutate()}>Complete</button>}
-      </div>
-    </Card>
   </form>;
 }

@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 
 const nav = [
   ['/', 'Dashboard'], ['/notes', 'Notes'], ['/day-plan', 'Day Plan'], ['/tasks', 'Tasks'],
-  ['/deliverables', 'Deliverables'], ['/projects', 'Projects'], ['/goals-ideas', 'Goals & Ideas'],
+  ['/projects', 'Projects'], ['/goals-ideas', 'Goals & Ideas'],
   ['/context', 'Context'], ['/reviews', 'Reviews']
 ];
 

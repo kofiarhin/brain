@@ -8,7 +8,6 @@ import { Tasks } from './Tasks';
 import { TaskDetails } from './TaskDetails';
 import { Dashboard } from './Dashboard';
 import { Projects } from './Projects';
-import { Deliverables } from './Deliverables';
 import { getLondonDateKey } from '../utils/londonDate';
 
 function wrapper() { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>; }
@@ -30,106 +29,19 @@ describe('Notes page', () => {
   });
 });
 
-describe('Deliverables page', () => {
-  test('shows artifact actions without task lifecycle controls', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [{ _id: 'd1', title: 'Finished artifact', description: 'Ready for review', status: 'open' }],
-    });
-
-    render(<Deliverables />, { wrapper: wrapper() });
-
-    expect(await screen.findByText('Finished artifact')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Complete' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Reopen' })).not.toBeInTheDocument();
-  });
-
-  test('edits and saves title and description', async () => {
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [{ _id: 'd1', title: 'Old title', description: 'Old description' }],
-      })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ _id: 'd1', title: 'New title', description: 'New description' }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [{ _id: 'd1', title: 'New title', description: 'New description' }],
-      });
-
-    render(<Deliverables />, { wrapper: wrapper() });
-
-    expect(await screen.findByText('Old title')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    await userEvent.clear(screen.getByLabelText('Title for Old title'));
-    await userEvent.type(screen.getByLabelText('Title for Old title'), 'New title');
-    await userEvent.clear(screen.getByLabelText('Description for Old title'));
-    await userEvent.type(screen.getByLabelText('Description for Old title'), 'New description');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Save' }).at(-1));
-
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/deliverables/d1'), expect.objectContaining({ method: 'PATCH' })));
-    const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/deliverables/d1') && options?.method === 'PATCH');
-    expect(JSON.parse(patchCall[1].body)).toEqual({ title: 'New title', description: 'New description' });
-  });
-
-  test('cancels editing without saving', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [{ _id: 'd1', title: 'Original title', description: 'Original description' }],
-    });
-
-    render(<Deliverables />, { wrapper: wrapper() });
-
-    expect(await screen.findByText('Original title')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    await userEvent.clear(screen.getByLabelText('Title for Original title'));
-    await userEvent.type(screen.getByLabelText('Title for Original title'), 'Unsaved title');
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-    expect(screen.getByText('Original title')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('Unsaved title')).not.toBeInTheDocument();
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-  });
-
-  test('archives and deletes through existing mutations', async () => {
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [{ _id: 'd1', title: 'Artifact', description: 'Done' }],
-      })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ _id: 'd1', title: 'Artifact', status: 'archived' }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [{ _id: 'd1', title: 'Artifact', description: 'Done', status: 'archived' }],
-      })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] });
-
-    render(<Deliverables />, { wrapper: wrapper() });
-
-    expect(await screen.findByText('Artifact')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/deliverables/d1/archive'), expect.objectContaining({ method: 'PATCH' })));
-
-    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/deliverables/d1'), expect.objectContaining({ method: 'DELETE' })));
-  });
-});
-
 describe('Tasks page', () => {
   test('maps UTC timestamps to London calendar days', () => {
     expect(getLondonDateKey('2026-06-25T23:30:00.000Z')).toBe('2026-06-26');
     expect(getLondonDateKey('2026-06-25T22:30:00.000Z')).toBe('2026-06-25');
   });
 
-  test('completes a task', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Must task', priority: 'must', status: 'open' }] }).mockResolvedValueOnce({ ok: true, json: async () => ({ _id: '1', title: 'Must task', status: 'complete' }) }).mockResolvedValueOnce({ ok: true, json: async () => [] });
+  test('keeps task lifecycle controls off the overview cards', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Must task', priority: 'must', status: 'open' }] });
     render(<Tasks />, { wrapper: wrapper() });
     expect(await screen.findByText('Must task')).toBeInTheDocument();
-    await userEvent.click(screen.getByText('Complete'));
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/complete'), expect.objectContaining({ method: 'PATCH' })));
+    expect(screen.queryByRole('button', { name: 'Complete' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Must task/ })).toHaveAttribute('href', '/tasks/1');
   });
 
   test('filters tasks by category and agent readiness', async () => {
@@ -255,22 +167,8 @@ describe('Tasks page', () => {
     expect(screen.queryByText('Open project task')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Projects' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Family' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Undo' })).toHaveLength(2);
-  });
-
-  test('undo reopens a completed task and removes it after refresh', async () => {
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Done task', priority: 'must', status: 'complete', category: 'projects', completedAt: new Date().toISOString() }] })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ _id: '1', title: 'Done task', status: 'open' }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Done task', priority: 'must', status: 'open', category: 'projects' }] });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    await userEvent.click(await screen.findByRole('button', { name: /Completed 1/ }));
-    expect(screen.getByText('Done task')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
-
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/reopen'), expect.objectContaining({ method: 'PATCH' })));
-    await waitFor(() => expect(screen.queryByText('Done task')).not.toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Done project task/ })).toHaveAttribute('href', '/tasks/2');
   });
 
   test('links each task to its details page', async () => {
@@ -284,7 +182,7 @@ describe('Tasks page', () => {
     expect(screen.getByText('Open')).toBeInTheDocument();
     expect(screen.getAllByText('General').length).toBeGreaterThan(0);
     expect(screen.getByText('Updated task brief')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/tasks/1');
+    expect(screen.getByRole('link', { name: /Editable task/ })).toHaveAttribute('href', '/tasks/1');
   });
 
   test('edits task details through the dedicated page', async () => {
@@ -299,6 +197,9 @@ describe('Tasks page', () => {
           category: 'general',
           description: 'Old description',
           expectedDeliverable: 'Old deliverable',
+          deliverableTitle: 'Old artifact',
+          deliverableDescription: 'Old artifact notes',
+          deliverableUrl: 'https://example.com/old',
           acceptanceCriteria: 'Old criteria',
           notes: '',
           codexPrompt: '',
@@ -314,6 +215,9 @@ describe('Tasks page', () => {
           category: 'projects',
           description: 'New description',
           expectedDeliverable: 'New deliverable',
+          deliverableTitle: 'New artifact',
+          deliverableDescription: 'New artifact notes',
+          deliverableUrl: 'https://example.com/new',
           acceptanceCriteria: 'New criteria',
           notes: 'Planning notes',
           codexPrompt: 'Implement this',
@@ -337,11 +241,17 @@ describe('Tasks page', () => {
     await userEvent.type(screen.getByLabelText('Description'), 'New description');
     await userEvent.clear(screen.getByLabelText('Expected Deliverable'));
     await userEvent.type(screen.getByLabelText('Expected Deliverable'), 'New deliverable');
+    await userEvent.clear(screen.getByLabelText('Produced Deliverable Title'));
+    await userEvent.type(screen.getByLabelText('Produced Deliverable Title'), 'New artifact');
+    await userEvent.clear(screen.getByLabelText('Produced Deliverable Link'));
+    await userEvent.type(screen.getByLabelText('Produced Deliverable Link'), 'https://example.com/new');
+    await userEvent.clear(screen.getByLabelText('Produced Deliverable Notes'));
+    await userEvent.type(screen.getByLabelText('Produced Deliverable Notes'), 'New artifact notes');
     await userEvent.clear(screen.getByLabelText('Acceptance Criteria'));
     await userEvent.type(screen.getByLabelText('Acceptance Criteria'), 'New criteria');
     await userEvent.type(screen.getByLabelText('Notes'), 'Planning notes');
     await userEvent.type(screen.getByLabelText('Codex Prompt'), 'Implement this');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Save' })[0]);
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1'), expect.objectContaining({ method: 'PATCH' })));
     const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks/1') && options?.method === 'PATCH');
@@ -350,10 +260,61 @@ describe('Tasks page', () => {
       category: 'projects',
       description: 'New description',
       expectedDeliverable: 'New deliverable',
+      deliverableTitle: 'New artifact',
+      deliverableDescription: 'New artifact notes',
+      deliverableUrl: 'https://example.com/new',
       acceptanceCriteria: 'New criteria',
       notes: 'Planning notes',
       codexPrompt: 'Implement this',
     }));
+  }, 10000);
+
+  test('completes tasks from the detail workspace', async () => {
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/tasks/1/complete') && options?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'complete', category: 'general' }) });
+      }
+      if (url.includes('/tasks/1')) {
+        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'open', category: 'general' }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/tasks/1']}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
+          <Routes><Route path="/tasks/:id" element={<TaskDetails />} /></Routes>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByDisplayValue('Lifecycle task')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Complete task' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/complete'), expect.objectContaining({ method: 'PATCH' })));
+  });
+
+  test('reopens tasks from the detail workspace', async () => {
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/tasks/1/reopen') && options?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'open', category: 'general' }) });
+      }
+      if (url.includes('/tasks/1')) {
+        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'complete', category: 'general' }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/tasks/1']}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
+          <Routes><Route path="/tasks/:id" element={<TaskDetails />} /></Routes>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByDisplayValue('Lifecycle task')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Reopen task' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/reopen'), expect.objectContaining({ method: 'PATCH' })));
   });
 });
 

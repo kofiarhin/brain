@@ -23,7 +23,7 @@ export function OpenLoopsCard({ kpis }) {
   return <Card title="Open Loops">
     <div className="grid grid-cols-2 gap-3 text-sm">
       <MetricInline label="Tasks" value={kpis.openTasks} />
-      <MetricInline label="Deliverables" value={kpis.openDeliverables} />
+      <MetricInline label="Task Outputs" value={kpis.openTaskOutputs} />
       <MetricInline label="Projects" value={kpis.activeProjects} />
       <MetricInline label="Waiting" value={kpis.waiting} />
       <MetricInline label="Reviews" value={kpis.reviewsDue} />
