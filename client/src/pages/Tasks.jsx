@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useResource } from '../hooks/useResource';
 import { Card } from '../components/Card';
+import { getLondonDateKey } from '../utils/londonDate';
 
 const groups = [['must', 'Must Do'], ['should', 'Should Do'], ['nice', 'Nice To Have']];
-const hiddenStatuses = new Set(['complete', 'completed', 'archived']);
+const hiddenStatuses = new Set(['complete', 'completed', 'done', 'archived']);
+const completedStatuses = new Set(['complete', 'completed', 'done']);
 const categories = [
   ['projects', 'Projects'],
   ['family', 'Family'],
@@ -14,7 +16,16 @@ const categories = [
 const tabs = [['all', 'All'], ['agent', 'Agent'], ...categories, ['completed', 'Completed']];
 
 function normalizeCategory(category) {
-  return categories.some(([value]) => value === category) ? category : 'general';
+  const normalized = String(category || '').toLowerCase();
+  return categories.some(([value]) => value === normalized) ? normalized : 'general';
+}
+
+function normalizePriority(priority) {
+  const normalized = String(priority || '').toLowerCase();
+  if (normalized === 'high') return 'must';
+  if (normalized === 'medium') return 'should';
+  if (normalized === 'low') return 'nice';
+  return groups.some(([value]) => value === normalized) ? normalized : 'should';
 }
 
 function categoryLabel(category) {
@@ -40,13 +51,22 @@ function badgeClass(tone = 'default') {
   return `inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${tones[tone] || tones.default}`;
 }
 
-function countForTab(tab, items) {
-  return items.filter((task) => {
-    const taskCategory = normalizeCategory(task.category);
-    if (tab === 'all') return true;
-    if (tab === 'agent') return task.agentReady === true;
-    return taskCategory === tab;
-  }).length;
+function isActiveTask(task) {
+  return !hiddenStatuses.has(String(task.status || '').toLowerCase());
+}
+
+function taskMatchesTab(task, tab) {
+  if (tab === 'all') return true;
+  if (tab === 'agent') return task.agentReady === true;
+  return normalizeCategory(task.category) === tab;
+}
+
+function tasksForTab(tab, items) {
+  return items.filter((task) => isActiveTask(task) && taskMatchesTab(task, tab));
+}
+
+function wasCompletedToday(task, todayLondonDate = getLondonDateKey()) {
+  return completedStatuses.has(String(task.status || '').toLowerCase()) && getLondonDateKey(task.completedAt) === todayLondonDate;
 }
 
 function CompletedTaskCard({ task, tasks }) {
@@ -147,14 +167,9 @@ export function Tasks() {
   const [agentReady, setAgentReady] = useState(false);
   const tasks = useResource('tasks');
   const items = tasks.data || [];
-  const activeItems = items.filter((task) => !hiddenStatuses.has(String(task.status || '').toLowerCase()));
-  const completedItems = items.filter((task) => task.status === 'complete');
-  const filteredItems = activeItems.filter((task) => {
-    const taskCategory = normalizeCategory(task.category);
-    if (selectedTab === 'all') return true;
-    if (selectedTab === 'agent') return task.agentReady === true;
-    return taskCategory === selectedTab;
-  });
+  const todayLondonDate = getLondonDateKey();
+  const completedItems = items.filter((task) => wasCompletedToday(task, todayLondonDate));
+  const filteredItems = tasksForTab(selectedTab, items);
 
   const save = async (event) => {
     event.preventDefault();
@@ -189,7 +204,7 @@ export function Tasks() {
     <div className="flex gap-2 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-2">
       {tabs.map(([value, label]) => {
         const isSelected = selectedTab === value;
-        const tabCount = value === 'completed' ? completedItems.length : countForTab(value, activeItems);
+        const tabCount = value === 'completed' ? completedItems.length : tasksForTab(value, items).length;
         return <button
           key={value}
           type="button"
@@ -204,10 +219,14 @@ export function Tasks() {
     {selectedTab === 'agent' ? <p className="text-sm text-slate-400">Tasks marked as assignable to Codex.</p> : null}
     {selectedTab === 'completed' ? categories.map(([category, groupTitle]) => {
       const groupItems = completedItems.filter((task) => normalizeCategory(task.category) === category);
+      if (groupItems.length === 0) return null;
       return <Card key={category} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <CompletedTaskCard key={task._id} task={task} tasks={tasks} />)}</ul></Card>;
     }) : groups.map(([priority, groupTitle]) => {
-      const groupItems = filteredItems.filter((task) => task.priority === priority);
+      const groupItems = filteredItems.filter((task) => normalizePriority(task.priority) === priority);
+      if (groupItems.length === 0) return null;
       return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} tasks={tasks} />)}</ul></Card>;
     })}
+    {selectedTab === 'completed' && completedItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No tasks completed today.</p> : null}
+    {selectedTab !== 'completed' && filteredItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No open tasks in this tab.</p> : null}
   </div>;
 }

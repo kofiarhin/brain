@@ -6,11 +6,15 @@ import { Notes } from './Notes';
 import { Tasks } from './Tasks';
 import { Dashboard } from './Dashboard';
 import { Projects } from './Projects';
+import { getLondonDateKey } from '../utils/londonDate';
 
 function wrapper() { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>; }
 
 beforeEach(() => { vi.restoreAllMocks(); });
-afterEach(() => { cleanup(); });
+afterEach(() => {
+  vi.useRealTimers();
+  cleanup();
+});
 
 describe('Notes page', () => {
   test('renders and saves a note', async () => {
@@ -24,6 +28,11 @@ describe('Notes page', () => {
 });
 
 describe('Tasks page', () => {
+  test('maps UTC timestamps to London calendar days', () => {
+    expect(getLondonDateKey('2026-06-25T23:30:00.000Z')).toBe('2026-06-26');
+    expect(getLondonDateKey('2026-06-25T22:30:00.000Z')).toBe('2026-06-25');
+  });
+
   test('completes a task', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Must task', priority: 'must', status: 'open' }] }).mockResolvedValueOnce({ ok: true, json: async () => ({ _id: '1', title: 'Must task', status: 'complete' }) }).mockResolvedValueOnce({ ok: true, json: async () => [] });
     render(<Tasks />, { wrapper: wrapper() });
@@ -66,6 +75,49 @@ describe('Tasks page', () => {
     expect(screen.queryByText('Family task')).not.toBeInTheDocument();
   });
 
+  test('uses the same active task filters for tab counts and displayed priority groups', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        { _id: '1', title: 'Family high task', priority: 'high', status: 'open', category: 'family' },
+        { _id: '2', title: 'Family medium task', priority: 'medium', status: 'open', category: 'family' },
+        { _id: '3', title: 'Family missing priority task', status: 'open', category: 'family' },
+        { _id: '4', title: 'Project high task', priority: 'high', status: 'open', category: 'projects' },
+        { _id: '5', title: 'Project low task', priority: 'low', status: 'open', category: 'projects' },
+        { _id: '6', title: 'Project invalid priority task', priority: 'urgent', status: 'open', category: 'projects' },
+        { _id: '7', title: 'Project missing priority task', status: 'open', category: 'projects' },
+        { _id: '8', title: 'Project nice task', priority: 'nice', status: 'open', category: 'projects' },
+        { _id: '9', title: 'Project should task', priority: 'should', status: 'open', category: 'projects' },
+        { _id: '10', title: 'Archived family task', priority: 'must', status: 'archived', category: 'family' },
+        { _id: '11', title: 'Complete family task', priority: 'must', status: 'complete', category: 'family' },
+        { _id: '12', title: 'Invalid category task', priority: 'must', status: 'open', category: 'work' },
+      ],
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByRole('button', { name: /Family 3/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Projects 6/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /General 1/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Family 3/ }));
+    expect(screen.getByText('Family high task')).toBeInTheDocument();
+    expect(screen.getByText('Family medium task')).toBeInTheDocument();
+    expect(screen.getByText('Family missing priority task')).toBeInTheDocument();
+    expect(screen.queryByText('Archived family task')).not.toBeInTheDocument();
+    expect(screen.queryByText('Complete family task')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Projects 6/ }));
+    expect(screen.getByText('Project high task')).toBeInTheDocument();
+    expect(screen.getByText('Project low task')).toBeInTheDocument();
+    expect(screen.getByText('Project invalid priority task')).toBeInTheDocument();
+    expect(screen.getByText('Project missing priority task')).toBeInTheDocument();
+    expect(screen.getByText('Project nice task')).toBeInTheDocument();
+    expect(screen.getByText('Project should task')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /General 1/ }));
+    expect(screen.getByText('Invalid category task')).toBeInTheDocument();
+  });
+
   test('creates a task without manual category and with agent readiness', async () => {
     global.fetch = vi.fn()
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
@@ -85,14 +137,18 @@ describe('Tasks page', () => {
     expect(JSON.parse(postCall[1].body)).toEqual({ title: 'New task', priority: 'must', agentReady: true });
   });
 
-  test('shows completed tasks grouped by category and hides them from active tabs', async () => {
+  test('shows only tasks completed today grouped by category and hides them from active tabs', async () => {
+    const today = new Date().toISOString();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
     global.fetch = vi.fn().mockResolvedValueOnce({
       ok: true,
       json: async () => [
         { _id: '1', title: 'Open project task', priority: 'must', status: 'open', category: 'projects' },
-        { _id: '2', title: 'Done project task', priority: 'must', status: 'complete', category: 'projects' },
-        { _id: '3', title: 'Done family task', priority: 'should', status: 'complete', category: 'family' },
-        { _id: '4', title: 'Archived task', priority: 'nice', status: 'archived', category: 'admin' },
+        { _id: '2', title: 'Done project task', priority: 'must', status: 'complete', category: 'projects', completedAt: today },
+        { _id: '3', title: 'Done family task', priority: 'should', status: 'complete', category: 'family', completedAt: today },
+        { _id: '4', title: 'Yesterday task', priority: 'should', status: 'complete', category: 'admin', completedAt: yesterday },
+        { _id: '5', title: 'Archived task', priority: 'nice', status: 'archived', category: 'admin' },
       ],
     });
 
@@ -104,6 +160,7 @@ describe('Tasks page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Completed 2/ }));
     expect(screen.getByText('Done project task')).toBeInTheDocument();
     expect(screen.getByText('Done family task')).toBeInTheDocument();
+    expect(screen.queryByText('Yesterday task')).not.toBeInTheDocument();
     expect(screen.queryByText('Open project task')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Projects' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Family' })).toBeInTheDocument();
@@ -112,7 +169,7 @@ describe('Tasks page', () => {
 
   test('undo reopens a completed task and removes it after refresh', async () => {
     global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Done task', priority: 'must', status: 'complete', category: 'projects' }] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Done task', priority: 'must', status: 'complete', category: 'projects', completedAt: new Date().toISOString() }] })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ _id: '1', title: 'Done task', status: 'open' }) })
       .mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Done task', priority: 'must', status: 'open', category: 'projects' }] });
 
