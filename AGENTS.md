@@ -45,6 +45,10 @@ For `update life` or `update brain`:
 4. Preserve raw notes unless explicitly told to clear/archive them.
 5. Print a concise summary of what changed.
 
+Do not generate or write a day plan. Day planning is handled only by the dedicated day planning command.
+`update brain` and `update life` must not call `/api/day-plans/start`, `/api/day-plans/restart`, `startDaySession()`, `restartDaySession()`, or create/update `DayPlan` records.
+Do not output a schedule, time blocks, win condition, or generated daily plan when updating the brain.
+
 If persistence fails, clearly say the output was generated but not saved, and show the database error.
 
 ## Sources of truth
@@ -71,6 +75,7 @@ When I say `update life` or `update brain`:
 3. Update the relevant MongoDB collections.
 4. Preserve raw notes unless I explicitly ask to clear or archive them.
 5. Summarize what changed.
+6. Do not generate, start, restart, upsert, or print a day plan.
 
 Route information like this:
 
@@ -111,6 +116,9 @@ When planning project execution:
 The frontend remains CRUD only. It can edit project state, actionable steps, checklists, and progress history, but it must not generate plans, assign work, call OpenAI, or run project execution workflows.
 
 ## Daily output
+
+Use this section only for dedicated day-planning triggers such as `plan my day`, `morning briefing`, `Daily operating system`, `Optimize today`, or `What should I focus on?`.
+Do not use this section for `update life` or `update brain`.
 
 Use this exact order:
 
