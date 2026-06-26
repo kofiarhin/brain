@@ -380,6 +380,61 @@ describe('Projects page', () => {
     expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /delete project/i })).toBeInTheDocument();
   });
+
+  test('starts a blank editable creation flow from New Project', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{
+          _id: 'p1',
+          name: 'Existing Project',
+          status: 'active',
+          priority: 'high',
+          executionState: 'in_progress',
+          progressPercent: 40,
+        }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          _id: 'p2',
+          name: 'Created Project',
+          status: 'active',
+          priority: 'medium',
+          executionState: 'planning',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { _id: 'p1', name: 'Existing Project', status: 'active', priority: 'high', executionState: 'in_progress' },
+          { _id: 'p2', name: 'Created Project', status: 'active', priority: 'medium', executionState: 'planning' },
+        ],
+      });
+
+    render(<Projects />, { wrapper: wrapper() });
+
+    expect(await screen.findByDisplayValue('Existing Project')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /new project/i }));
+
+    const projectName = screen.getByLabelText('Project name');
+    expect(projectName).toHaveValue('');
+    expect(projectName).toBeEnabled();
+    expect(screen.getByRole('button', { name: /save project/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /delete project/i })).toBeDisabled();
+
+    await userEvent.type(projectName, 'Created Project');
+    await userEvent.click(screen.getByRole('button', { name: /save project/i }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/projects'), expect.objectContaining({ method: 'POST' })));
+    const postCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/projects') && options?.method === 'POST');
+    expect(JSON.parse(postCall[1].body)).toEqual(expect.objectContaining({
+      name: 'Created Project',
+      priority: 'medium',
+      executionState: 'planning',
+    }));
+  });
 });
 
 describe('Dashboard', () => {

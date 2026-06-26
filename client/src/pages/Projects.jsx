@@ -21,12 +21,22 @@ const emptyProject = {
   progressUpdates: []
 };
 
+function createEmptyProject() {
+  return {
+    ...emptyProject,
+    blockers: [],
+    productionChecklist: [],
+    nextActionableSteps: [],
+    progressUpdates: []
+  };
+}
+
 const executionStates = ['planning', 'in_progress', 'blocked', 'review_required', 'ready_for_production', 'completed'];
 const priorities = ['low', 'medium', 'high'];
 
 function normalizeProject(project = {}) {
   return {
-    ...emptyProject,
+    ...createEmptyProject(),
     ...project,
     progressPercent: Number(project.progressPercent ?? 0),
     blockers: project.blockers ?? [],
@@ -74,12 +84,13 @@ export function Projects() {
   const { data = [], isLoading, create, update, remove } = useResource('projects');
   const projects = useMemo(() => data ?? [], [data]);
   const [selectedId, setSelectedId] = useState('');
-  const [form, setForm] = useState(emptyProject);
+  const [form, setForm] = useState(createEmptyProject);
   const [isEditing, setIsEditing] = useState(false);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
-    if (!selectedId && projects.length) {
+    if (!selectedId && projects.length && !isCreatingNew) {
       setSelectedId(projects[0]._id);
       setIsEditing(false);
       return;
@@ -88,7 +99,7 @@ export function Projects() {
       const selected = projects.find((project) => project._id === selectedId);
       if (selected) setForm(normalizeProject(selected));
     }
-  }, [projects, selectedId, isEditing]);
+  }, [projects, selectedId, isEditing, isCreatingNew]);
 
   const selectedProject = projects.find((project) => project._id === selectedId);
   const isSaving = create.isPending || update.isPending;
@@ -111,21 +122,24 @@ export function Projects() {
 
   const startNewProject = () => {
     setSelectedId('');
-    setForm(emptyProject);
+    setForm(createEmptyProject());
     setFeedback('');
+    setIsCreatingNew(true);
     setIsEditing(true);
   };
 
   const selectProject = (projectId) => {
     setSelectedId(projectId);
     setFeedback('');
+    setIsCreatingNew(false);
     setIsEditing(false);
   };
 
   const cancelEditing = () => {
     if (selectedProject) setForm(normalizeProject(selectedProject));
-    else setForm(emptyProject);
+    else setForm(createEmptyProject());
     setFeedback('');
+    setIsCreatingNew(false);
     setIsEditing(false);
   };
 
@@ -149,6 +163,7 @@ export function Projects() {
         if (created?._id) setSelectedId(created._id);
       }
       setFeedback('Project saved.');
+      setIsCreatingNew(false);
       setIsEditing(false);
     } catch (error) {
       setFeedback(error?.message ? `Save failed: ${error.message}` : 'Save failed.');
@@ -160,7 +175,9 @@ export function Projects() {
     setFeedback('Deleting project...');
     try {
       await remove.mutateAsync(selectedProject._id);
-      startNewProject();
+      setSelectedId('');
+      setForm(createEmptyProject());
+      setIsCreatingNew(false);
       setIsEditing(false);
       setFeedback('Project deleted.');
     } catch (error) {
