@@ -2,8 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Notes } from './Notes';
 import { Tasks } from './Tasks';
+import { TaskDetails } from './TaskDetails';
 import { Dashboard } from './Dashboard';
 import { Projects } from './Projects';
 import { Deliverables } from './Deliverables';
@@ -271,27 +273,87 @@ describe('Tasks page', () => {
     await waitFor(() => expect(screen.queryByText('Done task')).not.toBeInTheDocument());
   });
 
-  test('updates task category and agent readiness', async () => {
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Editable task', priority: 'must', status: 'open', category: 'general', agentReady: false }] })
-      .mockResolvedValue({ ok: true, json: async () => [{ _id: '1', title: 'Editable task', priority: 'must', status: 'open', category: 'projects', agentReady: true }] });
+  test('links each task to its details page', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ _id: '1', title: 'Editable task', priority: 'must', status: 'open', category: 'general', agentReady: false, expectedDeliverable: 'Updated task brief' }],
+    });
 
     render(<Tasks />, { wrapper: wrapper() });
     expect(await screen.findByText('Editable task')).toBeInTheDocument();
     expect(screen.getByText('Open')).toBeInTheDocument();
     expect(screen.getAllByText('General').length).toBeGreaterThan(0);
-    expect(screen.queryByLabelText('Category for Editable task')).not.toBeInTheDocument();
+    expect(screen.getByText('Updated task brief')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Details' })).toHaveAttribute('href', '/tasks/1');
+  });
 
-    await userEvent.click(screen.getByText('Edit'));
-    await userEvent.selectOptions(screen.getByLabelText('Category for Editable task'), 'projects');
-    await userEvent.click(screen.getByLabelText('Assignable to Codex for Editable task'));
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+  test('edits task details through the dedicated page', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _id: '1',
+          title: 'Editable task',
+          priority: 'must',
+          status: 'open',
+          category: 'general',
+          description: 'Old description',
+          expectedDeliverable: 'Old deliverable',
+          acceptanceCriteria: 'Old criteria',
+          notes: '',
+          codexPrompt: '',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _id: '1',
+          title: 'Updated task',
+          priority: 'must',
+          status: 'open',
+          category: 'projects',
+          description: 'New description',
+          expectedDeliverable: 'New deliverable',
+          acceptanceCriteria: 'New criteria',
+          notes: 'Planning notes',
+          codexPrompt: 'Implement this',
+        }),
+      })
+      .mockResolvedValue({ ok: true, json: async () => ({}) });
+
+    render(
+      <MemoryRouter initialEntries={['/tasks/1']}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
+          <Routes><Route path="/tasks/:id" element={<TaskDetails />} /></Routes>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByDisplayValue('Editable task')).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Title'));
+    await userEvent.type(screen.getByLabelText('Title'), 'Updated task');
+    await userEvent.selectOptions(screen.getByLabelText('Category'), 'projects');
+    await userEvent.clear(screen.getByLabelText('Description'));
+    await userEvent.type(screen.getByLabelText('Description'), 'New description');
+    await userEvent.clear(screen.getByLabelText('Expected Deliverable'));
+    await userEvent.type(screen.getByLabelText('Expected Deliverable'), 'New deliverable');
+    await userEvent.clear(screen.getByLabelText('Acceptance Criteria'));
+    await userEvent.type(screen.getByLabelText('Acceptance Criteria'), 'New criteria');
+    await userEvent.type(screen.getByLabelText('Notes'), 'Planning notes');
+    await userEvent.type(screen.getByLabelText('Codex Prompt'), 'Implement this');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Save' })[0]);
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1'), expect.objectContaining({ method: 'PATCH' })));
-    const patchBodies = global.fetch.mock.calls
-      .filter(([url, options]) => url.includes('/tasks/1') && options?.method === 'PATCH')
-      .map(([, options]) => JSON.parse(options.body));
-    expect(patchBodies).toContainEqual({ category: 'projects', agentReady: true });
+    const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks/1') && options?.method === 'PATCH');
+    expect(JSON.parse(patchCall[1].body)).toEqual(expect.objectContaining({
+      title: 'Updated task',
+      category: 'projects',
+      description: 'New description',
+      expectedDeliverable: 'New deliverable',
+      acceptanceCriteria: 'New criteria',
+      notes: 'Planning notes',
+      codexPrompt: 'Implement this',
+    }));
   });
 });
 

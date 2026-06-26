@@ -27,9 +27,60 @@ function cleanDayPlanPayload(plan, londonDate, dueDate) {
   };
 }
 
+function taskTextFromItem(item, field) {
+  if (!item || typeof item !== 'object') return '';
+  if (field === 'deliverables') return item.expectedDeliverable || item.deliverable || item.title || item.name || item.description || '';
+  return item.description || item.summary || item.activity || '';
+}
+
 function taskTitleFromItem(item) {
   if (typeof item === 'string') return item;
   if (item && typeof item === 'object') return item.title || item.name || item.description || '';
+  return '';
+}
+
+function normalizeGeneratedPriority(priority) {
+  if (priority === 'high') return 'must';
+  if (priority === 'medium') return 'should';
+  if (priority === 'low') return 'nice';
+  return priority;
+}
+
+function generatedDescription(title, item, field) {
+  const explicitDescription = taskTextFromItem(item, field).trim();
+  if (explicitDescription && explicitDescription !== title) return explicitDescription;
+  const section = {
+    mustDo: 'Must Do',
+    shouldDo: 'Should Do',
+    niceToHave: 'Nice To Have',
+    deliverables: 'Suggested Deliverables',
+  }[field] || 'day plan';
+  return `Complete this ${section} item from today's plan: ${title}`;
+}
+
+function generatedExpectedDeliverable(title, item, field) {
+  if (item && typeof item === 'object') {
+    const explicit = (item.expectedDeliverable || item.deliverable || item.output || '').trim();
+    if (explicit) return explicit;
+  }
+  return field === 'deliverables' ? title : `Finished outcome for: ${title}`;
+}
+
+function generatedAcceptanceCriteria(title, item) {
+  if (item && typeof item === 'object') {
+    const criteria = item.acceptanceCriteria || item.criteria || item.definitionOfDone;
+    if (Array.isArray(criteria)) return criteria.filter(Boolean).join('\n');
+    if (typeof criteria === 'string' && criteria.trim()) return criteria.trim();
+  }
+  return [
+    `${title} is completed.`,
+    'Expected deliverable exists.',
+    'Result has been reviewed or checked.',
+  ].join('\n');
+}
+
+function generatedCodexPrompt(title, item) {
+  if (item && typeof item === 'object' && typeof item.codexPrompt === 'string') return item.codexPrompt.trim();
   return '';
 }
 
@@ -48,10 +99,15 @@ export function tasksFromDayPlan(plan, londonDate, dueDate) {
       tasks.push({
         title,
         normalizedTitle,
+        description: generatedDescription(title, item, field),
+        expectedDeliverable: generatedExpectedDeliverable(title, item, field),
+        acceptanceCriteria: generatedAcceptanceCriteria(title, item),
+        notes: '',
+        codexPrompt: generatedCodexPrompt(title, item),
         dueDate,
         dueLondonDate: londonDate,
-        category: 'general',
-        priority,
+        category: item && typeof item === 'object' ? item.category || 'general' : 'general',
+        priority: normalizeGeneratedPriority(priority),
         source: 'day-plan',
       });
     }

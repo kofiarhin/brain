@@ -2,6 +2,7 @@ import { request } from './http';
 
 export const createResourceApi = (path) => ({
   list: () => request(path),
+  get: (id) => request(`${path}/${id}`),
   latest: () => request(`${path}/latest`),
   create: (payload) => request(path, { method: 'POST', body: JSON.stringify(payload) }),
   update: (id, payload) => request(`${path}/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),

@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Notes } from './pages/Notes';
 import { DayPlan } from './pages/DayPlan';
 import { Tasks } from './pages/Tasks';
+import { TaskDetails } from './pages/TaskDetails';
 import { Deliverables } from './pages/Deliverables';
 import { Projects } from './pages/Projects';
 import { GoalsIdeas } from './pages/GoalsIdeas';
@@ -19,6 +20,7 @@ const router = createBrowserRouter([{ path: '/', element: <AppLayout />, childre
   { path: 'notes', element: <Notes /> },
   { path: 'day-plan', element: <DayPlan /> },
   { path: 'tasks', element: <Tasks /> },
+  { path: 'tasks/:id', element: <TaskDetails /> },
   { path: 'deliverables', element: <Deliverables /> },
   { path: 'projects', element: <Projects /> },
   { path: 'goals-ideas', element: <GoalsIdeas /> },

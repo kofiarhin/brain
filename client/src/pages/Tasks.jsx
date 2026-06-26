@@ -32,6 +32,11 @@ function categoryLabel(category) {
   return categories.find(([value]) => value === category)?.[1] || 'General';
 }
 
+function priorityLabel(priority) {
+  const normalized = normalizePriority(priority);
+  return groups.find(([value]) => value === normalized)?.[1] || 'Should Do';
+}
+
 function statusLabel(status) {
   const normalized = String(status || 'open').toLowerCase();
   if (['complete', 'completed', 'done'].includes(normalized)) return 'Done';
@@ -69,6 +74,19 @@ function wasCompletedToday(task, todayLondonDate = getLondonDateKey()) {
   return completedStatuses.has(String(task.status || '').toLowerCase()) && getLondonDateKey(task.completedAt) === todayLondonDate;
 }
 
+function relatedProjectLabel(task) {
+  return task.projectName || task.projectTitle || task.relatedProject || (task.projectId ? `Project ${task.projectId}` : 'None');
+}
+
+function previewText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim() || 'No deliverable defined';
+}
+
+function openTaskDetailsFromCard(event, taskId) {
+  if (event.target.closest('a,button')) return;
+  window.location.assign(`/tasks/${taskId}`);
+}
+
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
@@ -86,28 +104,35 @@ async function copyTextToClipboard(text) {
   document.body.removeChild(textarea);
 }
 
+function TaskSummary({ task }) {
+  const taskCategory = normalizeCategory(task.category);
+  const status = statusLabel(task.status);
+  return <a href={`/tasks/${task._id}`} className="min-w-0 flex-1 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800">
+    <h2 className="break-words text-base font-semibold leading-6 text-slate-50 sm:text-lg">{task.title}</h2>
+    <div className="mt-2 flex flex-wrap gap-2">
+      <span className={badgeClass(status === 'Done' ? 'done' : status === 'Archived' ? 'archived' : 'open')}>{status}</span>
+      <span className={badgeClass()}>{priorityLabel(task.priority)}</span>
+      <span className={badgeClass('category')}>{categoryLabel(taskCategory)}</span>
+      {task.agentReady === true ? <span className={badgeClass('agent')}>Agent-ready</span> : null}
+    </div>
+    <dl className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
+      <div><dt className="text-xs uppercase text-slate-500">Related Project</dt><dd className="truncate">{relatedProjectLabel(task)}</dd></div>
+      <div><dt className="text-xs uppercase text-slate-500">Expected Deliverable</dt><dd className="truncate">{previewText(task.expectedDeliverable)}</dd></div>
+    </dl>
+  </a>;
+}
+
 function CompletedTaskCard({ task, tasks }) {
-  return <li className="rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20">
+  return <li className="cursor-pointer rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20" onClick={(event) => openTaskDetailsFromCard(event, task._id)}>
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      <div className="min-w-0 flex-1">
-        <h2 className="break-words text-base font-semibold leading-6 text-slate-50 sm:text-lg">{task.title}</h2>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <span className={badgeClass('done')}>Done</span>
-          <span className={badgeClass('category')}>{categoryLabel(normalizeCategory(task.category))}</span>
-        </div>
-      </div>
+      <TaskSummary task={task} />
       <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.reopen.mutate(task._id)}>Undo</button>
     </div>
   </li>;
 }
 
 function TaskCard({ task, tasks }) {
-  const taskCategory = normalizeCategory(task.category);
-  const isAgentReady = task.agentReady === true;
   const status = statusLabel(task.status);
-  const [isEditing, setIsEditing] = useState(false);
-  const [draftCategory, setDraftCategory] = useState(taskCategory);
-  const [draftAgentReady, setDraftAgentReady] = useState(isAgentReady);
   const [copyStatus, setCopyStatus] = useState('idle');
   const copyResetRef = useRef(null);
 
@@ -117,20 +142,8 @@ function TaskCard({ task, tasks }) {
     };
   }, []);
 
-  const startEditing = () => {
-    setDraftCategory(taskCategory);
-    setDraftAgentReady(isAgentReady);
-    setIsEditing(true);
-  };
-
-  const cancelEditing = () => {
-    setDraftCategory(taskCategory);
-    setDraftAgentReady(isAgentReady);
-    setIsEditing(false);
-  };
-
-  const resetCopyStatusSoon = (status) => {
-    setCopyStatus(status);
+  const resetCopyStatusSoon = (nextStatus) => {
+    setCopyStatus(nextStatus);
     if (copyResetRef.current) clearTimeout(copyResetRef.current);
     copyResetRef.current = setTimeout(() => setCopyStatus('idle'), 2000);
   };
@@ -144,60 +157,18 @@ function TaskCard({ task, tasks }) {
     }
   };
 
-  const saveEditing = async () => {
-    await tasks.update.mutateAsync({
-      id: task._id,
-      payload: { category: draftCategory, agentReady: draftAgentReady }
-    });
-    setIsEditing(false);
-  };
-
-  return <li className="rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20">
+  return <li className="cursor-pointer rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20" onClick={(event) => openTaskDetailsFromCard(event, task._id)}>
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      <div className="min-w-0 flex-1">
-        <h2 className="break-words text-base font-semibold leading-6 text-slate-50 sm:text-lg">{task.title}</h2>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <span className={badgeClass(status === 'Done' ? 'done' : status === 'Archived' ? 'archived' : 'open')}>{status}</span>
-          <span className={badgeClass('category')}>{categoryLabel(taskCategory)}</span>
-          {isAgentReady ? <span className={badgeClass('agent')}>Agent-ready</span> : null}
-        </div>
-      </div>
+      <TaskSummary task={task} />
       <div className="flex flex-wrap gap-2 md:justify-end">
         <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={copyTitle}>{copyStatus === 'copied' ? 'Copied!' : copyStatus === 'failed' ? 'Copy failed' : 'Copy'}</button>
-        <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.complete.mutate(task._id)}>Complete</button>
-        <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.reopen.mutate(task._id)}>Reopen</button>
+        {status === 'Done'
+          ? <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.reopen.mutate(task._id)}>Reopen</button>
+          : <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.complete.mutate(task._id)}>Complete</button>}
         <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.archive.mutate(task._id)}>Archive</button>
-        <button className="rounded-md border border-blue-500/60 px-3 py-2 text-sm font-medium text-blue-100 hover:bg-blue-500/10" onClick={startEditing}>Edit</button>
+        <a className="rounded-md border border-blue-500/60 px-3 py-2 text-sm font-medium text-blue-100 hover:bg-blue-500/10" href={`/tasks/${task._id}`}>Details</a>
       </div>
     </div>
-    {isEditing ? <div className="mt-4 rounded-lg border border-slate-700 bg-slate-900/80 p-3">
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
-        <label className="text-sm text-slate-300">
-          <span className="mb-1 block text-xs uppercase text-slate-400">Category</span>
-          <select
-            aria-label={`Category for ${task.title}`}
-            className="w-full rounded border border-slate-700 bg-slate-950 p-2"
-            value={draftCategory}
-            onChange={(e) => setDraftCategory(e.target.value)}
-          >
-            {categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <label className="flex items-center gap-2 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200">
-          <input
-            aria-label={`Assignable to Codex for ${task.title}`}
-            type="checkbox"
-            checked={draftAgentReady}
-            onChange={(e) => setDraftAgentReady(e.target.checked)}
-          />
-          Assignable to Codex
-        </label>
-        <div className="flex gap-2">
-          <button type="button" className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500" onClick={saveEditing}>Save</button>
-          <button type="button" className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800" onClick={cancelEditing}>Cancel</button>
-        </div>
-      </div>
-    </div> : null}
   </li>;
 }
 
