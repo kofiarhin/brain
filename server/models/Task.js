@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { getLondonDateKey } from '../services/londonDate.js';
+import { categorizeTaskTitle } from '../services/taskCategorization.js';
 import { normalizeTaskTitle } from '../services/taskNormalization.js';
 
 export const taskCategories = ['projects', 'family', 'personal', 'admin', 'general'];
@@ -31,6 +32,7 @@ function setTaskMatchingFields(target) {
 
 taskSchema.pre('validate', function setMatchingFields(next) {
   setTaskMatchingFields(this);
+  if (this.isNew) this.category = categorizeTaskTitle(this.title);
   next();
 });
 

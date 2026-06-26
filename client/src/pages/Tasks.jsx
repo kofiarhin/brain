@@ -11,7 +11,7 @@ const categories = [
   ['admin', 'Admin'],
   ['general', 'General']
 ];
-const tabs = [['all', 'All'], ['agent', 'Agent'], ...categories];
+const tabs = [['all', 'All'], ['agent', 'Agent'], ...categories, ['completed', 'Completed']];
 
 function normalizeCategory(category) {
   return categories.some(([value]) => value === category) ? category : 'general';
@@ -47,6 +47,21 @@ function countForTab(tab, items) {
     if (tab === 'agent') return task.agentReady === true;
     return taskCategory === tab;
   }).length;
+}
+
+function CompletedTaskCard({ task, tasks }) {
+  return <li className="rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20">
+    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="min-w-0 flex-1">
+        <h2 className="break-words text-base font-semibold leading-6 text-slate-50 sm:text-lg">{task.title}</h2>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <span className={badgeClass('done')}>Done</span>
+          <span className={badgeClass('category')}>{categoryLabel(normalizeCategory(task.category))}</span>
+        </div>
+      </div>
+      <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.reopen.mutate(task._id)}>Undo</button>
+    </div>
+  </li>;
 }
 
 function TaskCard({ task, tasks }) {
@@ -129,11 +144,11 @@ export function Tasks() {
   const [selectedTab, setSelectedTab] = useState('all');
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState('should');
-  const [category, setCategory] = useState('general');
   const [agentReady, setAgentReady] = useState(false);
   const tasks = useResource('tasks');
   const items = tasks.data || [];
   const activeItems = items.filter((task) => !hiddenStatuses.has(String(task.status || '').toLowerCase()));
+  const completedItems = items.filter((task) => task.status === 'complete');
   const filteredItems = activeItems.filter((task) => {
     const taskCategory = normalizeCategory(task.category);
     if (selectedTab === 'all') return true;
@@ -144,17 +159,16 @@ export function Tasks() {
   const save = async (event) => {
     event.preventDefault();
     if (!title.trim()) return;
-    await tasks.create.mutateAsync({ title: title.trim(), priority, category, agentReady });
+    await tasks.create.mutateAsync({ title: title.trim(), priority, agentReady });
     setTitle('');
     setPriority('should');
-    setCategory('general');
     setAgentReady(false);
   };
 
   return <div className="space-y-6">
     <h1 className="text-2xl font-bold sm:text-3xl">Tasks</h1>
     <Card title="Create Task">
-      <form onSubmit={save} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_180px_auto_auto] lg:items-end">
+      <form onSubmit={save} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_auto_auto] lg:items-end">
         <label className="text-sm text-slate-300">
           <span className="mb-1 block text-xs uppercase text-slate-400">Title</span>
           <input aria-label="Task title" className="w-full rounded border border-slate-700 bg-slate-950 p-3" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -163,12 +177,6 @@ export function Tasks() {
           <span className="mb-1 block text-xs uppercase text-slate-400">Priority</span>
           <select aria-label="Task priority" className="w-full rounded border border-slate-700 bg-slate-950 p-3" value={priority} onChange={(e) => setPriority(e.target.value)}>
             {groups.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <label className="text-sm text-slate-300">
-          <span className="mb-1 block text-xs uppercase text-slate-400">Category</span>
-          <select aria-label="Task category" className="w-full rounded border border-slate-700 bg-slate-950 p-3" value={category} onChange={(e) => setCategory(e.target.value)}>
-            {categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
         <label className="flex items-center gap-2 rounded border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-slate-200">
@@ -181,6 +189,7 @@ export function Tasks() {
     <div className="flex gap-2 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-2">
       {tabs.map(([value, label]) => {
         const isSelected = selectedTab === value;
+        const tabCount = value === 'completed' ? completedItems.length : countForTab(value, activeItems);
         return <button
           key={value}
           type="button"
@@ -188,12 +197,15 @@ export function Tasks() {
           onClick={() => setSelectedTab(value)}
         >
           <span>{label}</span>
-          <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-950 text-slate-400'}`}>{countForTab(value, activeItems)}</span>
+          <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-950 text-slate-400'}`}>{tabCount}</span>
         </button>;
       })}
     </div>
     {selectedTab === 'agent' ? <p className="text-sm text-slate-400">Tasks marked as assignable to Codex.</p> : null}
-    {groups.map(([priority, groupTitle]) => {
+    {selectedTab === 'completed' ? categories.map(([category, groupTitle]) => {
+      const groupItems = completedItems.filter((task) => normalizeCategory(task.category) === category);
+      return <Card key={category} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <CompletedTaskCard key={task._id} task={task} tasks={tasks} />)}</ul></Card>;
+    }) : groups.map(([priority, groupTitle]) => {
       const groupItems = filteredItems.filter((task) => task.priority === priority);
       return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} tasks={tasks} />)}</ul></Card>;
     })}

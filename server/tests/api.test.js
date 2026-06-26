@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { jest } from '@jest/globals';
+import { categorizeTaskTitle } from '../services/taskCategorization.js';
 
 function fakeModel(name) {
   let records = [];
@@ -73,7 +74,8 @@ function fakeModel(name) {
       return next;
     }
     static async create(payload) {
-      const normalizedPayload = this.normalize(payload);
+      const createPayload = name === 'task' ? { ...payload, category: categorizeTaskTitle(payload.title) } : payload;
+      const normalizedPayload = this.normalize(createPayload);
       const item = { _id: `${name}-${records.length + 1}`, status: normalizedPayload.status || undefined, ...normalizedPayload, createdAt: new Date(), updatedAt: new Date() };
       records.push(item);
       return clone(item);
@@ -143,19 +145,25 @@ describe('task completion', () => {
     expect(reopened.body.completedAt).toBeNull();
   });
 
-  test('defaults task category and agent readiness', async () => {
+  test('categorizes task titles and defaults agent readiness', async () => {
     const created = await request(app).post('/api/tasks').send({ title: 'Default task' }).expect(201);
     expect(created.body.category).toBe('general');
     expect(created.body.agentReady).toBe(false);
+
+    const projectTask = await request(app).post('/api/tasks').send({ title: 'fix API bug' }).expect(201);
+    expect(projectTask.body.category).toBe('projects');
+
+    const priorityTask = await request(app).post('/api/tasks').send({ title: 'call doctor' }).expect(201);
+    expect(priorityTask.body.category).toBe('personal');
   });
 
-  test('creates and updates task category and agent readiness', async () => {
+  test('ignores supplied task category on create and updates category and agent readiness', async () => {
     const created = await request(app)
       .post('/api/tasks')
       .send({ title: 'Codex task', category: 'projects', agentReady: true })
       .expect(201);
 
-    expect(created.body.category).toBe('projects');
+    expect(created.body.category).toBe('general');
     expect(created.body.agentReady).toBe(true);
 
     const updated = await request(app)
@@ -191,11 +199,13 @@ describe('task completion', () => {
     expect(created.body.reviewStatus).toBe('pending');
   });
 
-  test('rejects invalid task categories', async () => {
-    await request(app)
+  test('does not reject invalid task categories on create', async () => {
+    const created = await request(app)
       .post('/api/tasks')
       .send({ title: 'Bad category', category: 'invalid' })
-      .expect(400);
+      .expect(201);
+
+    expect(created.body.category).toBe('general');
   });
 });
 
