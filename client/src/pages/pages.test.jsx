@@ -6,6 +6,7 @@ import { Notes } from './Notes';
 import { Tasks } from './Tasks';
 import { Dashboard } from './Dashboard';
 import { Projects } from './Projects';
+import { Deliverables } from './Deliverables';
 import { getLondonDateKey } from '../utils/londonDate';
 
 function wrapper() { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>; }
@@ -24,6 +25,94 @@ describe('Notes page', () => {
     await userEvent.type(screen.getByLabelText('Note content'), 'Test note');
     await userEvent.click(screen.getByRole('button', { name: /save note/i }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/notes'), expect.objectContaining({ method: 'POST' })));
+  });
+});
+
+describe('Deliverables page', () => {
+  test('shows artifact actions without task lifecycle controls', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ _id: 'd1', title: 'Finished artifact', description: 'Ready for review', status: 'open' }],
+    });
+
+    render(<Deliverables />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('Finished artifact')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Complete' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reopen' })).not.toBeInTheDocument();
+  });
+
+  test('edits and saves title and description', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ _id: 'd1', title: 'Old title', description: 'Old description' }],
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ _id: 'd1', title: 'New title', description: 'New description' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ _id: 'd1', title: 'New title', description: 'New description' }],
+      });
+
+    render(<Deliverables />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('Old title')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await userEvent.clear(screen.getByLabelText('Title for Old title'));
+    await userEvent.type(screen.getByLabelText('Title for Old title'), 'New title');
+    await userEvent.clear(screen.getByLabelText('Description for Old title'));
+    await userEvent.type(screen.getByLabelText('Description for Old title'), 'New description');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Save' }).at(-1));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/deliverables/d1'), expect.objectContaining({ method: 'PATCH' })));
+    const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/deliverables/d1') && options?.method === 'PATCH');
+    expect(JSON.parse(patchCall[1].body)).toEqual({ title: 'New title', description: 'New description' });
+  });
+
+  test('cancels editing without saving', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ _id: 'd1', title: 'Original title', description: 'Original description' }],
+    });
+
+    render(<Deliverables />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('Original title')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await userEvent.clear(screen.getByLabelText('Title for Original title'));
+    await userEvent.type(screen.getByLabelText('Title for Original title'), 'Unsaved title');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByText('Original title')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Unsaved title')).not.toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('archives and deletes through existing mutations', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ _id: 'd1', title: 'Artifact', description: 'Done' }],
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ _id: 'd1', title: 'Artifact', status: 'archived' }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ _id: 'd1', title: 'Artifact', description: 'Done', status: 'archived' }],
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+
+    render(<Deliverables />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('Artifact')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/deliverables/d1/archive'), expect.objectContaining({ method: 'PATCH' })));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/deliverables/d1'), expect.objectContaining({ method: 'DELETE' })));
   });
 });
 
