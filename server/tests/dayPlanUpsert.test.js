@@ -161,6 +161,27 @@ describe('upsertTodaysDayPlan', () => {
     expect(TaskModel.all().map((task) => task.title).sort()).toEqual(['Call accountant', 'Review invoices']);
   });
 
+  test('marks deliverables only when the plan item has a clear output', async () => {
+    await upsertTodaysDayPlan({
+      mustDo: ['Call accountant'],
+      deliverables: ['Draft client proposal'],
+    }, {
+      now: new Date('2026-06-25T10:00:00.000Z'),
+      DayPlanModel,
+      TaskModel,
+    });
+
+    const normalTask = TaskModel.all().find((task) => task.title === 'Call accountant');
+    const deliverableTask = TaskModel.all().find((task) => task.title === 'Draft client proposal');
+
+    expect(normalTask.deliverableRequired).toBe(false);
+    expect(normalTask.expectedDeliverable).toBe('');
+    expect(deliverableTask.deliverableRequired).toBe(true);
+    expect(deliverableTask.expectedDeliverable).toBe('Draft client proposal');
+    expect(deliverableTask.deliverableSummary).toBe('');
+    expect(deliverableTask.deliverableLocation).toBe('');
+  });
+
   test('matching tasks are reused, not duplicated', async () => {
     const existing = await TaskModel.create({
       title: 'Call Laura!!!',

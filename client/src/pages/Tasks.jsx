@@ -74,12 +74,8 @@ function wasCompletedToday(task, todayLondonDate = getLondonDateKey()) {
   return completedStatuses.has(String(task.status || '').toLowerCase()) && getLondonDateKey(task.completedAt) === todayLondonDate;
 }
 
-function relatedProjectLabel(task) {
-  return task.projectName || task.projectTitle || task.relatedProject || (task.projectId ? `Project ${task.projectId}` : 'None');
-}
-
 function previewText(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim() || 'No deliverable defined';
+  return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
 function TaskSummary({ task }) {
@@ -93,10 +89,7 @@ function TaskSummary({ task }) {
       <span className={badgeClass('category')}>{categoryLabel(taskCategory)}</span>
       {task.agentReady === true ? <span className={badgeClass('agent')}>Agent-ready</span> : null}
     </div>
-    <dl className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
-      <div><dt className="text-xs uppercase text-slate-500">Related Project</dt><dd className="truncate">{relatedProjectLabel(task)}</dd></div>
-      <div><dt className="text-xs uppercase text-slate-500">Expected Deliverable</dt><dd className="truncate">{previewText(task.expectedDeliverable)}</dd></div>
-    </dl>
+    {previewText(task.expectedDeliverable) ? <p className="mt-3 truncate text-sm text-slate-300">{previewText(task.expectedDeliverable)}</p> : null}
   </div>;
 }
 

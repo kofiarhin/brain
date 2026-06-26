@@ -186,44 +186,52 @@ describe('Tasks page', () => {
   });
 
   test('edits task details through the dedicated page', async () => {
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/projects')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url.includes('/tasks/1') && options?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            _id: '1',
+            title: 'Updated task',
+            priority: 'must',
+            status: 'open',
+            category: 'projects',
+            description: 'New description',
+            deliverableRequired: true,
+            expectedDeliverable: 'New deliverable',
+            deliverableSummary: 'New artifact notes',
+            deliverableLocation: 'https://example.com/new',
+            acceptanceCriteria: 'New criteria',
+            notes: 'Planning notes',
+            codexPrompt: 'Implement this',
+          }),
+        });
+      }
+      if (url.includes('/tasks/1')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
           _id: '1',
           title: 'Editable task',
           priority: 'must',
           status: 'open',
           category: 'general',
           description: 'Old description',
+          deliverableRequired: true,
           expectedDeliverable: 'Old deliverable',
-          deliverableTitle: 'Old artifact',
           deliverableDescription: 'Old artifact notes',
           deliverableUrl: 'https://example.com/old',
           acceptanceCriteria: 'Old criteria',
           notes: '',
           codexPrompt: '',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          _id: '1',
-          title: 'Updated task',
-          priority: 'must',
-          status: 'open',
-          category: 'projects',
-          description: 'New description',
-          expectedDeliverable: 'New deliverable',
-          deliverableTitle: 'New artifact',
-          deliverableDescription: 'New artifact notes',
-          deliverableUrl: 'https://example.com/new',
-          acceptanceCriteria: 'New criteria',
-          notes: 'Planning notes',
-          codexPrompt: 'Implement this',
-        }),
-      })
-      .mockResolvedValue({ ok: true, json: async () => ({}) });
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
 
     render(
       <MemoryRouter initialEntries={['/tasks/1']}>
@@ -236,20 +244,20 @@ describe('Tasks page', () => {
     expect(await screen.findByDisplayValue('Editable task')).toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText('Title'));
     await userEvent.type(screen.getByLabelText('Title'), 'Updated task');
+    await userEvent.click(screen.getByText('Task Settings'));
     await userEvent.selectOptions(screen.getByLabelText('Category'), 'projects');
     await userEvent.clear(screen.getByLabelText('Description'));
     await userEvent.type(screen.getByLabelText('Description'), 'New description');
-    await userEvent.clear(screen.getByLabelText('Expected Deliverable'));
-    await userEvent.type(screen.getByLabelText('Expected Deliverable'), 'New deliverable');
-    await userEvent.clear(screen.getByLabelText('Produced Deliverable Title'));
-    await userEvent.type(screen.getByLabelText('Produced Deliverable Title'), 'New artifact');
-    await userEvent.clear(screen.getByLabelText('Produced Deliverable Link'));
-    await userEvent.type(screen.getByLabelText('Produced Deliverable Link'), 'https://example.com/new');
-    await userEvent.clear(screen.getByLabelText('Produced Deliverable Notes'));
-    await userEvent.type(screen.getByLabelText('Produced Deliverable Notes'), 'New artifact notes');
-    await userEvent.clear(screen.getByLabelText('Acceptance Criteria'));
-    await userEvent.type(screen.getByLabelText('Acceptance Criteria'), 'New criteria');
+    await userEvent.clear(screen.getByLabelText('Expected Output'));
+    await userEvent.type(screen.getByLabelText('Expected Output'), 'New deliverable');
+    await userEvent.clear(screen.getByLabelText('Produced Output'));
+    await userEvent.type(screen.getByLabelText('Produced Output'), 'New artifact notes');
+    await userEvent.clear(screen.getByLabelText('Link'));
+    await userEvent.type(screen.getByLabelText('Link'), 'https://example.com/new');
+    await userEvent.clear(screen.getByLabelText('Definition of Done'));
+    await userEvent.type(screen.getByLabelText('Definition of Done'), 'New criteria');
     await userEvent.type(screen.getByLabelText('Notes'), 'Planning notes');
+    await userEvent.click(screen.getByText('Codex Prompt'));
     await userEvent.type(screen.getByLabelText('Codex Prompt'), 'Implement this');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -259,10 +267,10 @@ describe('Tasks page', () => {
       title: 'Updated task',
       category: 'projects',
       description: 'New description',
+      deliverableRequired: true,
       expectedDeliverable: 'New deliverable',
-      deliverableTitle: 'New artifact',
-      deliverableDescription: 'New artifact notes',
-      deliverableUrl: 'https://example.com/new',
+      deliverableSummary: 'New artifact notes',
+      deliverableLocation: 'https://example.com/new',
       acceptanceCriteria: 'New criteria',
       notes: 'Planning notes',
       codexPrompt: 'Implement this',
@@ -271,6 +279,9 @@ describe('Tasks page', () => {
 
   test('completes tasks from the detail workspace', async () => {
     global.fetch = vi.fn((url, options) => {
+      if (url.includes('/projects')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
       if (url.includes('/tasks/1/complete') && options?.method === 'PATCH') {
         return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'complete', category: 'general' }) });
       }
@@ -295,6 +306,9 @@ describe('Tasks page', () => {
 
   test('reopens tasks from the detail workspace', async () => {
     global.fetch = vi.fn((url, options) => {
+      if (url.includes('/projects')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
       if (url.includes('/tasks/1/reopen') && options?.method === 'PATCH') {
         return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'open', category: 'general' }) });
       }

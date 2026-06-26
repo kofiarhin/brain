@@ -34,16 +34,25 @@ const emptyDraft = {
   category: 'general',
   projectId: '',
   description: '',
+  deliverableRequired: false,
   expectedDeliverable: '',
-  deliverableTitle: '',
-  deliverableDescription: '',
-  deliverableUrl: '',
+  deliverableSummary: '',
+  deliverableLocation: '',
   acceptanceCriteria: '',
   notes: '',
   codexPrompt: '',
 };
 
 function taskToDraft(task) {
+  const hasDeliverable = Boolean(
+    task?.deliverableRequired ||
+    task?.expectedDeliverable ||
+    task?.deliverableSummary ||
+    task?.deliverableLocation ||
+    task?.deliverableDescription ||
+    task?.deliverableUrl
+  );
+
   return {
     title: task?.title || '',
     status: task?.status || 'open',
@@ -51,14 +60,25 @@ function taskToDraft(task) {
     category: task?.category || 'general',
     projectId: task?.projectId || '',
     description: task?.description || '',
+    deliverableRequired: hasDeliverable,
     expectedDeliverable: task?.expectedDeliverable || '',
-    deliverableTitle: task?.deliverableTitle || '',
-    deliverableDescription: task?.deliverableDescription || '',
-    deliverableUrl: task?.deliverableUrl || '',
+    deliverableSummary: task?.deliverableSummary || task?.deliverableDescription || '',
+    deliverableLocation: task?.deliverableLocation || task?.deliverableUrl || '',
     acceptanceCriteria: task?.acceptanceCriteria || '',
     notes: task?.notes || '',
     codexPrompt: task?.codexPrompt || '',
   };
+}
+
+function labelFor(options, value, fallback = '') {
+  return options.find(([optionValue]) => optionValue === value)?.[1] || fallback || value;
+}
+
+function statusSummary(value) {
+  const normalized = String(value || 'open').toLowerCase();
+  if (normalized === 'complete') return 'Complete';
+  if (normalized === 'archived') return 'Archived';
+  return 'Open';
 }
 
 function TextInput({ label, value, onChange, required = false }) {
@@ -101,6 +121,13 @@ function TextAreaSection({ title, value, onChange, rows = 8, help = '' }) {
   </Card>;
 }
 
+function CollapsibleSection({ title, children }) {
+  return <details className="rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-xl sm:p-5">
+    <summary className="cursor-pointer select-none text-base font-semibold text-slate-100 sm:text-lg">{title}</summary>
+    <div className="mt-4 min-w-0 break-words">{children}</div>
+  </details>;
+}
+
 export function TaskDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -112,6 +139,12 @@ export function TaskDetails() {
     queryKey: ['tasks', id],
     queryFn: () => api.tasks.get(id),
     enabled: Boolean(id),
+    retry: false,
+  });
+
+  const projectsQuery = useQuery({
+    queryKey: ['projects'],
+    queryFn: api.projects.list,
     retry: false,
   });
 
@@ -164,8 +197,16 @@ export function TaskDetails() {
   };
 
   const task = taskQuery.data;
-  const isComplete = String(draft.status || task?.status).toLowerCase() === 'complete';
-  const actionLabel = isComplete ? 'Reopen task' : 'Complete task';
+  const status = String(draft.status || task?.status || 'open').toLowerCase();
+  const isClosed = status === 'complete' || status === 'archived';
+  const project = (projectsQuery.data || []).find((item) => item._id === draft.projectId);
+  const metadata = [
+    labelFor(priorities, draft.priority, 'Should Do'),
+    labelFor(categories, draft.category, 'General'),
+    statusSummary(draft.status),
+    project?.name,
+  ].filter(Boolean).join(' • ');
+  const addDeliverable = () => setDraft((current) => ({ ...current, deliverableRequired: true }));
 
   if (taskQuery.isLoading) return <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-slate-300">Loading task...</div>;
   if (taskQuery.isError) return <div className="space-y-4">
@@ -176,23 +217,70 @@ export function TaskDetails() {
   return <form onSubmit={save} className="space-y-6">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <button type="button" className="mb-3 rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={() => navigate('/tasks')}>Back</button>
+        <button type="button" className="mb-3 rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={() => navigate('/tasks')}>← Back</button>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task workspace</p>
         <h1 className="mt-1 break-words text-2xl font-bold sm:text-3xl">{draft.title || task?.title || 'Task Details'}</h1>
+        {metadata ? <p className="mt-2 text-sm text-slate-400">{metadata}</p> : null}
       </div>
       <div className="flex flex-wrap gap-2">
         <button type="submit" className="rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-500">{saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save'}</button>
-        {isComplete
-          ? <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => reopen.mutate()}>{actionLabel}</button>
-          : <button type="button" className="rounded-lg border border-emerald-500/60 px-4 py-3 font-medium text-emerald-100 hover:bg-emerald-500/10" onClick={() => complete.mutate()}>{actionLabel}</button>}
+        {isClosed
+          ? <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => reopen.mutate()}>Reopen task</button>
+          : <button type="button" className="rounded-lg border border-emerald-500/60 px-4 py-3 font-medium text-emerald-100 hover:bg-emerald-500/10" onClick={() => complete.mutate()}>Complete task</button>}
         <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => archive.mutate()}>Archive task</button>
         <button type="button" className="rounded-lg border border-red-500/60 px-4 py-3 font-medium text-red-100 hover:bg-red-500/10" onClick={() => remove.mutate()}>Delete</button>
       </div>
     </div>
 
-    <Card title="Task Overview">
+    <TextInput label="Title" value={draft.title} onChange={setField('title')} required />
+
+    <TextAreaSection title="Description" value={draft.description} onChange={setField('description')} help="What exactly needs to be done?" />
+
+    {draft.deliverableRequired ? <Card title="Deliverable">
+      <p className="mb-4 text-sm text-slate-400">Optional output attached to this task.</p>
+      <div className="space-y-4">
+        <label className="block text-sm text-slate-300">
+          <span className="mb-1 block text-xs uppercase text-slate-400">Expected Output</span>
+          <textarea
+            aria-label="Expected Output"
+            className="min-h-36 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
+            rows={5}
+            value={draft.expectedDeliverable}
+            onChange={(event) => setField('expectedDeliverable')(event.target.value)}
+          />
+        </label>
+        <label className="block text-sm text-slate-300">
+          <span className="mb-1 block text-xs uppercase text-slate-400">Produced Output</span>
+          <textarea
+            aria-label="Produced Output"
+            className="min-h-28 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
+            rows={4}
+            value={draft.deliverableSummary}
+            onChange={(event) => setField('deliverableSummary')(event.target.value)}
+          />
+        </label>
+        <TextInput label="Link" value={draft.deliverableLocation} onChange={setField('deliverableLocation')} />
+      </div>
+    </Card> : <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-slate-800" onClick={addDeliverable}>+ Add deliverable</button>}
+
+    <TextAreaSection title="Definition of Done" value={draft.acceptanceCriteria} onChange={setField('acceptanceCriteria')} help="What must be true before this task can be completed?" />
+    <TextAreaSection title="Notes" value={draft.notes} onChange={setField('notes')} help="Scratchpad, links, decisions, blockers." />
+
+    <CollapsibleSection title="Codex Prompt">
+      <div className="mb-3 flex justify-end">
+        <button type="button" className="rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={() => navigator.clipboard?.writeText(draft.codexPrompt || '')}>Copy prompt</button>
+      </div>
+      <textarea
+        aria-label="Codex Prompt"
+        className="min-h-48 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
+        rows={8}
+        value={draft.codexPrompt}
+        onChange={(event) => setField('codexPrompt')(event.target.value)}
+      />
+    </CollapsibleSection>
+
+    <CollapsibleSection title="Task Settings">
       <div className="grid gap-4 lg:grid-cols-2">
-        <TextInput label="Title" value={draft.title} onChange={setField('title')} required />
         <SelectInput label="Status" value={draft.status} options={statuses} onChange={setField('status')} />
         <SelectInput label="Priority" value={draft.priority} options={priorities} onChange={setField('priority')} />
         <SelectInput label="Category" value={draft.category} options={categories} onChange={setField('category')} />
@@ -200,40 +288,6 @@ export function TaskDetails() {
           <TextInput label="Related Project" value={draft.projectId} onChange={setField('projectId')} />
         </div>
       </div>
-    </Card>
-
-    <TextAreaSection title="Description" value={draft.description} onChange={setField('description')} help="Execution context for the work to do." />
-
-    <Card title="Deliverable">
-      <p className="mb-4 text-sm text-slate-400">Optional output details attached to this task. Completing the task is the lifecycle event.</p>
-      <div className="space-y-4">
-        <label className="block text-sm text-slate-300">
-          <span className="mb-1 block text-xs uppercase text-slate-400">Expected Deliverable</span>
-          <textarea
-            aria-label="Expected Deliverable"
-            className="min-h-36 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
-            rows={5}
-            value={draft.expectedDeliverable}
-            onChange={(event) => setField('expectedDeliverable')(event.target.value)}
-          />
-        </label>
-        <TextInput label="Produced Deliverable Title" value={draft.deliverableTitle} onChange={setField('deliverableTitle')} />
-        <TextInput label="Produced Deliverable Link" value={draft.deliverableUrl} onChange={setField('deliverableUrl')} />
-        <label className="block text-sm text-slate-300">
-          <span className="mb-1 block text-xs uppercase text-slate-400">Produced Deliverable Notes</span>
-          <textarea
-            aria-label="Produced Deliverable Notes"
-            className="min-h-36 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
-            rows={5}
-            value={draft.deliverableDescription}
-            onChange={(event) => setField('deliverableDescription')(event.target.value)}
-          />
-        </label>
-      </div>
-    </Card>
-
-    <TextAreaSection title="Acceptance Criteria" value={draft.acceptanceCriteria} onChange={setField('acceptanceCriteria')} />
-    <TextAreaSection title="Notes" value={draft.notes} onChange={setField('notes')} />
-    <TextAreaSection title="Codex Prompt" value={draft.codexPrompt} onChange={setField('codexPrompt')} rows={10} />
+    </CollapsibleSection>
   </form>;
 }

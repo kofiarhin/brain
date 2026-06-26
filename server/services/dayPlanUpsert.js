@@ -63,20 +63,21 @@ function generatedExpectedDeliverable(title, item, field) {
     const explicit = (item.expectedDeliverable || item.deliverable || item.output || '').trim();
     if (explicit) return explicit;
   }
-  return field === 'deliverables' ? title : `Finished outcome for: ${title}`;
+  return field === 'deliverables' ? title : '';
 }
 
-function generatedAcceptanceCriteria(title, item) {
+function generatedAcceptanceCriteria(title, item, field) {
   if (item && typeof item === 'object') {
     const criteria = item.acceptanceCriteria || item.criteria || item.definitionOfDone;
     if (Array.isArray(criteria)) return criteria.filter(Boolean).join('\n');
     if (typeof criteria === 'string' && criteria.trim()) return criteria.trim();
   }
-  return [
+  const criteria = [
     `${title} is completed.`,
-    'Expected deliverable exists.',
     'Result has been reviewed or checked.',
-  ].join('\n');
+  ];
+  if (field === 'deliverables') criteria.splice(1, 0, 'Expected deliverable exists.');
+  return criteria.join('\n');
 }
 
 function generatedCodexPrompt(title, item) {
@@ -100,8 +101,11 @@ export function tasksFromDayPlan(plan, londonDate, dueDate) {
         title,
         normalizedTitle,
         description: generatedDescription(title, item, field),
+        deliverableRequired: field === 'deliverables' || Boolean(item && typeof item === 'object' && (item.expectedDeliverable || item.deliverable || item.output)),
         expectedDeliverable: generatedExpectedDeliverable(title, item, field),
-        acceptanceCriteria: generatedAcceptanceCriteria(title, item),
+        deliverableSummary: '',
+        deliverableLocation: '',
+        acceptanceCriteria: generatedAcceptanceCriteria(title, item, field),
         notes: '',
         codexPrompt: generatedCodexPrompt(title, item),
         dueDate,
