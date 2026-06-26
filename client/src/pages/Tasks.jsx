@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useResource } from '../hooks/useResource';
 import { Card } from '../components/Card';
 import { getLondonDateKey } from '../utils/londonDate';
@@ -69,6 +69,23 @@ function wasCompletedToday(task, todayLondonDate = getLondonDateKey()) {
   return completedStatuses.has(String(task.status || '').toLowerCase()) && getLondonDateKey(task.completedAt) === todayLondonDate;
 }
 
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
 function CompletedTaskCard({ task, tasks }) {
   return <li className="rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20">
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -91,6 +108,14 @@ function TaskCard({ task, tasks }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftCategory, setDraftCategory] = useState(taskCategory);
   const [draftAgentReady, setDraftAgentReady] = useState(isAgentReady);
+  const [copyStatus, setCopyStatus] = useState('idle');
+  const copyResetRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetRef.current) clearTimeout(copyResetRef.current);
+    };
+  }, []);
 
   const startEditing = () => {
     setDraftCategory(taskCategory);
@@ -102,6 +127,21 @@ function TaskCard({ task, tasks }) {
     setDraftCategory(taskCategory);
     setDraftAgentReady(isAgentReady);
     setIsEditing(false);
+  };
+
+  const resetCopyStatusSoon = (status) => {
+    setCopyStatus(status);
+    if (copyResetRef.current) clearTimeout(copyResetRef.current);
+    copyResetRef.current = setTimeout(() => setCopyStatus('idle'), 2000);
+  };
+
+  const copyTitle = async () => {
+    try {
+      await copyTextToClipboard(task.title || '');
+      resetCopyStatusSoon('copied');
+    } catch {
+      resetCopyStatusSoon('failed');
+    }
   };
 
   const saveEditing = async () => {
@@ -123,6 +163,7 @@ function TaskCard({ task, tasks }) {
         </div>
       </div>
       <div className="flex flex-wrap gap-2 md:justify-end">
+        <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={copyTitle}>{copyStatus === 'copied' ? 'Copied!' : copyStatus === 'failed' ? 'Copy failed' : 'Copy'}</button>
         <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.complete.mutate(task._id)}>Complete</button>
         <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.reopen.mutate(task._id)}>Reopen</button>
         <button className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700" onClick={() => tasks.archive.mutate(task._id)}>Archive</button>
