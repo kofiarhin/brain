@@ -3,7 +3,30 @@ import { jest } from '@jest/globals';
 
 function fakeModel(name) {
   let records = [];
-  const clone = (item) => ({ ...item });
+  const clone = (item) => (item ? { ...item } : item);
+  const valueAtPath = (item, path) => path.split('.').reduce((current, key) => current?.[key], item);
+  const matchesQuery = (item, query = {}) => Object.entries(query).every(([key, expected]) => {
+    const actual = valueAtPath(item, key);
+    if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
+      if ('$nin' in expected) return !expected.$nin.includes(actual);
+      if ('$gte' in expected && new Date(actual) < new Date(expected.$gte)) return false;
+      if ('$lt' in expected && new Date(actual) >= new Date(expected.$lt)) return false;
+      return true;
+    }
+    return actual === expected;
+  });
+  const sortRecords = (items, sort = {}) => [...items].sort((left, right) => {
+    for (const [field, direction] of Object.entries(sort)) {
+      const leftValue = valueAtPath(left, field);
+      const rightValue = valueAtPath(right, field);
+      if (leftValue === rightValue) continue;
+      if ((leftValue === undefined || leftValue === null) && (rightValue === undefined || rightValue === null)) continue;
+      if (leftValue === undefined || leftValue === null) return 1;
+      if (rightValue === undefined || rightValue === null) return -1;
+      return (leftValue < rightValue ? -1 : 1) * direction;
+    }
+    return 0;
+  });
   return class FakeModel {
     static modelName = name;
     static reset() { records = []; }
@@ -55,7 +78,7 @@ function fakeModel(name) {
       records.push(item);
       return clone(item);
     }
-    static find() { return { sort: async () => records.map(clone).reverse() }; }
+    static find(query = {}) { return { sort: async (sort) => sortRecords(records.filter((item) => matchesQuery(item, query)), sort).map(clone) }; }
     static async findById(id) { return records.find((item) => item._id === id) || null; }
     static async findByIdAndUpdate(id, payload) {
       const index = records.findIndex((item) => item._id === id);
@@ -70,7 +93,7 @@ function fakeModel(name) {
       const [removed] = records.splice(index, 1);
       return clone(removed);
     }
-    static findOne() { return { sort: async () => records.slice().sort((a, b) => new Date(b.date) - new Date(a.date))[0] || null }; }
+    static findOne(query = {}) { return { sort: async (sort) => clone(sortRecords(records.filter((item) => matchesQuery(item, query)), sort)[0] || null) }; }
   };
 }
 
@@ -238,6 +261,85 @@ describe('latest day plan endpoint', () => {
     await request(app).post('/api/day-plans').send({ date: '2026-06-22', focus: 'Yesterday' }).expect(201);
     await request(app).post('/api/day-plans').send({ date: '2026-06-23', focus: 'Today' }).expect(201);
     expect((await request(app).get('/api/day-plans/latest').expect(200)).body.focus).toBe('Today');
+  });
+
+  test('returns active plan before more recent inactive plan', async () => {
+    await request(app).post('/api/day-plans').send({
+      date: '2026-06-26T08:00:00.000Z',
+      startTime: '2026-06-26T08:00:00.000Z',
+      status: 'active',
+      focus: 'Active session',
+    }).expect(201);
+    await request(app).post('/api/day-plans').send({
+      date: '2026-06-26T12:00:00.000Z',
+      startTime: '2026-06-26T12:00:00.000Z',
+      status: 'completed',
+      focus: 'Completed session',
+    }).expect(201);
+
+    expect((await request(app).get('/api/day-plans/latest').expect(200)).body.focus).toBe('Active session');
+  });
+
+  test('legacy day plans without session fields still work', async () => {
+    await request(app).post('/api/day-plans').send({ date: '2026-06-22', focus: 'Legacy' }).expect(201);
+    const latest = await request(app).get('/api/day-plans/latest').expect(200);
+
+    expect(latest.body.focus).toBe('Legacy');
+    expect(latest.body.status).toBeUndefined();
+  });
+});
+
+describe('day plan sessions', () => {
+  test('start day creates a plan from now to now plus 8 hours', async () => {
+    const now = '2026-06-26T13:15:00.000Z';
+    const response = await request(app).post('/api/day-plans/start').send({ now }).expect(201);
+
+    expect(response.body.startTime).toBe(now);
+    expect(response.body.endTime).toBe('2026-06-26T21:15:00.000Z');
+    expect(response.body.status).toBe('active');
+    expect(response.body.sessionType).toBe('start');
+  });
+
+  test('restart day finds the active plan and creates a restarted plan', async () => {
+    const active = await request(app).post('/api/day-plans/start').send({ now: '2026-06-26T08:00:00.000Z' }).expect(201);
+    const restarted = await request(app).post('/api/day-plans/restart').send({ now: '2026-06-26T12:30:00.000Z' }).expect(201);
+
+    expect(restarted.body.startTime).toBe('2026-06-26T12:30:00.000Z');
+    expect(restarted.body.endTime).toBe('2026-06-26T20:30:00.000Z');
+    expect(restarted.body.status).toBe('active');
+    expect(restarted.body.sessionType).toBe('restart');
+    expect(restarted.body.sourcePlanId).toBe(active.body._id);
+    expect((await request(app).get(`/api/day-plans/${active.body._id}`).expect(200)).body.status).toBe('restarted');
+  });
+
+  test('completed items are excluded from restarted plans', async () => {
+    await request(app).post('/api/tasks').send({ title: 'Already done', status: 'complete', priority: 'must' }).expect(201);
+    await request(app).post('/api/tasks').send({ title: 'Carry forward', status: 'open', priority: 'must' }).expect(201);
+    await request(app).post('/api/day-plans').send({
+      date: '2026-06-26T08:00:00.000Z',
+      startTime: '2026-06-26T08:00:00.000Z',
+      endTime: '2026-06-26T16:00:00.000Z',
+      status: 'active',
+      sessionType: 'start',
+      mustDo: ['Already done', 'Carry forward'],
+    }).expect(201);
+
+    const restarted = await request(app).post('/api/day-plans/restart').send({ now: '2026-06-26T12:00:00.000Z' }).expect(201);
+
+    expect(restarted.body.mustDo).toContain('Carry forward');
+    expect(restarted.body.mustDo).not.toContain('Already done');
+    expect(restarted.body.carriedForwardItems).toContain('Carry forward');
+    expect(restarted.body.carriedForwardItems).not.toContain('Already done');
+    expect(restarted.body.completedItems).toContain('Already done');
+  });
+
+  test('multiple plans can exist on the same londonDate', async () => {
+    await request(app).post('/api/day-plans/start').send({ now: '2026-06-26T08:00:00.000Z' }).expect(201);
+    await request(app).post('/api/day-plans/start').send({ now: '2026-06-26T14:00:00.000Z' }).expect(201);
+
+    const plans = await request(app).get('/api/day-plans').expect(200);
+    expect(plans.body).toHaveLength(2);
+    expect(plans.body.map((plan) => plan.londonDate)).toEqual(['2026-06-26', '2026-06-26']);
   });
 });
 

@@ -65,6 +65,10 @@ Tasks and deliverables also support:
 Day plans support:
 
 - `GET /api/day-plans/latest`
+- `POST /api/day-plans/start`
+- `POST /api/day-plans/restart`
+
+`start` creates an active 8-hour session from the current runtime. `restart` marks the current active plan as restarted and creates a new active 8-hour session carrying forward only unfinished work.
 
 ## Project Execution Loop
 

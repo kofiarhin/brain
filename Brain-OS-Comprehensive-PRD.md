@@ -1,10 +1,10 @@
 
 # Brain OS v2 – Comprehensive Product Requirements Document (PRD)
 
-**Version:** 1.0  
+**Version:** 1.1
 **Status:** Living document / Source of Truth  
 **Derived From:** Current repository implementation (`brain`)  
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-06-26
 
 ---
 
@@ -118,7 +118,7 @@ Reference information and background knowledge.
 Retrospectives and reflection entries.
 
 ### Day Plans
-Daily execution plans.
+Dynamic execution sessions. A plan is no longer tied to a fixed 04:00 start or a single plan per London calendar day. Day planning is session-based and can be started or restarted whenever the user begins an execution block.
 
 ---
 
@@ -226,9 +226,57 @@ Daily execution plans.
 ## 7.9 Day Planning Module
 
 ### Users can:
-- Create day plans
-- Retrieve latest plan
-- Maintain historical plans
+- Start a new day planning session at the current runtime.
+- Restart the current active planning session from the current runtime.
+- Retrieve the latest active plan.
+- Maintain historical plans, including restarted sessions.
+- Review the active plan window, status, and session type in the frontend.
+
+### Session Rules
+- `start day` creates a brand-new active session.
+- `restart day` rebuilds the current active session.
+- `startTime` is the command runtime.
+- `endTime` is exactly 8 hours after `startTime`.
+- Planning does not depend on a fixed 04:00 schedule.
+- Multiple sessions may exist on the same `londonDate`.
+- `londonDate` remains for grouping and display only.
+- Sessions may cross midnight and still remain valid.
+
+### Context Filtering
+When starting or restarting a session, the system must inspect:
+- Tasks
+- Deliverables
+- Prior day plans
+- Context entries, when available
+
+The generated session should include:
+- Incomplete must-do items.
+- Unfinished priorities.
+- Active tasks.
+- Incomplete deliverables.
+- Relevant context.
+
+The generated session must exclude:
+- Completed tasks.
+- Completed deliverables.
+- Archived work.
+- Work recorded as completed or accomplished in the prior active session.
+
+### Restart Behavior
+- A restart must find the current active plan.
+- The previous active plan must be marked `restarted` or safely replaced while preserving history.
+- The new plan must set `sessionType` to `restart`.
+- The new plan must link back to the previous plan with `sourcePlanId`.
+- Only unfinished, active, relevant work is carried forward.
+- Completed work must not be reintroduced.
+
+### Acceptance Criteria
+- Running `start day` at any time creates an active 8-hour session from that exact runtime.
+- Running `restart day` creates a new active 8-hour session from the current runtime.
+- Completed/accomplished work is not reintroduced after restart.
+- Multiple plans can exist on the same London calendar date.
+- Midnight and cross-day sessions work.
+- Existing legacy day plans render and can still be retrieved.
 
 ---
 
@@ -237,9 +285,20 @@ Daily execution plans.
 ## Morning Workflow
 
 1. Open dashboard.
-2. Review latest day plan.
+2. Start or review the latest active day planning session.
 3. Review tasks and deliverables.
 4. Execute priorities.
+
+---
+
+## Session Restart Workflow
+
+1. Complete or abandon part of the active session.
+2. Run `restart day`.
+3. System reads the current active plan, tasks, deliverables, prior plans, and context.
+4. System marks the previous active plan as restarted.
+5. System creates a new active 8-hour session from the current runtime.
+6. User executes only unfinished, relevant work.
 
 ---
 
@@ -360,7 +419,30 @@ Represents supporting information and memory.
 Represents reflection and learning.
 
 ## Day Plan
-Represents daily execution planning.
+Represents a dynamic execution planning session.
+
+Fields:
+- `date`: Date used by legacy plans and fallback sorting.
+- `londonDate`: London calendar date used for grouping/display only.
+- `startTime`: Session start timestamp.
+- `endTime`: Session end timestamp, exactly 8 hours after `startTime`.
+- `status`: `active`, `completed`, `restarted`, or `archived`.
+- `sessionType`: `start` or `restart`.
+- `sourcePlanId`: Previous active plan when the session is a restart.
+- `completedItems`: Work known to be completed/accomplished and excluded from restart planning.
+- `carriedForwardItems`: Unfinished active work carried into the current session.
+- `focus`: Primary focus statement.
+- `priorities`: Top priorities.
+- `schedule`: Session schedule entries.
+- `mustDo`: Highest priority work.
+- `shouldDo`: Secondary work.
+- `niceToHave`: Optional work.
+- `forgotten`: Possible open loops.
+- `deliverables`: Expected outputs.
+- `winCondition`: Criteria for a successful session.
+- `insight`: Planning insight.
+- `motivationalPost`: Motivational message and quotes.
+- `unclearItems`: Missing or contradictory information.
 
 ---
 
@@ -394,6 +476,17 @@ PATCH:
 GET:
 - latest
 
+POST:
+- start
+- restart
+
+### Day Plan API Behavior
+- `POST /api/day-plans/start` creates a new active 8-hour planning session.
+- `POST /api/day-plans/restart` marks the current active plan as `restarted` and creates a new active 8-hour planning session.
+- `GET /api/day-plans/latest` returns the latest active plan first. If no active plan exists, it returns the most recent plan.
+- Existing CRUD routes continue to work.
+- The API must not expose AI orchestration endpoints such as `/api/plan-day`, `/api/update-life`, or `/api/brain/*`.
+
 ---
 
 # 12. Non-Functional Requirements
@@ -407,9 +500,11 @@ GET:
 
 ## Maintainability
 - Generic controllers reduce duplication.
+- Session planning logic belongs in backend services/routes, not React components.
 
 ## Extensibility
 - External AI services can integrate without modifying the web UI.
+- External AI/Codex workflows can call day plan session endpoints and persist results while preserving the frontend as a display and CRUD layer.
 
 ## Simplicity
 - Keep business logic minimal in frontend.
@@ -436,6 +531,9 @@ Future requirements:
 
 ## Schema Drift
 AI tools may write inconsistent data.
+
+## Legacy Index Drift
+Existing deployments may have a unique `londonDate` index from earlier day planning behavior. The system must relax or remove this uniqueness so multiple sessions can exist on the same London date.
 
 ## Lack of Authentication
 System unsuitable for public multi-user deployment.
@@ -477,6 +575,8 @@ Automation engine.
 - Deliverables shipped
 - Reviews created
 - Consistent day planning
+- Successful session starts and restarts
+- Fewer duplicated or reintroduced completed tasks
 - Reduced information fragmentation
 
 ---
