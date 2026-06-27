@@ -101,11 +101,26 @@ function CompletedTaskCard({ task }) {
   </li>;
 }
 
-function TaskCard({ task }) {
-  return <li>
-    <a href={`/tasks/${task._id}`} className="block rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20 transition hover:border-blue-500/50 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950">
+function TaskCard({ task, onComplete, isCompleting = false }) {
+  const completeTask = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onComplete(task._id);
+  };
+
+  return <li className="relative rounded-lg border border-slate-700/80 bg-slate-800/80 shadow-sm shadow-slate-950/20 transition hover:border-blue-500/50 hover:bg-slate-800 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 focus-within:ring-offset-slate-950">
+    <a href={`/tasks/${task._id}`} aria-label={task.title} className="absolute inset-0 z-0 rounded-lg focus:outline-none" />
+    <div className="relative z-10 flex flex-col gap-4 p-4 pointer-events-none sm:flex-row sm:items-start sm:justify-between">
       <TaskSummary task={task} />
-    </a>
+      <button
+        type="button"
+        className="pointer-events-auto w-full rounded-full border border-emerald-500/60 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        disabled={isCompleting}
+        onClick={completeTask}
+      >
+        {isCompleting ? 'Completing...' : 'Complete'}
+      </button>
+    </div>
   </li>;
 }
 
@@ -119,6 +134,7 @@ export function Tasks() {
   const todayLondonDate = getLondonDateKey();
   const completedItems = items.filter((task) => wasCompletedToday(task, todayLondonDate));
   const filteredItems = tasksForTab(selectedTab, items);
+  const completingTaskId = tasks.complete.isPending ? tasks.complete.variables : null;
 
   const save = async (event) => {
     event.preventDefault();
@@ -173,7 +189,7 @@ export function Tasks() {
     }) : groups.map(([priority, groupTitle]) => {
       const groupItems = filteredItems.filter((task) => normalizePriority(task.priority) === priority);
       if (groupItems.length === 0) return null;
-      return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} />)}</ul></Card>;
+      return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} onComplete={tasks.complete.mutate} isCompleting={completingTaskId === task._id} />)}</ul></Card>;
     })}
     {selectedTab === 'completed' && completedItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No tasks completed today.</p> : null}
     {selectedTab !== 'completed' && filteredItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No open tasks in this tab.</p> : null}

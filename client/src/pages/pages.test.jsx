@@ -36,13 +36,46 @@ describe('Tasks page', () => {
     expect(getLondonDateKey('2026-06-25T22:30:00.000Z')).toBe('2026-06-25');
   });
 
-  test('keeps task lifecycle controls off the overview cards', async () => {
+  test('shows complete shortcuts on open overview cards', async () => {
     global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Must task', priority: 'must', status: 'open' }] });
     render(<Tasks />, { wrapper: wrapper() });
     expect(await screen.findByText('Must task')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Complete' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Complete' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Must task/ })).toHaveAttribute('href', '/tasks/1');
+  });
+
+  test('completes a task from the overview without navigating and refreshes tabs', async () => {
+    const today = new Date().toISOString();
+    let completed = false;
+    window.history.pushState({}, '', '/tasks');
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/tasks/1/complete') && options?.method === 'PATCH') {
+        completed = true;
+        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Shortcut task', priority: 'must', status: 'complete', category: 'projects', completedAt: today }) });
+      }
+      if (url.includes('/tasks')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => completed
+            ? [{ _id: '1', title: 'Shortcut task', priority: 'must', status: 'complete', category: 'projects', completedAt: today }]
+            : [{ _id: '1', title: 'Shortcut task', priority: 'must', status: 'open', category: 'projects' }],
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByText('Shortcut task')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Complete' }));
+
+    expect(window.location.pathname).toBe('/tasks');
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/complete'), expect.objectContaining({ method: 'PATCH' })));
+    await waitFor(() => expect(screen.queryByText('Shortcut task')).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: /Completed 1/ }));
+    expect(await screen.findByText('Shortcut task')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Complete' })).not.toBeInTheDocument();
   });
 
   test('filters tasks by category and agent readiness', async () => {
