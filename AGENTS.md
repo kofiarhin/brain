@@ -77,7 +77,7 @@ These routing rules override every other instruction in this document.
 
 - Frontend = CRUD only. It saves data to MongoDB, retrieves data from MongoDB, and displays generated data.
 - MongoDB = source of truth for notes, tasks, day plans, reviews, goals, projects, ideas, and context.
-- Codex CLI = AI layer. Manual commands such as `update life`, `update brain`, `plan my day`, and `morning briefing` read from MongoDB, run the AI workflow, and write back to MongoDB.
+- Codex CLI = AI layer. Manual commands such as `update life`, `update brain`, `good morning`,`plan my day`, and `morning briefing` read from MongoDB, run the AI workflow, and write back to MongoDB.
 - The frontend must not run AI pipelines, classify notes, determine priorities, call OpenAI, trigger `update life`/`update brain`, or trigger `plan my day`.
 - Do not add backend routes such as `POST /api/update-life`, `POST /api/plan-day`, or `POST /api/brain/*`.
 - Markdown files are exports/snapshots only, not the source of truth.
