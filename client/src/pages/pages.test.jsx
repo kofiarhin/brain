@@ -40,9 +40,49 @@ describe('Tasks page', () => {
     global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Must task', priority: 'must', status: 'open' }] });
     render(<Tasks />, { wrapper: wrapper() });
     expect(await screen.findByText('Must task')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy task title' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Complete' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Must task/ })).toHaveAttribute('href', '/tasks/1');
+  });
+
+  test('renders copy buttons for every open task card', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        { _id: '1', title: 'First open task', priority: 'must', status: 'open' },
+        { _id: '2', title: 'Second open task', priority: 'should', status: 'open' },
+        { _id: '3', title: 'Completed task', priority: 'nice', status: 'complete', completedAt: new Date().toISOString() },
+      ],
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByText('First open task')).toBeInTheDocument();
+    expect(screen.getByText('Second open task')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Copy task title' })).toHaveLength(2);
+  });
+
+  test('copies a task title without navigating or completing the task', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    window.history.pushState({}, '', '/tasks');
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [{ _id: '1', title: 'Copyable task', priority: 'must', status: 'open' }],
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByText('Copyable task')).toBeInTheDocument();
+    const copyButton = screen.getByRole('button', { name: 'Copy task title' });
+    await userEvent.click(copyButton);
+
+    expect(writeText).toHaveBeenCalledWith('Copyable task');
+    expect(window.location.pathname).toBe('/tasks');
+    expect(global.fetch).not.toHaveBeenCalledWith(expect.stringContaining('/tasks/1/complete'), expect.objectContaining({ method: 'PATCH' }));
+    await waitFor(() => expect(copyButton).toHaveAttribute('title', 'Copied'));
   });
 
   test('completes a task from the overview without navigating and refreshes tabs', async () => {
@@ -76,6 +116,7 @@ describe('Tasks page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Completed 1/ }));
     expect(await screen.findByText('Shortcut task')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Complete' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy task title' })).not.toBeInTheDocument();
   });
 
   test('filters tasks by category and agent readiness', async () => {

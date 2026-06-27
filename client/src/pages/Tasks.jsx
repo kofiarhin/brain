@@ -102,6 +102,23 @@ function CompletedTaskCard({ task }) {
 }
 
 function TaskCard({ task, onComplete, isCompleting = false }) {
+  const [copyStatus, setCopyStatus] = useState('idle');
+
+  const copyTaskTitle = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      await navigator.clipboard.writeText(task.title);
+      setCopyStatus('copied');
+      window.setTimeout(() => setCopyStatus('idle'), 1600);
+    } catch (error) {
+      setCopyStatus('failed');
+      window.setTimeout(() => setCopyStatus('idle'), 1600);
+      console.warn('Unable to copy task title', error);
+    }
+  };
+
   const completeTask = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -112,14 +129,30 @@ function TaskCard({ task, onComplete, isCompleting = false }) {
     <a href={`/tasks/${task._id}`} aria-label={task.title} className="absolute inset-0 z-0 rounded-lg focus:outline-none" />
     <div className="relative z-10 flex flex-col gap-4 p-4 pointer-events-none sm:flex-row sm:items-start sm:justify-between">
       <TaskSummary task={task} />
-      <button
-        type="button"
-        className="pointer-events-auto w-full rounded-full border border-emerald-500/60 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-        disabled={isCompleting}
-        onClick={completeTask}
-      >
-        {isCompleting ? 'Completing...' : 'Complete'}
-      </button>
+      <div className="pointer-events-auto flex w-full items-center gap-2 sm:w-auto">
+        <button
+          type="button"
+          aria-label="Copy task title"
+          title={copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy failed' : 'Copy task title'}
+          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-slate-100 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950 ${copyStatus === 'copied' ? 'border-blue-400/70 bg-blue-500/15' : 'border-slate-600 hover:border-blue-500/60 hover:bg-blue-500/10'}`}
+          onClick={copyTaskTitle}
+        >
+          {copyStatus === 'copied' ? <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg> : <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="9" width="11" height="11" rx="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>}
+        </button>
+        <button
+          type="button"
+          className="w-full rounded-full border border-emerald-500/60 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          disabled={isCompleting}
+          onClick={completeTask}
+        >
+          {isCompleting ? 'Completing...' : 'Complete'}
+        </button>
+      </div>
     </div>
   </li>;
 }
