@@ -288,6 +288,25 @@ describe('projects CRUD', () => {
     expect(updated.body.blockers).toEqual([]);
     expect(updated.body.nextActionableSteps[0].title).toBe('Manual review');
   });
+
+  test('deletes one project without affecting others', async () => {
+    const target = await request(app)
+      .post('/api/projects')
+      .send({ name: 'Peekofo Telegram Integration' })
+      .expect(201);
+    const other = await request(app)
+      .post('/api/projects')
+      .send({ name: 'Brain OS' })
+      .expect(201);
+
+    await request(app).delete(`/api/projects/${target.body._id}`).expect(204);
+    await request(app).get(`/api/projects/${target.body._id}`).expect(404);
+
+    const remaining = await request(app).get('/api/projects').expect(200);
+    expect(remaining.body).toHaveLength(1);
+    expect(remaining.body[0]._id).toBe(other.body._id);
+    expect(remaining.body[0].name).toBe('Brain OS');
+  });
 });
 
 describe('latest day plan endpoint', () => {

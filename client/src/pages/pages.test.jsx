@@ -412,6 +412,7 @@ describe('Projects page', () => {
     expect(screen.getByText('Progress Updates / History')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /edit project/i }));
     expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Danger Zone' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /delete project/i })).toBeInTheDocument();
   });
 
@@ -456,7 +457,8 @@ describe('Projects page', () => {
     expect(projectName).toHaveValue('');
     expect(projectName).toBeEnabled();
     expect(screen.getByRole('button', { name: /save project/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /delete project/i })).toBeDisabled();
+    expect(screen.queryByRole('heading', { name: 'Danger Zone' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /delete project/i })).not.toBeInTheDocument();
 
     await userEvent.type(projectName, 'Created Project');
     await userEvent.click(screen.getByRole('button', { name: /save project/i }));
@@ -468,6 +470,41 @@ describe('Projects page', () => {
       priority: 'medium',
       executionState: 'planning',
     }));
+  });
+
+  test('deletes an existing project from the danger zone after confirmation', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let deleted = false;
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/projects/p1') && options?.method === 'DELETE') {
+        deleted = true;
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      if (url.includes('/projects')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => deleted
+            ? [{ _id: 'p2', name: 'Brain OS', status: 'active', priority: 'medium', executionState: 'planning' }]
+            : [
+              { _id: 'p1', name: 'Peekofo Telegram Integration', status: 'active', priority: 'high', executionState: 'in_progress' },
+              { _id: 'p2', name: 'Brain OS', status: 'active', priority: 'medium', executionState: 'planning' },
+            ],
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<Projects />, { wrapper: wrapper() });
+
+    expect(await screen.findByDisplayValue('Peekofo Telegram Integration')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /edit project/i }));
+    expect(screen.getByRole('heading', { name: 'Danger Zone' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /delete project/i }));
+
+    expect(confirm).toHaveBeenCalledWith('Delete "Peekofo Telegram Integration"? This cannot be undone.');
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/projects/p1'), expect.objectContaining({ method: 'DELETE' })));
+    await waitFor(() => expect(screen.queryByText('Peekofo Telegram Integration')).not.toBeInTheDocument());
+    expect(screen.getByDisplayValue('Brain OS')).toBeInTheDocument();
   });
 });
 

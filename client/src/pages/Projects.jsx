@@ -82,7 +82,11 @@ function fromLines(value) {
 
 export function Projects() {
   const { data = [], isLoading, create, update, remove } = useResource('projects');
-  const projects = useMemo(() => data ?? [], [data]);
+  const [deletedProjectIds, setDeletedProjectIds] = useState(() => new Set());
+  const projects = useMemo(
+    () => (data ?? []).filter((project) => !deletedProjectIds.has(project._id)),
+    [data, deletedProjectIds]
+  );
   const [selectedId, setSelectedId] = useState('');
   const [form, setForm] = useState(createEmptyProject);
   const [isEditing, setIsEditing] = useState(false);
@@ -172,11 +176,19 @@ export function Projects() {
 
   const deleteProject = async () => {
     if (!selectedProject?._id || isDeleting) return;
+    const confirmed = window.confirm(`Delete "${selectedProject.name}"? This cannot be undone.`);
+    if (!confirmed) return;
+
     setFeedback('Deleting project...');
+    const deletedId = selectedProject._id;
+    const remainingProjects = projects.filter((project) => project._id !== deletedId);
+    const nextProject = remainingProjects[0];
+
     try {
-      await remove.mutateAsync(selectedProject._id);
-      setSelectedId('');
-      setForm(createEmptyProject());
+      await remove.mutateAsync(deletedId);
+      setDeletedProjectIds((current) => new Set([...current, deletedId]));
+      setSelectedId(nextProject?._id ?? '');
+      setForm(nextProject ? normalizeProject(nextProject) : createEmptyProject());
       setIsCreatingNew(false);
       setIsEditing(false);
       setFeedback('Project deleted.');
@@ -349,10 +361,20 @@ export function Projects() {
             {isSaving && <Spinner />}
             {isSaving ? 'Saving...' : selectedProject ? 'Save changes' : 'Save project'}
           </button>
-          <button className="rounded-lg border border-red-500/70 px-4 py-2 text-sm font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-40" disabled={!selectedProject || isSaving || isDeleting} type="button" onClick={deleteProject}>
+        </div>}
+
+        {selectedProject && !isCreatingNew && <section className="rounded-lg border border-red-500/40 bg-red-950/20 p-4">
+          <h2 className="mb-2 text-base font-semibold text-red-100">Danger Zone</h2>
+          <p className="mb-3 text-sm text-red-200/80">Delete this project permanently. Other projects are not affected.</p>
+          <button
+            className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isSaving || isDeleting}
+            type="button"
+            onClick={deleteProject}
+          >
             {isDeleting ? 'Deleting...' : 'Delete project'}
           </button>
-        </div>}
+        </section>}
       </form>
     </div>
   </div>;
