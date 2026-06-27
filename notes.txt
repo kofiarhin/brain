@@ -1,0 +1,1 @@
+-reveiw how to add skill to codex whether .agents/skill-name/skill.md or .agents/skill-name.md

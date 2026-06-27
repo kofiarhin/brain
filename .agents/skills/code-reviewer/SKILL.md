@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Read-only code review subagent for this repository.
+description: Read-only code review skill for this repository.
 ---
 
 # code-reviewer
