@@ -1,0 +1,31 @@
+Update brain summary - 2026-06-27
+
+Ran the Brain Maintenance workflow for the `update brain` command against MongoDB using `MONGODB_URI` from `.env`.
+
+What was done:
+- Read the required MongoDB collections: notes, goals, projects, ideas, contextitems, reviews, tasks, dayplans, and brain update reports.
+- Rebuilt working context from MongoDB instead of relying on conversation context or markdown files.
+- Reviewed 18 raw notes and confirmed most note content had already been organized by previous update runs.
+- Preserved all raw notes. No notes were cleared or archived.
+- Created one new active project: `Peekofo Telegram Integration`.
+- Linked four existing Telegram/Peekofo tasks to the new `Peekofo Telegram Integration` project:
+  - `Decide Telegram authentication approach for platform users`
+  - `Connect platform contact messages to Telegram`
+  - `Support mentorship subscription messages through Telegram`
+  - `Research Telegram bot integration for Peekofo contact and mentorship messages`
+- Skipped 16 items because they were already represented in MongoDB.
+- Created exactly one `BrainUpdateReport` with status `success`.
+
+Verification:
+- Latest `BrainUpdateReport` ID: `6a3f5ffe0963b88a75747567`
+- New `Peekofo Telegram Integration` project ID: `6a3f5ffd0963b88a75747556`
+- Raw notes count remained `18`.
+- `dayplans` count remained `5`.
+- Created `0` DayPlan records.
+- The `update brain` hard invariant was satisfied: exactly one report was created and no day plan was generated or saved.
+
+Recommended next actions captured in the report:
+- Keep raw notes intact until an explicit archive or clear command is given.
+- Review open Brain App tasks for authentication, workflow testing, code review, and Playwright frontend validation.
+- Confirm the Telegram integration project next action before implementing contact-message routing.
+- Close the remaining Ato circumcision logistics loop by confirming Prince, route, and Luna care.

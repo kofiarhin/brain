@@ -22,7 +22,7 @@ These commands rebuild working context from MongoDB, process and organize inform
 Brain Maintenance commands must:
 
 - Connect to MongoDB using `MONGODB_URI` from `.env`.
-- Rebuild working context from MongoDB.
+- Rebuild working context from MongoDB and @\_context/summary.txt(if file exist).
 - Read every required collection.
 - Classify notes.
 - Update the relevant MongoDB collections.
