@@ -99,3 +99,6 @@ Projects are stored in MongoDB and edited through the CRUD-only frontend. Codex 
 7. The next day plan reads the updated project state and repeats the loop.
 
 No frontend AI generation is part of this loop.
+# Live Demo
+
+[Live demo](https://brain-pi-black.vercel.app/)
