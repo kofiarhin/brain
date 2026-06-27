@@ -12,6 +12,7 @@ function fakeModel(name) {
       if ('$nin' in expected) return !expected.$nin.includes(actual);
       if ('$gte' in expected && new Date(actual) < new Date(expected.$gte)) return false;
       if ('$lt' in expected && new Date(actual) >= new Date(expected.$lt)) return false;
+      if ('$lte' in expected && new Date(actual) > new Date(expected.$lte)) return false;
       return true;
     }
     return actual === expected;
@@ -55,6 +56,27 @@ function fakeModel(name) {
           throw error;
         }
         next.progressPercent = Math.max(0, Math.min(100, Number(next.progressPercent) || 0));
+        return next;
+      }
+      if (name === 'brainUpdateReport') {
+        const next = {
+          recordsCreated: [],
+          recordsUpdated: [],
+          skippedItems: [],
+          linkedTasks: [],
+          linkedProjects: [],
+          warnings: [],
+          errors: [],
+          nextRecommendedActions: [],
+          metadata: {},
+          ...payload,
+        };
+        if (!['success', 'partial', 'failed'].includes(next.status)) {
+          const error = new Error(`BrainUpdateReport validation failed: status: \`${next.status}\` is not a valid enum value`);
+          error.name = 'ValidationError';
+          throw error;
+        }
+        if (!next.runDate) next.runDate = new Date();
         return next;
       }
       if (name !== 'task') return payload;
@@ -108,6 +130,7 @@ const Idea = fakeModel('idea');
 const Context = fakeModel('context');
 const Review = fakeModel('review');
 const DayPlan = fakeModel('dayPlan');
+const BrainUpdateReport = fakeModel('brainUpdateReport');
 
 jest.unstable_mockModule('../models/Note.js', () => ({ Note }));
 jest.unstable_mockModule('../models/Task.js', () => ({ Task }));
@@ -118,11 +141,12 @@ jest.unstable_mockModule('../models/Idea.js', () => ({ Idea }));
 jest.unstable_mockModule('../models/Context.js', () => ({ Context }));
 jest.unstable_mockModule('../models/Review.js', () => ({ Review }));
 jest.unstable_mockModule('../models/DayPlan.js', () => ({ DayPlan }));
+jest.unstable_mockModule('../models/BrainUpdateReport.js', () => ({ BrainUpdateReport }));
 
 const { createApp } = await import('../app.js');
 const app = createApp();
 
-beforeEach(() => [Note, Task, Deliverable, Goal, Project, Idea, Context, Review, DayPlan].forEach((model) => model.reset()));
+beforeEach(() => [Note, Task, Deliverable, Goal, Project, Idea, Context, Review, DayPlan, BrainUpdateReport].forEach((model) => model.reset()));
 
 describe('notes CRUD', () => {
   test('creates, lists, updates, reads, and deletes notes', async () => {
@@ -296,6 +320,61 @@ describe('latest day plan endpoint', () => {
 
     expect(latest.body.focus).toBe('Legacy');
     expect(latest.body.status).toBeUndefined();
+  });
+});
+
+describe('brain update reports API', () => {
+  test('creates and lists reports', async () => {
+    const created = await request(app)
+      .post('/api/brain-update-reports')
+      .send({
+        status: 'success',
+        summary: 'Processed notes into brain collections',
+        recordsCreated: [{ model: 'Task', title: 'Follow up' }],
+        recordsUpdated: [{ model: 'Project', name: 'Brain OS' }],
+        skippedItems: ['Ambiguous note'],
+        errors: [],
+      })
+      .expect(201);
+
+    expect(created.body.status).toBe('success');
+    expect(created.body.recordsCreated).toHaveLength(1);
+
+    const listed = await request(app).get('/api/brain-update-reports').expect(200);
+    expect(listed.body).toHaveLength(1);
+    expect(listed.body[0].summary).toBe('Processed notes into brain collections');
+  });
+
+  test('filters reports by status', async () => {
+    await request(app).post('/api/brain-update-reports').send({ status: 'success', summary: 'Good run' }).expect(201);
+    await request(app).post('/api/brain-update-reports').send({ status: 'partial', summary: 'Mixed run' }).expect(201);
+
+    const response = await request(app).get('/api/brain-update-reports?status=partial').expect(200);
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0].summary).toBe('Mixed run');
+  });
+
+  test('filters reports by runDate range', async () => {
+    await request(app).post('/api/brain-update-reports').send({ status: 'success', runDate: '2026-06-20T09:00:00.000Z', summary: 'Old run' }).expect(201);
+    await request(app).post('/api/brain-update-reports').send({ status: 'success', runDate: '2026-06-25T09:00:00.000Z', summary: 'Current run' }).expect(201);
+    await request(app).post('/api/brain-update-reports').send({ status: 'success', runDate: '2026-06-27T09:00:00.000Z', summary: 'Future run' }).expect(201);
+
+    const response = await request(app).get('/api/brain-update-reports?from=2026-06-24&to=2026-06-26').expect(200);
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0].summary).toBe('Current run');
+  });
+
+  test('retrieves a report by id', async () => {
+    const created = await request(app).post('/api/brain-update-reports').send({ status: 'failed', summary: 'Failed run', errors: ['Mongo timeout'] }).expect(201);
+    const response = await request(app).get(`/api/brain-update-reports/${created.body._id}`).expect(200);
+    expect(response.body.errors).toEqual(['Mongo timeout']);
+  });
+
+  test('invalid status fails validation', async () => {
+    await request(app)
+      .post('/api/brain-update-reports')
+      .send({ status: 'done', summary: 'Invalid' })
+      .expect(400);
   });
 });
 

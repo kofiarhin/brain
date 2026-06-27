@@ -9,6 +9,7 @@ import ideasRouter from './routes/ideas.js';
 import contextRouter from './routes/context.js';
 import reviewsRouter from './routes/reviews.js';
 import dayPlansRouter from './routes/dayPlans.js';
+import brainUpdateReportsRouter from './routes/brainUpdateReports.js';
 import { notFound, errorHandler } from './middleware/error.js';
 
 const staticAllowedOrigins = new Set([
@@ -78,6 +79,7 @@ export function createApp() {
   app.use('/api/context', contextRouter);
   app.use('/api/reviews', reviewsRouter);
   app.use('/api/day-plans', dayPlansRouter);
+  app.use('/api/brain-update-reports', brainUpdateReportsRouter);
 
   app.use(notFound);
   app.use(errorHandler);

@@ -43,11 +43,15 @@ For `update life` or `update brain`:
 2. Classify and organize the notes.
 3. Update MongoDB collections.
 4. Preserve raw notes unless explicitly told to clear/archive them.
-5. Print a concise summary of what changed.
+5. For `update brain`, after completing the update, create exactly one `BrainUpdateReport` in MongoDB summarizing what changed, what was skipped, linked tasks/projects, warnings, errors, and next recommended actions.
+6. Print a concise summary of what changed.
 
 Do not generate or write a day plan. Day planning is handled only by the dedicated day planning command.
 `update brain` and `update life` must not call `/api/day-plans/start`, `/api/day-plans/restart`, `startDaySession()`, `restartDaySession()`, or create/update `DayPlan` records.
 Do not output a schedule, time blocks, win condition, or generated daily plan when updating the brain.
+After completing `update brain`, create exactly one `BrainUpdateReport` in MongoDB.
+Use report status `success` when all brain updates succeed, `partial` when some updates fail but others succeed, and `failed` when the update fails overall. Save errors where possible.
+Running `update brain` must create zero `DayPlan` records.
 
 If persistence fails, clearly say the output was generated but not saved, and show the database error.
 
@@ -74,8 +78,9 @@ When I say `update life` or `update brain`:
 2. Classify each note.
 3. Update the relevant MongoDB collections.
 4. Preserve raw notes unless I explicitly ask to clear or archive them.
-5. Summarize what changed.
-6. Do not generate, start, restart, upsert, or print a day plan.
+5. If the command is `update brain`, save exactly one `BrainUpdateReport` to MongoDB after the update.
+6. Summarize what changed.
+7. Do not generate, start, restart, upsert, or print a day plan.
 
 Route information like this:
 

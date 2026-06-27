@@ -12,6 +12,7 @@ import { Projects } from './pages/Projects';
 import { GoalsIdeas } from './pages/GoalsIdeas';
 import { ContextPage } from './pages/Context';
 import { Reviews } from './pages/Reviews';
+import { Reports } from './pages/Reports';
 import './index.css';
 
 const router = createBrowserRouter([{ path: '/', element: <AppLayout />, children: [
@@ -23,7 +24,8 @@ const router = createBrowserRouter([{ path: '/', element: <AppLayout />, childre
   { path: 'projects', element: <Projects /> },
   { path: 'goals-ideas', element: <GoalsIdeas /> },
   { path: 'context', element: <ContextPage /> },
-  { path: 'reviews', element: <Reviews /> }
+  { path: 'reviews', element: <Reviews /> },
+  { path: 'reports', element: <Reports /> }
 ]}]);
 
 createRoot(document.getElementById('root')).render(<React.StrictMode><QueryClientProvider client={new QueryClient()}><RouterProvider router={router} /></QueryClientProvider></React.StrictMode>);

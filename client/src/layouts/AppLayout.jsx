@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 const nav = [
   ['/', 'Dashboard'], ['/notes', 'Notes'], ['/day-plan', 'Day Plan'], ['/tasks', 'Tasks'],
   ['/projects', 'Projects'], ['/goals-ideas', 'Goals & Ideas'],
-  ['/context', 'Context'], ['/reviews', 'Reviews']
+  ['/context', 'Context'], ['/reviews', 'Reviews'], ['/reports', 'Reports']
 ];
 
 function Navigation({ onNavigate }) {

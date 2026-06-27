@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -8,6 +8,7 @@ import { Tasks } from './Tasks';
 import { TaskDetails } from './TaskDetails';
 import { Dashboard } from './Dashboard';
 import { Projects } from './Projects';
+import { Reports } from './Reports';
 import { getLondonDateKey } from '../utils/londonDate';
 
 function wrapper() { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>; }
@@ -434,6 +435,66 @@ describe('Projects page', () => {
       priority: 'medium',
       executionState: 'planning',
     }));
+  });
+});
+
+describe('Reports page', () => {
+  const report = {
+    _id: 'r1',
+    runDate: '2026-06-25T09:00:00.000Z',
+    status: 'partial',
+    summary: 'Updated projects and skipped one ambiguous note.',
+    recordsCreated: [{ model: 'Task', title: 'Task One' }],
+    recordsUpdated: [{ model: 'Project', name: 'Brain OS' }],
+    skippedItems: ['Ambiguous note'],
+    linkedTasks: [{ title: 'Task One' }],
+    linkedProjects: [{ name: 'Brain OS' }],
+    warnings: ['Needs review'],
+    errors: ['One note could not be classified'],
+    nextRecommendedActions: ['Review skipped note'],
+    metadata: { command: 'update brain' },
+  };
+
+  test('renders report list and detail sections without edit or delete controls', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => [report] });
+
+    render(<Reports />, { wrapper: wrapper() });
+
+    expect(screen.getByText('Reports')).toBeInTheDocument();
+    expect(await screen.findAllByText('Updated projects and skipped one ambiguous note.')).toHaveLength(2);
+    expect(screen.getByText('Records Created')).toBeInTheDocument();
+    expect(screen.getByText('Records Updated')).toBeInTheDocument();
+    expect(screen.getByText('Skipped Items')).toBeInTheDocument();
+    expect(screen.getByText('Linked Tasks')).toBeInTheDocument();
+    expect(screen.getByText('Linked Projects')).toBeInTheDocument();
+    expect(screen.getAllByText('Warnings').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Errors').length).toBeGreaterThan(0);
+    expect(screen.getByText('Next Recommended Actions')).toBeInTheDocument();
+    expect(screen.getByText('Metadata')).toBeInTheDocument();
+    expect(screen.getAllByText('Task One').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Brain OS').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
+  });
+
+  test('filters update report list queries', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValue({ ok: true, json: async () => [report] });
+
+    render(<Reports />, { wrapper: wrapper() });
+
+    await screen.findByText('Brain Update Reports');
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'partial');
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/brain-update-reports?status=partial'), expect.any(Object)));
+
+    fireEvent.change(screen.getByLabelText('Date from'), { target: { value: '2026-06-24' } });
+    fireEvent.change(screen.getByLabelText('Date to'), { target: { value: '2026-06-26' } });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('status=partial'), expect.any(Object));
+      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('from=2026-06-24'), expect.any(Object));
+      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('to=2026-06-26'), expect.any(Object));
+    });
   });
 });
 

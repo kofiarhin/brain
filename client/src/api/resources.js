@@ -1,7 +1,16 @@
 import { request } from './http';
 
+function withQuery(path, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') query.set(key, value);
+  });
+  const suffix = query.toString();
+  return suffix ? `${path}?${suffix}` : path;
+}
+
 export const createResourceApi = (path) => ({
-  list: () => request(path),
+  list: (params) => request(withQuery(path, params)),
   get: (id) => request(`${path}/${id}`),
   latest: () => request(`${path}/latest`),
   create: (payload) => request(path, { method: 'POST', body: JSON.stringify(payload) }),
@@ -21,5 +30,6 @@ export const api = {
   ideas: createResourceApi('/ideas'),
   context: createResourceApi('/context'),
   reviews: createResourceApi('/reviews'),
-  dayPlans: createResourceApi('/day-plans')
+  dayPlans: createResourceApi('/day-plans'),
+  brainUpdateReports: createResourceApi('/brain-update-reports')
 };

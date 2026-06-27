@@ -9,6 +9,8 @@ describe('Codex command instructions', () => {
     expect(agentsInstructions).toContain('`update brain` and `update life` must not call `/api/day-plans/start`, `/api/day-plans/restart`, `startDaySession()`, `restartDaySession()`, or create/update `DayPlan` records.');
     expect(agentsInstructions).toContain('Do not output a schedule, time blocks, win condition, or generated daily plan when updating the brain.');
     expect(agentsInstructions).toContain('Do not generate, start, restart, upsert, or print a day plan.');
+    expect(agentsInstructions).toContain('After completing `update brain`, create exactly one `BrainUpdateReport` in MongoDB.');
+    expect(agentsInstructions).toContain('Running `update brain` must create zero `DayPlan` records.');
   });
 
   test('daily output is scoped to dedicated planning commands only', () => {

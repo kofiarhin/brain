@@ -52,6 +52,16 @@ CRUD endpoints are available for:
 - `/api/context`
 - `/api/reviews`
 - `/api/day-plans`
+- `/api/brain-update-reports`
+
+Brain update reports support:
+
+- `GET /api/brain-update-reports`
+- `GET /api/brain-update-reports?status=success&from=2026-06-01&to=2026-06-30`
+- `GET /api/brain-update-reports/:id`
+- `POST /api/brain-update-reports`
+
+Reports are read-only in the frontend. The list endpoint filters by `status`, `from`, and `to` using the report `runDate`.
 
 Tasks and deliverables also support:
 
@@ -69,6 +79,12 @@ Day plans support:
 - `POST /api/day-plans/restart`
 
 `start` creates an active 8-hour session from the current runtime. `restart` marks the current active plan as restarted and creates a new active 8-hour session carrying forward only unfinished work.
+
+## Brain Update Reports
+
+The `update brain` Codex workflow updates brain data as before, then writes exactly one `BrainUpdateReport` document to MongoDB. The report captures the run status, summary, created and updated records, skipped items, linked tasks/projects, warnings, errors, next recommended actions, and metadata.
+
+`update brain` is not a day-planning flow. It must not call `/api/day-plans/start`, `/api/day-plans/restart`, `startDaySession()`, or `restartDaySession()`, and it must not create or update `DayPlan` records. Day planning is handled only by dedicated day-planning commands such as `plan my day` or the day plan session endpoints.
 
 ## Project Execution Loop
 
