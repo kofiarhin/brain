@@ -211,7 +211,6 @@ export function Projects() {
     <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-3">
         <h2 className="text-sm font-semibold text-slate-300">Saved Projects</h2>
-        {isLoading && <p className="text-sm text-slate-500">Loading projects...</p>}
         {!isLoading && !projects.length && <p className="text-sm text-slate-500">No projects saved yet.</p>}
         {projects.map((project) => <button
           className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${project._id === selectedId ? 'border-cyan-400 bg-cyan-400/10' : 'border-slate-800 bg-slate-950 hover:border-slate-600'}`}

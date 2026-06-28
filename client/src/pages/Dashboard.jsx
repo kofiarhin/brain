@@ -48,7 +48,7 @@ export function Dashboard() {
   const { data, isLoading } = useQuery({ queryKey: ['dashboard', 'analytics', 'v2'], queryFn: getDashboardData });
   const dashboard = useMemo(() => data, [data]);
 
-  if (isLoading || !dashboard) return <p>Loading dashboard...</p>;
+  if (isLoading || !dashboard) return null;
 
   return <div className="space-y-6">
     <div className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-5 shadow-2xl sm:p-7">

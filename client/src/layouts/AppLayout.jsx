@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { GlobalPageLoadingOverlay } from '../components/GlobalPageLoader';
 
 const nav = [
   ['/', 'Dashboard'], ['/notes', 'Notes'], ['/day-plan', 'Day Plan'], ['/tasks', 'Tasks'],
@@ -81,6 +82,9 @@ export function AppLayout() {
       </aside>
     </div>}
 
-    <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 md:p-8"><Outlet /></main>
+    <main className="relative min-w-0 flex-1 px-4 py-5 sm:px-6 md:p-8">
+      <Outlet />
+      <GlobalPageLoadingOverlay />
+    </main>
   </div>;
 }

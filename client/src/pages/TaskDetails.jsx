@@ -208,7 +208,7 @@ export function TaskDetails() {
   ].filter(Boolean).join(' • ');
   const addDeliverable = () => setDraft((current) => ({ ...current, deliverableRequired: true }));
 
-  if (taskQuery.isLoading) return <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-slate-300">Loading task...</div>;
+  if (taskQuery.isLoading) return null;
   if (taskQuery.isError) return <div className="space-y-4">
     <button type="button" className="rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={() => navigate('/tasks')}>Back</button>
     <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-red-100">Task could not be loaded.</div>
