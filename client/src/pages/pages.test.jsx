@@ -91,7 +91,7 @@ describe('Tasks page', () => {
             _id: '1',
             title: 'Move me',
             priority: 'must',
-            status: 'open',
+            status: 'rescheduled',
             scheduledLondonDate: tomorrow,
             postponedCount: 1,
             scheduleHistory: [{ toScheduledLondonDate: tomorrow }],
@@ -102,7 +102,7 @@ describe('Tasks page', () => {
         return Promise.resolve({
           ok: true,
           json: async () => postponed
-            ? [{ _id: '1', title: 'Move me', priority: 'must', status: 'open', scheduledLondonDate: tomorrow }]
+            ? [{ _id: '1', title: 'Move me', priority: 'must', status: 'rescheduled', scheduledLondonDate: tomorrow }]
             : [{ _id: '1', title: 'Move me', priority: 'must', status: 'open' }],
         });
       }
@@ -134,6 +134,25 @@ describe('Tasks page', () => {
     render(<Tasks />, { wrapper: wrapper() });
     expect(await screen.findByText('Scheduled today task')).toBeInTheDocument();
     expect(screen.getByText(`Scheduled ${today}`)).toBeInTheDocument();
+  });
+
+  test('hides dismissed archived and converted tasks from active tabs', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        { _id: '1', title: 'Active task', priority: 'must', status: 'open' },
+        { _id: '2', title: 'Dismissed task', priority: 'must', status: 'dismissed' },
+        { _id: '3', title: 'Archived task', priority: 'should', status: 'archived' },
+        { _id: '4', title: 'Converted task', priority: 'nice', status: 'converted' },
+      ],
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByText('Active task')).toBeInTheDocument();
+    expect(screen.queryByText('Dismissed task')).not.toBeInTheDocument();
+    expect(screen.queryByText('Archived task')).not.toBeInTheDocument();
+    expect(screen.queryByText('Converted task')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /All 1/ })).toBeInTheDocument();
   });
 
   test('copies a task title without navigating or completing the task', async () => {

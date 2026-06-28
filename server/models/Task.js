@@ -4,6 +4,17 @@ import { categorizeTaskTitle } from '../services/taskCategorization.js';
 import { normalizeTaskTitle } from '../services/taskNormalization.js';
 
 export const taskCategories = ['projects', 'family', 'personal', 'admin', 'general'];
+export const taskStatuses = ['open', 'complete', 'completed', 'rescheduled', 'dismissed', 'archived', 'converted'];
+export const dismissalReasons = [
+  'task_no_longer_needed',
+  'project_abandoned',
+  'duplicate',
+  'generated_incorrectly',
+  'circumstances_changed',
+  'external_blocker',
+  'replaced_by_another_task',
+  'other',
+];
 
 const taskSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
@@ -27,8 +38,26 @@ const taskSchema = new mongoose.Schema({
   category: { type: String, enum: taskCategories, default: 'general' },
   agentReady: { type: Boolean, default: false },
   priority: { type: String, enum: ['must', 'should', 'nice', 'low', 'medium', 'high'], default: 'should' },
-  status: { type: String, enum: ['open', 'complete', 'archived'], default: 'open' },
+  status: { type: String, enum: taskStatuses, default: 'open' },
+  outcome: { type: String, enum: taskStatuses, default: 'open' },
   completedAt: { type: Date, default: null },
+  dismissedAt: { type: Date, default: null },
+  dismissedReason: { type: String, enum: [...dismissalReasons, ''], default: '' },
+  dismissedNote: { type: String, default: '' },
+  archivedAt: { type: Date, default: null },
+  convertedAt: { type: Date, default: null },
+  replacementTaskId: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', default: null },
+  outcomeHistory: [{
+    fromStatus: { type: String, default: '' },
+    toStatus: { type: String, default: '' },
+    fromOutcome: { type: String, default: '' },
+    toOutcome: { type: String, default: '' },
+    reason: { type: String, default: '' },
+    note: { type: String, default: '' },
+    timestamp: { type: Date, default: Date.now },
+    actor: { type: String, default: 'user' },
+    source: { type: String, default: 'user' },
+  }],
   dueDate: { type: Date, default: null },
   dueLondonDate: { type: String, default: '' },
   scheduledFor: { type: Date, default: null },
@@ -51,6 +80,8 @@ function setTaskMatchingFields(target) {
   if (target.title) target.normalizedTitle = normalizeTaskTitle(target.title);
   if (target.dueDate) target.dueLondonDate = getLondonDateKey(new Date(target.dueDate));
   if (target.scheduledFor) target.scheduledLondonDate = getLondonDateKey(new Date(target.scheduledFor));
+  if (target.status && !target.outcome) target.outcome = target.status;
+  if (target.outcome && !target.status) target.status = target.outcome;
 }
 
 taskSchema.pre('validate', function setMatchingFields(next) {

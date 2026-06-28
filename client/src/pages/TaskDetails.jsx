@@ -23,8 +23,22 @@ const priorities = [
 
 const statuses = [
   ['open', 'Open'],
+  ['rescheduled', 'Rescheduled'],
   ['complete', 'Complete'],
+  ['dismissed', 'Dismissed'],
+  ['converted', 'Converted'],
   ['archived', 'Archived']
+];
+
+const dismissalReasons = [
+  ['task_no_longer_needed', 'Task no longer needed'],
+  ['project_abandoned', 'Project abandoned'],
+  ['duplicate', 'Duplicate'],
+  ['generated_incorrectly', 'Generated incorrectly'],
+  ['circumstances_changed', 'Circumstances changed'],
+  ['external_blocker', 'External blocker'],
+  ['replaced_by_another_task', 'Replaced by another task'],
+  ['other', 'Other']
 ];
 
 const emptyDraft = {
@@ -77,6 +91,9 @@ function labelFor(options, value, fallback = '') {
 function statusSummary(value) {
   const normalized = String(value || 'open').toLowerCase();
   if (normalized === 'complete') return 'Complete';
+  if (normalized === 'rescheduled') return 'Rescheduled';
+  if (normalized === 'dismissed') return 'Dismissed';
+  if (normalized === 'converted') return 'Converted';
   if (normalized === 'archived') return 'Archived';
   return 'Open';
 }
@@ -184,6 +201,8 @@ export function TaskDetails() {
   const complete = useMutation({ mutationFn: () => api.tasks.complete(id), onSuccess: refreshTaskWorkspace });
   const reopen = useMutation({ mutationFn: () => api.tasks.reopen(id), onSuccess: refreshTaskWorkspace });
   const archive = useMutation({ mutationFn: () => api.tasks.archive(id), onSuccess: refreshTaskWorkspace });
+  const dismiss = useMutation({ mutationFn: (payload) => api.tasks.dismiss(id, payload), onSuccess: refreshTaskWorkspace });
+  const convert = useMutation({ mutationFn: (payload) => api.tasks.convert(id, payload), onSuccess: refreshTaskWorkspace });
 
   const setField = (field) => (value) => setDraft((current) => ({ ...current, [field]: value }));
 
@@ -198,7 +217,7 @@ export function TaskDetails() {
 
   const task = taskQuery.data;
   const status = String(draft.status || task?.status || 'open').toLowerCase();
-  const isClosed = status === 'complete' || status === 'archived';
+  const isClosed = ['complete', 'completed', 'dismissed', 'archived', 'converted'].includes(status);
   const project = (projectsQuery.data || []).find((item) => item._id === draft.projectId);
   const metadata = [
     labelFor(priorities, draft.priority, 'Should Do'),
@@ -207,6 +226,23 @@ export function TaskDetails() {
     project?.name,
   ].filter(Boolean).join(' • ');
   const addDeliverable = () => setDraft((current) => ({ ...current, deliverableRequired: true }));
+  const dismissTask = () => {
+    const reasonInput = window.prompt(`Dismiss reason:\n${dismissalReasons.map(([, label], index) => `${index + 1}. ${label}`).join('\n')}`, '1');
+    if (!reasonInput) return;
+    const reason = dismissalReasons[Number(reasonInput) - 1]?.[0]
+      || dismissalReasons.find(([value, label]) => value === reasonInput || label.toLowerCase() === reasonInput.toLowerCase())?.[0];
+    if (!reason) return;
+    const note = window.prompt('Optional dismissal note', '') || '';
+    const markProjectInactive = reason === 'project_abandoned' && draft.projectId
+      ? window.confirm('Also mark the linked project inactive? Cancel dismisses this task only.')
+      : false;
+    dismiss.mutate({ reason, note, markProjectInactive });
+  };
+  const convertTask = () => {
+    const replacementTaskId = window.prompt('Replacement task ID');
+    if (!replacementTaskId) return;
+    convert.mutate({ replacementTaskId, reason: 'replaced_by_another_task' });
+  };
 
   if (taskQuery.isLoading) return null;
   if (taskQuery.isError) return <div className="space-y-4">
@@ -227,6 +263,8 @@ export function TaskDetails() {
         {isClosed
           ? <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => reopen.mutate()}>Reopen task</button>
           : <button type="button" className="rounded-lg border border-emerald-500/60 px-4 py-3 font-medium text-emerald-100 hover:bg-emerald-500/10" onClick={() => complete.mutate()}>Complete task</button>}
+        {!isClosed ? <button type="button" className="rounded-lg border border-amber-500/60 px-4 py-3 font-medium text-amber-100 hover:bg-amber-500/10" onClick={dismissTask}>Dismiss task</button> : null}
+        {!isClosed ? <button type="button" className="rounded-lg border border-cyan-500/60 px-4 py-3 font-medium text-cyan-100 hover:bg-cyan-500/10" onClick={convertTask}>Convert task</button> : null}
         <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 font-medium text-slate-200 hover:bg-slate-800" onClick={() => archive.mutate()}>Archive task</button>
         <button type="button" className="rounded-lg border border-red-500/60 px-4 py-3 font-medium text-red-100 hover:bg-red-500/10" onClick={() => remove.mutate()}>Delete</button>
       </div>

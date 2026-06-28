@@ -1,8 +1,9 @@
 import { Task } from '../models/Task.js';
 import { getLondonDateKey, londonDateStartUtc } from './londonDate.js';
 import { normalizeTaskTitle } from './taskNormalization.js';
+import { closedTaskStatuses, isActionableTask } from './taskOutcomes.js';
 
-const incompleteStatuses = { $nin: ['complete', 'archived'] };
+const incompleteStatuses = { $nin: closedTaskStatuses };
 
 function parseTargetLondonDate(targetDate) {
   if (typeof targetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)) return targetDate;
@@ -49,17 +50,33 @@ export async function rescheduleTask(taskId, { targetDate, reason = '', now = ne
     toScheduledLondonDate: scheduledLondonDate,
     reason: reason || '',
     changedAt: now,
+    actor: 'user',
+    source: 'user',
+  };
+  const outcomeEntry = {
+    fromStatus: existing.status || 'open',
+    toStatus: 'rescheduled',
+    fromOutcome: existing.outcome || existing.status || 'open',
+    toOutcome: 'rescheduled',
+    reason: reason || '',
+    note: '',
+    timestamp: now,
+    actor: 'user',
+    source: 'user',
   };
 
   return TaskModel.findByIdAndUpdate(
     taskId,
     {
+      status: 'rescheduled',
+      outcome: 'rescheduled',
       scheduledFor,
       scheduledLondonDate,
       postponedCount: (existing.postponedCount || 0) + 1,
       lastPostponedAt: now,
       postponedReason: reason || '',
       scheduleHistory: [...(existing.scheduleHistory || []), historyEntry],
+      outcomeHistory: [...(existing.outcomeHistory || []), outcomeEntry],
     },
     { new: true, runValidators: true }
   );
@@ -73,7 +90,7 @@ export function scheduledDayKey(task) {
 }
 
 export function isVisibleOnLondonDate(task, londonDate) {
-  if (['complete', 'archived'].includes(String(task.status || '').toLowerCase())) return false;
+  if (!isActionableTask(task)) return false;
   const dayKey = scheduledDayKey(task);
   return !dayKey || dayKey <= londonDate;
 }
@@ -97,7 +114,7 @@ export function equivalentOpenTask(existingTasks, generatedTask) {
   const generatedTitle = generatedTask.normalizedTitle || normalizeTaskTitle(generatedTask.title);
   const generatedDay = scheduledDayKey(generatedTask);
   const openMatches = existingTasks.filter((task) => (
-    !['complete', 'archived'].includes(String(task.status || '').toLowerCase())
+    isActionableTask(task)
     && (task.normalizedTitle || normalizeTaskTitle(task.title)) === generatedTitle
   ));
 

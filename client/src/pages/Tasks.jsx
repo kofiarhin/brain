@@ -4,8 +4,18 @@ import { Card } from '../components/Card';
 import { addLondonDays, getLondonDateKey, nextWeekendLondonDate } from '../utils/londonDate';
 
 const groups = [['must', 'Must Do'], ['should', 'Should Do'], ['nice', 'Nice To Have']];
-const hiddenStatuses = new Set(['complete', 'completed', 'done', 'archived']);
+const hiddenStatuses = new Set(['complete', 'completed', 'done', 'dismissed', 'archived', 'converted']);
 const completedStatuses = new Set(['complete', 'completed', 'done']);
+const dismissalReasons = [
+  ['task_no_longer_needed', 'Task no longer needed'],
+  ['project_abandoned', 'Project abandoned'],
+  ['duplicate', 'Duplicate'],
+  ['generated_incorrectly', 'Generated incorrectly'],
+  ['circumstances_changed', 'Circumstances changed'],
+  ['external_blocker', 'External blocker'],
+  ['replaced_by_another_task', 'Replaced by another task'],
+  ['other', 'Other']
+];
 const categories = [
   ['projects', 'Projects'],
   ['family', 'Family'],
@@ -40,6 +50,9 @@ function priorityLabel(priority) {
 function statusLabel(status) {
   const normalized = String(status || 'open').toLowerCase();
   if (['complete', 'completed', 'done'].includes(normalized)) return 'Done';
+  if (normalized === 'rescheduled') return 'Rescheduled';
+  if (normalized === 'dismissed') return 'Dismissed';
+  if (normalized === 'converted') return 'Converted';
   if (normalized === 'archived') return 'Archived';
   return 'Open';
 }
@@ -116,7 +129,7 @@ function CompletedTaskCard({ task }) {
   </li>;
 }
 
-function TaskCard({ task, onComplete, onReschedule, isCompleting = false, isRescheduling = false }) {
+function TaskCard({ task, onComplete, onReschedule, onDismiss, onArchive, onConvert, isCompleting = false, isRescheduling = false, isResolving = false }) {
   const [copyStatus, setCopyStatus] = useState('idle');
 
   const copyTaskTitle = async (event) => {
@@ -138,6 +151,34 @@ function TaskCard({ task, onComplete, onReschedule, isCompleting = false, isResc
     event.preventDefault();
     event.stopPropagation();
     onComplete(task._id);
+  };
+
+  const chooseOutcome = async (event) => {
+    const action = event.target.value;
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.target.value = '';
+
+    if (action === 'complete') return onComplete(task._id);
+    if (action === 'archive') return onArchive(task._id);
+    if (action === 'dismiss') {
+      const reasonInput = window.prompt(`Dismiss reason:\n${dismissalReasons.map(([, label], index) => `${index + 1}. ${label}`).join('\n')}`, '1');
+      if (!reasonInput) return;
+      const selectedReason = dismissalReasons[Number(reasonInput) - 1]?.[0]
+        || dismissalReasons.find(([value, label]) => value === reasonInput || label.toLowerCase() === reasonInput.toLowerCase())?.[0];
+      if (!selectedReason) return;
+      const note = window.prompt('Optional dismissal note', '') || '';
+      const markProjectInactive = selectedReason === 'project_abandoned' && task.projectId
+        ? window.confirm('Also mark the linked project inactive? Cancel dismisses this task only.')
+        : false;
+      return onDismiss(task._id, { reason: selectedReason, note, markProjectInactive });
+    }
+    if (action === 'convert') {
+      const replacementTaskId = window.prompt('Replacement task ID');
+      if (!replacementTaskId) return;
+      return onConvert(task._id, { replacementTaskId, reason: 'replaced_by_another_task' });
+    }
   };
 
   const postponeTask = async (event) => {
@@ -190,6 +231,19 @@ function TaskCard({ task, onComplete, onReschedule, isCompleting = false, isResc
           <option value="nextWeek">Next Week</option>
           <option value="pick">Pick Date</option>
         </select>
+        <select
+          aria-label={`Resolve ${task.title}`}
+          className="min-h-10 rounded-full border border-slate-600 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          defaultValue=""
+          disabled={isResolving || isCompleting}
+          onChange={chooseOutcome}
+        >
+          <option value="" disabled>{isResolving ? 'Resolving...' : 'Outcome'}</option>
+          <option value="complete">Complete</option>
+          <option value="dismiss">Dismiss / No longer relevant</option>
+          <option value="archive">Archive</option>
+          <option value="convert">Convert / Replace</option>
+        </select>
         <button
           type="button"
           className="w-full rounded-full border border-emerald-500/60 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
@@ -215,6 +269,10 @@ export function Tasks() {
   const filteredItems = tasksForTab(selectedTab, items);
   const completingTaskId = tasks.complete.isPending ? tasks.complete.variables : null;
   const reschedulingTaskId = tasks.reschedule.isPending ? tasks.reschedule.variables?.id : null;
+  const resolvingTaskId = tasks.dismiss.isPending ? tasks.dismiss.variables?.id
+    : tasks.archive.isPending ? tasks.archive.variables
+      : tasks.convert.isPending ? tasks.convert.variables?.id
+        : null;
 
   const save = async (event) => {
     event.preventDefault();
@@ -269,7 +327,7 @@ export function Tasks() {
     }) : groups.map(([priority, groupTitle]) => {
       const groupItems = filteredItems.filter((task) => normalizePriority(task.priority) === priority);
       if (groupItems.length === 0) return null;
-      return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} onComplete={tasks.complete.mutate} onReschedule={(id, payload) => tasks.reschedule.mutate({ id, payload })} isCompleting={completingTaskId === task._id} isRescheduling={reschedulingTaskId === task._id} />)}</ul></Card>;
+      return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} onComplete={tasks.complete.mutate} onReschedule={(id, payload) => tasks.reschedule.mutate({ id, payload })} onDismiss={(id, payload) => tasks.dismiss.mutate({ id, payload })} onArchive={tasks.archive.mutate} onConvert={(id, payload) => tasks.convert.mutate({ id, payload })} isCompleting={completingTaskId === task._id} isRescheduling={reschedulingTaskId === task._id} isResolving={resolvingTaskId === task._id} />)}</ul></Card>;
     })}
     {selectedTab === 'completed' && completedItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No tasks completed today.</p> : null}
     {selectedTab !== 'completed' && filteredItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No open tasks in this tab.</p> : null}

@@ -1,13 +1,15 @@
 import { Context } from '../models/Context.js';
 import { DayPlan } from '../models/DayPlan.js';
 import { Deliverable } from '../models/Deliverable.js';
+import { Project } from '../models/Project.js';
 import { Task } from '../models/Task.js';
 import { getLondonDateKey } from './londonDate.js';
 import { normalizeTaskTitle } from './taskNormalization.js';
 import { listCarryOverTasks, scheduledDayKey } from './taskScheduling.js';
+import { closedTaskStatuses, taskStatus } from './taskOutcomes.js';
 
 const eightHoursMs = 8 * 60 * 60 * 1000;
-const incompleteStatuses = { $nin: ['complete', 'archived'] };
+const incompleteStatuses = { $nin: closedTaskStatuses };
 const priorPlanFields = ['priorities', 'mustDo', 'shouldDo', 'niceToHave', 'deliverables', 'winCondition'];
 
 function asText(item) {
@@ -43,11 +45,20 @@ async function findLatestActivePlan(DayPlanModel) {
   return DayPlanModel.findOne({ status: 'active' }).sort({ startTime: -1, createdAt: -1 });
 }
 
-async function listOpenTasks(TaskModel, londonDate) {
+async function listInactiveProjects(ProjectModel) {
+  if (!ProjectModel) return [];
+  return ProjectModel.find({ status: { $in: ['inactive', 'abandoned', 'archived'] } }).sort({ createdAt: 1 });
+}
+
+async function listOpenTasks(TaskModel, ProjectModel, londonDate) {
+  const inactiveProjects = await listInactiveProjects(ProjectModel);
+  const inactiveProjectIds = new Set(inactiveProjects.map((project) => String(project._id)));
   const openTasks = await TaskModel.find({ status: incompleteStatuses }).sort({ priority: 1, createdAt: 1 });
-  const carryOverTasks = await listCarryOverTasks(TaskModel, londonDate);
+  const activeOpenTasks = openTasks.filter((task) => !task.projectId || !inactiveProjectIds.has(String(task.projectId)));
+  const carryOverTasks = (await listCarryOverTasks(TaskModel, londonDate))
+    .filter((task) => !task.projectId || !inactiveProjectIds.has(String(task.projectId)));
   const carryOverIds = new Set(carryOverTasks.map((task) => String(task._id)));
-  const remainingTasks = openTasks.filter((task) => !carryOverIds.has(String(task._id)) && !scheduledDayKey(task));
+  const remainingTasks = activeOpenTasks.filter((task) => !carryOverIds.has(String(task._id)) && !scheduledDayKey(task));
 
   return {
     tasks: [...carryOverTasks, ...remainingTasks],
@@ -78,7 +89,7 @@ async function listPriorPlans(DayPlanModel) {
 function collectCompletedItems({ allTasks, allDeliverables, priorPlans, sourcePlan }) {
   return uniqueTexts([
     ...(sourcePlan?.completedItems || []),
-    ...allTasks.filter((task) => task.status === 'complete').map(titleFromRecord),
+    ...allTasks.filter((task) => ['complete', 'completed'].includes(taskStatus(task))).map(titleFromRecord),
     ...allDeliverables.filter((deliverable) => deliverable.status === 'complete').map(titleFromRecord),
     ...priorPlans.flatMap((plan) => plan.completedItems || []),
   ]);
@@ -145,7 +156,7 @@ function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTas
 async function readPlanningContext(models) {
   const londonDate = getLondonDateKey(models.now || new Date());
   const [{ tasks, carryOverTasks }, allTasks, deliverables, allDeliverables, contextItems, priorPlans] = await Promise.all([
-    listOpenTasks(models.TaskModel, londonDate),
+    listOpenTasks(models.TaskModel, models.ProjectModel, londonDate),
     listAllTasks(models.TaskModel),
     listOpenDeliverables(models.DeliverableModel),
     listAllDeliverables(models.DeliverableModel),
@@ -171,6 +182,7 @@ export async function startDaySession(options = {}) {
   const models = {
     DayPlanModel: options.DayPlanModel || DayPlan,
     TaskModel: options.TaskModel || Task,
+    ProjectModel: options.ProjectModel || Project,
     DeliverableModel: options.DeliverableModel || Deliverable,
     ContextModel: options.ContextModel || Context,
   };
@@ -188,6 +200,7 @@ export async function restartDaySession(options = {}) {
   const models = {
     DayPlanModel: options.DayPlanModel || DayPlan,
     TaskModel: options.TaskModel || Task,
+    ProjectModel: options.ProjectModel || Project,
     DeliverableModel: options.DeliverableModel || Deliverable,
     ContextModel: options.ContextModel || Context,
   };

@@ -1,8 +1,10 @@
 import { DayPlan } from '../models/DayPlan.js';
+import { Project } from '../models/Project.js';
 import { Task } from '../models/Task.js';
 import { getLondonDateKey, getLondonDayRange } from './londonDate.js';
 import { normalizeTaskTitle } from './taskNormalization.js';
 import { equivalentOpenTask } from './taskScheduling.js';
+import { closedTaskStatuses, isClosedTask } from './taskOutcomes.js';
 
 const planTaskSources = [
   ['mustDo', 'must'],
@@ -108,6 +110,8 @@ export function tasksFromDayPlan(plan, londonDate, dueDate) {
         deliverableLocation: '',
         acceptanceCriteria: generatedAcceptanceCriteria(title, item, field),
         notes: '',
+        projectId: item && typeof item === 'object' ? item.projectId || null : null,
+        projectActionId: item && typeof item === 'object' ? item.projectActionId || null : null,
         codexPrompt: generatedCodexPrompt(title, item),
         dueDate,
         dueLondonDate: londonDate,
@@ -150,6 +154,11 @@ async function listAllTasks(TaskModel) {
   return TaskModel.find({}).sort({ createdAt: 1 });
 }
 
+async function listInactiveProjects(ProjectModel) {
+  if (!ProjectModel) return [];
+  return ProjectModel.find({ status: { $in: ['inactive', 'abandoned', 'archived'] } }).sort({ createdAt: 1 });
+}
+
 function mergedGeneratedTask(existing, generatedTask) {
   return {
     ...generatedTask,
@@ -171,7 +180,15 @@ function mergedGeneratedTask(existing, generatedTask) {
     reviewNotes: existing.reviewNotes || generatedTask.reviewNotes || '',
     agentReady: existing.agentReady || generatedTask.agentReady || false,
     status: existing.status,
+    outcome: existing.outcome || existing.status || 'open',
     completedAt: existing.completedAt || null,
+    dismissedAt: existing.dismissedAt || null,
+    dismissedReason: existing.dismissedReason || '',
+    dismissedNote: existing.dismissedNote || '',
+    archivedAt: existing.archivedAt || null,
+    convertedAt: existing.convertedAt || null,
+    replacementTaskId: existing.replacementTaskId || null,
+    outcomeHistory: existing.outcomeHistory || [],
     postponedCount: existing.postponedCount || 0,
     lastPostponedAt: existing.lastPostponedAt || null,
     postponedReason: existing.postponedReason || '',
@@ -179,19 +196,38 @@ function mergedGeneratedTask(existing, generatedTask) {
   };
 }
 
-async function upsertTasksFromPlan(TaskModel, plan, range) {
+function equivalentClosedTask(allTasks, generatedTask) {
+  const generatedTitle = generatedTask.normalizedTitle || normalizeTaskTitle(generatedTask.title);
+  const avoidStatuses = new Set(closedTaskStatuses);
+  return allTasks.find((task) => (
+    avoidStatuses.has(String(task.outcome || task.status || '').toLowerCase())
+    && (task.normalizedTitle || normalizeTaskTitle(task.title)) === generatedTitle
+  )) || null;
+}
+
+function hasInactiveProject(generatedTask, inactiveProjectIds) {
+  return generatedTask.projectId && inactiveProjectIds.has(String(generatedTask.projectId));
+}
+
+async function upsertTasksFromPlan(TaskModel, ProjectModel, plan, range) {
   const generatedTasks = tasksFromDayPlan(plan, range.londonDate, range.start);
   if (generatedTasks.length === 0) return { created: [], updated: [], reused: [] };
 
   const existingTasks = await listTasksForLondonDay(TaskModel, range);
   const allTasks = await listAllTasks(TaskModel);
+  const inactiveProjects = await listInactiveProjects(ProjectModel);
+  const inactiveProjectIds = new Set(inactiveProjects.map((project) => String(project._id)));
   const existingByKey = new Map(existingTasks.map((task) => [taskMatchKey(task), task]));
   const created = [];
   const updated = [];
   const reused = [];
 
   for (const generatedTask of generatedTasks) {
-    const existing = existingByKey.get(taskMatchKey(generatedTask)) || equivalentOpenTask(allTasks, generatedTask);
+    if (hasInactiveProject(generatedTask, inactiveProjectIds)) continue;
+
+    const existing = existingByKey.get(taskMatchKey(generatedTask))
+      || equivalentOpenTask(allTasks, generatedTask)
+      || equivalentClosedTask(allTasks, generatedTask);
 
     if (!existing) {
       const createdTask = await TaskModel.create(generatedTask);
@@ -201,7 +237,7 @@ async function upsertTasksFromPlan(TaskModel, plan, range) {
       continue;
     }
 
-    if (existing.status === 'complete' || existing.status === 'archived') {
+    if (isClosedTask(existing)) {
       reused.push(existing);
       continue;
     }
@@ -225,6 +261,7 @@ export async function upsertTodaysDayPlan(plan, options = {}) {
     now = new Date(),
     DayPlanModel = DayPlan,
     TaskModel = Task,
+    ProjectModel = options.ProjectModel || (options.TaskModel ? null : Project),
   } = options;
 
   const range = getLondonDayRange(now);
@@ -234,7 +271,7 @@ export async function upsertTodaysDayPlan(plan, options = {}) {
     ? await DayPlanModel.findByIdAndUpdate(existingPlan._id, payload, { new: true, runValidators: true })
     : await DayPlanModel.create(payload);
 
-  const tasks = await upsertTasksFromPlan(TaskModel, dayPlan, range);
+  const tasks = await upsertTasksFromPlan(TaskModel, ProjectModel, dayPlan, range);
 
   return {
     dayPlan,

@@ -14,6 +14,8 @@ export function useResource(name) {
     complete: useMutation({ mutationFn: resource.complete, onSuccess: invalidate }),
     reopen: useMutation({ mutationFn: resource.reopen, onSuccess: invalidate }),
     archive: useMutation({ mutationFn: resource.archive, onSuccess: invalidate }),
+    dismiss: useMutation({ mutationFn: ({ id, payload }) => resource.dismiss(id, payload), onSuccess: invalidate }),
+    convert: useMutation({ mutationFn: ({ id, payload }) => resource.convert(id, payload), onSuccess: invalidate }),
     reschedule: useMutation({ mutationFn: ({ id, payload }) => resource.reschedule(id, payload), onSuccess: invalidate })
   };
 }

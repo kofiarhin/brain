@@ -7,9 +7,11 @@ function fakeModel(name) {
   const clone = (item) => (item ? { ...item } : item);
   const valueAtPath = (item, path) => path.split('.').reduce((current, key) => current?.[key], item);
   const matchesQuery = (item, query = {}) => Object.entries(query).every(([key, expected]) => {
+    if (key === '$or') return expected.some((branch) => matchesQuery(item, branch));
     const actual = valueAtPath(item, key);
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
       if ('$nin' in expected) return !expected.$nin.includes(actual);
+      if ('$in' in expected) return expected.$in.includes(actual);
       if ('$gte' in expected && new Date(actual) < new Date(expected.$gte)) return false;
       if ('$lt' in expected && new Date(actual) >= new Date(expected.$lt)) return false;
       if ('$lte' in expected && new Date(actual) > new Date(expected.$lte)) return false;
@@ -35,6 +37,7 @@ function fakeModel(name) {
     static normalize(payload) {
       if (name === 'project') {
         const next = {
+          status: 'active',
           progressPercent: 0,
           priority: 'medium',
           focusToday: false,
@@ -84,8 +87,11 @@ function fakeModel(name) {
         category: 'general',
         agentReady: false,
         status: 'open',
+        outcome: payload.outcome || payload.status || 'open',
         reviewRequired: false,
         reviewStatus: 'pending',
+        outcomeHistory: [],
+        scheduleHistory: [],
         ...payload,
       };
       if (!['projects', 'family', 'personal', 'admin', 'general'].includes(next.category)) {
@@ -133,7 +139,19 @@ const DayPlan = fakeModel('dayPlan');
 const BrainUpdateReport = fakeModel('brainUpdateReport');
 
 jest.unstable_mockModule('../models/Note.js', () => ({ Note }));
-jest.unstable_mockModule('../models/Task.js', () => ({ Task }));
+jest.unstable_mockModule('../models/Task.js', () => ({
+  Task,
+  dismissalReasons: [
+    'task_no_longer_needed',
+    'project_abandoned',
+    'duplicate',
+    'generated_incorrectly',
+    'circumstances_changed',
+    'external_blocker',
+    'replaced_by_another_task',
+    'other',
+  ],
+}));
 jest.unstable_mockModule('../models/Deliverable.js', () => ({ Deliverable }));
 jest.unstable_mockModule('../models/Goal.js', () => ({ Goal }));
 jest.unstable_mockModule('../models/Project.js', () => ({ Project }));
@@ -163,10 +181,90 @@ describe('notes CRUD', () => {
 describe('task completion', () => {
   test('completes and reopens a task', async () => {
     const created = await request(app).post('/api/tasks').send({ title: 'Ship Brain OS' }).expect(201);
-    expect((await request(app).patch(`/api/tasks/${created.body._id}/complete`).expect(200)).body.status).toBe('complete');
+    const completed = await request(app).patch(`/api/tasks/${created.body._id}/complete`).expect(200);
+    expect(completed.body._id).toBe(created.body._id);
+    expect(completed.body.status).toBe('complete');
+    expect(completed.body.outcome).toBe('complete');
+    expect(completed.body.completedAt).toBeTruthy();
+    expect(completed.body.outcomeHistory).toHaveLength(1);
     const reopened = await request(app).patch(`/api/tasks/${created.body._id}/reopen`).expect(200);
+    expect(reopened.body._id).toBe(created.body._id);
     expect(reopened.body.status).toBe('open');
     expect(reopened.body.completedAt).toBeNull();
+  });
+
+  test('dismisses a task with reason and note while preserving id', async () => {
+    const created = await request(app).post('/api/tasks').send({ title: 'Wrong generated task' }).expect(201);
+
+    const dismissed = await request(app)
+      .patch(`/api/tasks/${created.body._id}/dismiss`)
+      .send({ reason: 'generated_incorrectly', note: 'Wrong assumption' })
+      .expect(200);
+
+    expect(dismissed.body._id).toBe(created.body._id);
+    expect(dismissed.body.status).toBe('dismissed');
+    expect(dismissed.body.outcome).toBe('dismissed');
+    expect(dismissed.body.dismissedAt).toBeTruthy();
+    expect(dismissed.body.dismissedReason).toBe('generated_incorrectly');
+    expect(dismissed.body.dismissedNote).toBe('Wrong assumption');
+    expect(dismissed.body.outcomeHistory.at(-1).reason).toBe('generated_incorrectly');
+
+    const response = await request(app).post('/api/day-plans/start').send({ now: '2026-06-26T08:00:00.000Z' }).expect(201);
+    expect(response.body.carriedForwardItems).not.toContain('Wrong generated task');
+  });
+
+  test('archives a task and removes it from active planning', async () => {
+    const created = await request(app).post('/api/tasks').send({ title: 'Old task' }).expect(201);
+    const archived = await request(app).patch(`/api/tasks/${created.body._id}/archive`).expect(200);
+
+    expect(archived.body._id).toBe(created.body._id);
+    expect(archived.body.status).toBe('archived');
+    expect(archived.body.archivedAt).toBeTruthy();
+
+    const response = await request(app).post('/api/day-plans/start').send({ now: '2026-06-26T08:00:00.000Z' }).expect(201);
+    expect(response.body.carriedForwardItems).not.toContain('Old task');
+  });
+
+  test('converts a task to replacement work and removes original from active planning', async () => {
+    const original = await request(app).post('/api/tasks').send({ title: 'Original task' }).expect(201);
+    const replacement = await request(app).post('/api/tasks').send({ title: 'Replacement task' }).expect(201);
+
+    const converted = await request(app)
+      .patch(`/api/tasks/${original.body._id}/convert`)
+      .send({ replacementTaskId: replacement.body._id })
+      .expect(200);
+
+    expect(converted.body._id).toBe(original.body._id);
+    expect(converted.body.status).toBe('converted');
+    expect(converted.body.replacementTaskId).toBe(replacement.body._id);
+
+    const response = await request(app).post('/api/day-plans/start').send({ now: '2026-06-26T08:00:00.000Z' }).expect(201);
+    expect(response.body.carriedForwardItems).toContain('Replacement task');
+    expect(response.body.carriedForwardItems).not.toContain('Original task');
+  });
+
+  test('project_abandoned dismissal can keep project active or mark it inactive', async () => {
+    const projectOnly = await request(app).post('/api/projects').send({ name: 'Keep active project' }).expect(201);
+    const taskOnly = await request(app).post('/api/tasks').send({ title: 'Drop task only', projectId: projectOnly.body._id }).expect(201);
+
+    await request(app)
+      .patch(`/api/tasks/${taskOnly.body._id}/dismiss`)
+      .send({ reason: 'project_abandoned', markProjectInactive: false })
+      .expect(200);
+
+    expect((await request(app).get(`/api/projects/${projectOnly.body._id}`).expect(200)).body.status).toBe('active');
+
+    const inactiveProject = await request(app).post('/api/projects').send({ name: 'Inactive project' }).expect(201);
+    const inactiveTask = await request(app).post('/api/tasks').send({ title: 'Drop project task', projectId: inactiveProject.body._id }).expect(201);
+
+    await request(app)
+      .patch(`/api/tasks/${inactiveTask.body._id}/dismiss`)
+      .send({ reason: 'project_abandoned', markProjectInactive: true })
+      .expect(200);
+
+    const project = await request(app).get(`/api/projects/${inactiveProject.body._id}`).expect(200);
+    expect(project.body.status).toBe('inactive');
+    expect(project.body.focusToday).toBe(false);
   });
 
   test('categorizes task titles and defaults agent readiness', async () => {
@@ -255,12 +353,14 @@ describe('task completion', () => {
     expect(postponed.body.expectedDeliverable).toBe('Keep deliverable');
     expect(postponed.body.projectId).toBe('project-1');
     expect(postponed.body.codexPrompt).toBe('Keep prompt');
-    expect(postponed.body.status).toBe('open');
+    expect(postponed.body.status).toBe('rescheduled');
+    expect(postponed.body.outcome).toBe('rescheduled');
     expect(postponed.body.scheduledLondonDate).toBe('2026-06-29');
     expect(postponed.body.postponedCount).toBe(1);
     expect(postponed.body.postponedReason).toBe('tomorrow');
     expect(postponed.body.scheduleHistory).toHaveLength(1);
     expect(postponed.body.scheduleHistory[0].toScheduledLondonDate).toBe('2026-06-29');
+    expect(postponed.body.outcomeHistory.at(-1).toStatus).toBe('rescheduled');
 
     const listed = await request(app).get('/api/tasks').expect(200);
     expect(listed.body).toHaveLength(1);
@@ -532,6 +632,29 @@ describe('day plan sessions', () => {
     ]);
     expect(response.body.carriedForwardItems).not.toContain('Future task');
     expect(response.body.priorities[0]).toBe('Overdue scheduled task');
+  });
+
+  test('start day avoids tasks attached to inactive projects', async () => {
+    const project = await request(app).post('/api/projects').send({ name: 'Paused project', status: 'inactive' }).expect(201);
+    await request(app).post('/api/tasks').send({
+      title: 'Inactive project task',
+      priority: 'must',
+      status: 'open',
+      projectId: project.body._id,
+    }).expect(201);
+    await request(app).post('/api/tasks').send({
+      title: 'Active independent task',
+      priority: 'must',
+      status: 'open',
+    }).expect(201);
+
+    const response = await request(app)
+      .post('/api/day-plans/start')
+      .send({ now: '2026-06-26T08:00:00.000Z' })
+      .expect(201);
+
+    expect(response.body.carriedForwardItems).toContain('Active independent task');
+    expect(response.body.carriedForwardItems).not.toContain('Inactive project task');
   });
 });
 

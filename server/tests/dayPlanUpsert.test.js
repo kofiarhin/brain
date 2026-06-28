@@ -25,6 +25,7 @@ function matchesQuery(item, query = {}) {
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
       if ('$gte' in expected && new Date(actual) < new Date(expected.$gte)) return false;
       if ('$lt' in expected && new Date(actual) >= new Date(expected.$lt)) return false;
+      if ('$in' in expected) return expected.$in.includes(actual);
       return true;
     }
 
@@ -104,11 +105,13 @@ const normalizeTask = (payload) => ({
 
 const DayPlanModel = fakeModel('dayPlan');
 const TaskModel = fakeModel('task', normalizeTask);
+const ProjectModel = fakeModel('project', (payload) => ({ status: 'active', ...payload }));
 
 beforeEach(() => {
   tick = 0;
   DayPlanModel.reset();
   TaskModel.reset();
+  ProjectModel.reset();
 });
 
 describe('upsertTodaysDayPlan', () => {
@@ -265,6 +268,46 @@ describe('upsertTodaysDayPlan', () => {
     expect(TaskModel.all()).toHaveLength(1);
     expect(TaskModel.all()[0].status).toBe('complete');
     expect(TaskModel.all()[0].completedAt).toEqual(new Date('2026-06-25T07:00:00.000Z'));
+  });
+
+  test('dismissed matching tasks are reused without recreating generated work', async () => {
+    await TaskModel.create({
+      title: 'Bad generated task',
+      status: 'dismissed',
+      outcome: 'dismissed',
+      dismissedReason: 'generated_incorrectly',
+      dismissedAt: new Date('2026-06-24T08:00:00.000Z'),
+      priority: 'must',
+      source: 'day-plan',
+    });
+
+    const result = await upsertTodaysDayPlan({ mustDo: ['Bad generated task'] }, {
+      now: new Date('2026-06-25T10:00:00.000Z'),
+      DayPlanModel,
+      TaskModel,
+      ProjectModel,
+    });
+
+    expect(TaskModel.all()).toHaveLength(1);
+    expect(TaskModel.all()[0].status).toBe('dismissed');
+    expect(result.tasks.created).toHaveLength(0);
+    expect(result.tasks.reused).toHaveLength(1);
+  });
+
+  test('inactive projects suppress future generated tasks', async () => {
+    const project = await ProjectModel.create({ name: 'Abandoned project', status: 'inactive' });
+
+    const result = await upsertTodaysDayPlan({
+      mustDo: [{ title: 'Suppressed project task', projectId: project._id }],
+    }, {
+      now: new Date('2026-06-25T10:00:00.000Z'),
+      DayPlanModel,
+      TaskModel,
+      ProjectModel,
+    });
+
+    expect(result.tasks.created).toHaveLength(0);
+    expect(TaskModel.all()).toHaveLength(0);
   });
 
   test('uses Europe/London day boundaries', async () => {

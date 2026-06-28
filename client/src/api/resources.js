@@ -19,6 +19,8 @@ export const createResourceApi = (path) => ({
   complete: (id) => request(`${path}/${id}/complete`, { method: 'PATCH' }),
   reopen: (id) => request(`${path}/${id}/reopen`, { method: 'PATCH' }),
   archive: (id) => request(`${path}/${id}/archive`, { method: 'PATCH' }),
+  dismiss: (id, payload) => request(`${path}/${id}/dismiss`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  convert: (id, payload) => request(`${path}/${id}/convert`, { method: 'PATCH', body: JSON.stringify(payload) }),
   reschedule: (id, payload) => request(`${path}/${id}/reschedule`, { method: 'PATCH', body: JSON.stringify(payload) })
 });
 
