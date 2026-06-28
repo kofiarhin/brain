@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useResource } from '../hooks/useResource';
 import { Card } from '../components/Card';
 import { addLondonDays, getLondonDateKey, nextWeekendLondonDate } from '../utils/londonDate';
@@ -144,6 +144,7 @@ function CompletedTaskCard({ task }) {
 
 function TaskCard({ task, onComplete, onReschedule, onDismiss, onArchive, onConvert, isCompleting = false, isRescheduling = false, isResolving = false }) {
   const [copyStatus, setCopyStatus] = useState('idle');
+  const dateInputRef = useRef(null);
 
   const copyTaskTitle = async (event) => {
     event.preventDefault();
@@ -194,20 +195,45 @@ function TaskCard({ task, onComplete, onReschedule, onDismiss, onArchive, onConv
     }
   };
 
+  const openDatePicker = () => {
+    const dateInput = dateInputRef.current;
+    if (!dateInput) return;
+
+    dateInput.value = '';
+    if (typeof dateInput.showPicker === 'function') {
+      dateInput.showPicker();
+      return;
+    }
+
+    dateInput.focus();
+    dateInput.click();
+  };
+
+  const choosePickedDate = (event) => {
+    const targetDate = event.target.value;
+    if (!targetDate) return;
+    onReschedule(task._id, { targetDate, reason: 'pick' });
+  };
+
   const postponeTask = async (event) => {
     const option = event.target.value;
     if (!option) return;
     event.preventDefault();
     event.stopPropagation();
+    event.target.value = '';
+
+    if (option === 'pick') {
+      openDatePicker();
+      return;
+    }
 
     const today = getLondonDateKey();
     const targetDate = {
       tomorrow: addLondonDays(today, 1),
       weekend: nextWeekendLondonDate(today),
       nextWeek: addLondonDays(today, 7),
-    }[option] || window.prompt('Pick date (YYYY-MM-DD)', addLondonDays(today, 1));
+    }[option];
 
-    event.target.value = '';
     if (!targetDate) return;
     onReschedule(task._id, { targetDate, reason: option });
   };
@@ -244,6 +270,15 @@ function TaskCard({ task, onComplete, onReschedule, onDismiss, onArchive, onConv
           <option value="nextWeek">Next Week</option>
           <option value="pick">Pick Date</option>
         </select>
+        <input
+          ref={dateInputRef}
+          type="date"
+          aria-label={`Pick postpone date for ${task.title}`}
+          className="absolute h-px w-px opacity-0"
+          tabIndex={-1}
+          onChange={choosePickedDate}
+          onClick={(event) => event.stopPropagation()}
+        />
         <select
           aria-label={`Resolve ${task.title}`}
           className="min-h-10 rounded-full border border-slate-600 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
