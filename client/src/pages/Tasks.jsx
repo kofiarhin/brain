@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useResource } from '../hooks/useResource';
 import { Card } from '../components/Card';
-import { getLondonDateKey } from '../utils/londonDate';
+import { addLondonDays, getLondonDateKey, nextWeekendLondonDate } from '../utils/londonDate';
 
 const groups = [['must', 'Must Do'], ['should', 'Should Do'], ['nice', 'Nice To Have']];
 const hiddenStatuses = new Set(['complete', 'completed', 'done', 'archived']);
@@ -60,6 +60,18 @@ function isActiveTask(task) {
   return !hiddenStatuses.has(String(task.status || '').toLowerCase());
 }
 
+function taskScheduledLondonDate(task) {
+  return task.scheduledLondonDate
+    || (task.scheduledFor ? getLondonDateKey(task.scheduledFor) : '')
+    || task.dueLondonDate
+    || (task.dueDate ? getLondonDateKey(task.dueDate) : '');
+}
+
+function isVisibleToday(task, todayLondonDate) {
+  const scheduledDate = taskScheduledLondonDate(task);
+  return !scheduledDate || scheduledDate <= todayLondonDate;
+}
+
 function taskMatchesTab(task, tab) {
   if (tab === 'all') return true;
   if (tab === 'agent') return task.agentReady === true;
@@ -67,7 +79,8 @@ function taskMatchesTab(task, tab) {
 }
 
 function tasksForTab(tab, items) {
-  return items.filter((task) => isActiveTask(task) && taskMatchesTab(task, tab));
+  const todayLondonDate = getLondonDateKey();
+  return items.filter((task) => isActiveTask(task) && isVisibleToday(task, todayLondonDate) && taskMatchesTab(task, tab));
 }
 
 function wasCompletedToday(task, todayLondonDate = getLondonDateKey()) {
@@ -81,12 +94,14 @@ function previewText(value) {
 function TaskSummary({ task }) {
   const taskCategory = normalizeCategory(task.category);
   const status = statusLabel(task.status);
+  const scheduledDate = taskScheduledLondonDate(task);
   return <div className="min-w-0 flex-1">
     <h2 className="break-words text-base font-semibold leading-6 text-slate-50 sm:text-lg">{task.title}</h2>
     <div className="mt-2 flex flex-wrap gap-2">
       <span className={badgeClass(status === 'Done' ? 'done' : status === 'Archived' ? 'archived' : 'open')}>{status}</span>
       <span className={badgeClass()}>{priorityLabel(task.priority)}</span>
       <span className={badgeClass('category')}>{categoryLabel(taskCategory)}</span>
+      {scheduledDate ? <span className={badgeClass()}>Scheduled {scheduledDate}</span> : null}
       {task.agentReady === true ? <span className={badgeClass('agent')}>Agent-ready</span> : null}
     </div>
     {previewText(task.expectedDeliverable) ? <p className="mt-3 truncate text-sm text-slate-300">{previewText(task.expectedDeliverable)}</p> : null}
@@ -101,7 +116,7 @@ function CompletedTaskCard({ task }) {
   </li>;
 }
 
-function TaskCard({ task, onComplete, isCompleting = false }) {
+function TaskCard({ task, onComplete, onReschedule, isCompleting = false, isRescheduling = false }) {
   const [copyStatus, setCopyStatus] = useState('idle');
 
   const copyTaskTitle = async (event) => {
@@ -125,6 +140,24 @@ function TaskCard({ task, onComplete, isCompleting = false }) {
     onComplete(task._id);
   };
 
+  const postponeTask = async (event) => {
+    const option = event.target.value;
+    if (!option) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const today = getLondonDateKey();
+    const targetDate = {
+      tomorrow: addLondonDays(today, 1),
+      weekend: nextWeekendLondonDate(today),
+      nextWeek: addLondonDays(today, 7),
+    }[option] || window.prompt('Pick date (YYYY-MM-DD)', addLondonDays(today, 1));
+
+    event.target.value = '';
+    if (!targetDate) return;
+    onReschedule(task._id, { targetDate, reason: option });
+  };
+
   return <li className="relative rounded-lg border border-slate-700/80 bg-slate-800/80 shadow-sm shadow-slate-950/20 transition hover:border-blue-500/50 hover:bg-slate-800 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 focus-within:ring-offset-slate-950">
     <a href={`/tasks/${task._id}`} aria-label={task.title} className="absolute inset-0 z-0 rounded-lg focus:outline-none" />
     <div className="relative z-10 flex flex-col gap-4 p-4 pointer-events-none sm:flex-row sm:items-start sm:justify-between">
@@ -144,6 +177,19 @@ function TaskCard({ task, onComplete, isCompleting = false }) {
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>}
         </button>
+        <select
+          aria-label={`Postpone ${task.title}`}
+          className="min-h-10 rounded-full border border-slate-600 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          defaultValue=""
+          disabled={isRescheduling}
+          onChange={postponeTask}
+        >
+          <option value="" disabled>{isRescheduling ? 'Moving...' : 'Postpone'}</option>
+          <option value="tomorrow">Tomorrow</option>
+          <option value="weekend">This Weekend</option>
+          <option value="nextWeek">Next Week</option>
+          <option value="pick">Pick Date</option>
+        </select>
         <button
           type="button"
           className="w-full rounded-full border border-emerald-500/60 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
@@ -168,6 +214,7 @@ export function Tasks() {
   const completedItems = items.filter((task) => wasCompletedToday(task, todayLondonDate));
   const filteredItems = tasksForTab(selectedTab, items);
   const completingTaskId = tasks.complete.isPending ? tasks.complete.variables : null;
+  const reschedulingTaskId = tasks.reschedule.isPending ? tasks.reschedule.variables?.id : null;
 
   const save = async (event) => {
     event.preventDefault();
@@ -222,7 +269,7 @@ export function Tasks() {
     }) : groups.map(([priority, groupTitle]) => {
       const groupItems = filteredItems.filter((task) => normalizePriority(task.priority) === priority);
       if (groupItems.length === 0) return null;
-      return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} onComplete={tasks.complete.mutate} isCompleting={completingTaskId === task._id} />)}</ul></Card>;
+      return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} onComplete={tasks.complete.mutate} onReschedule={(id, payload) => tasks.reschedule.mutate({ id, payload })} isCompleting={completingTaskId === task._id} isRescheduling={reschedulingTaskId === task._id} />)}</ul></Card>;
     })}
     {selectedTab === 'completed' && completedItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No tasks completed today.</p> : null}
     {selectedTab !== 'completed' && filteredItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No open tasks in this tab.</p> : null}

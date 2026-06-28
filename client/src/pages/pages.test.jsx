@@ -9,7 +9,7 @@ import { TaskDetails } from './TaskDetails';
 import { Dashboard } from './Dashboard';
 import { Projects } from './Projects';
 import { Reports } from './Reports';
-import { getLondonDateKey } from '../utils/londonDate';
+import { addLondonDays, getLondonDateKey } from '../utils/londonDate';
 
 function wrapper() { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>; }
 
@@ -60,6 +60,80 @@ describe('Tasks page', () => {
     expect(await screen.findByText('First open task')).toBeInTheDocument();
     expect(screen.getByText('Second open task')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Copy task title' })).toHaveLength(2);
+  });
+
+  test('hides postponed tasks until their scheduled date', async () => {
+    const today = getLondonDateKey();
+    const tomorrow = addLondonDays(today, 1);
+
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        { _id: '1', title: 'Today task', priority: 'must', status: 'open', scheduledLondonDate: today },
+        { _id: '2', title: 'Tomorrow task', priority: 'must', status: 'open', scheduledLondonDate: tomorrow },
+      ],
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByText('Today task')).toBeInTheDocument();
+    expect(screen.queryByText('Tomorrow task')).not.toBeInTheDocument();
+  });
+
+  test('postpones an open task from the overview and removes it from today', async () => {
+    const tomorrow = addLondonDays(getLondonDateKey(), 1);
+    let postponed = false;
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/tasks/1/reschedule') && options?.method === 'PATCH') {
+        postponed = true;
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            _id: '1',
+            title: 'Move me',
+            priority: 'must',
+            status: 'open',
+            scheduledLondonDate: tomorrow,
+            postponedCount: 1,
+            scheduleHistory: [{ toScheduledLondonDate: tomorrow }],
+          }),
+        });
+      }
+      if (url.includes('/tasks')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => postponed
+            ? [{ _id: '1', title: 'Move me', priority: 'must', status: 'open', scheduledLondonDate: tomorrow }]
+            : [{ _id: '1', title: 'Move me', priority: 'must', status: 'open' }],
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByText('Move me')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Postpone Move me'), 'tomorrow');
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/tasks/1/reschedule'),
+      expect.objectContaining({ method: 'PATCH' })
+    ));
+    const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks/1/reschedule') && options?.method === 'PATCH');
+    expect(JSON.parse(patchCall[1].body)).toEqual({ targetDate: tomorrow, reason: 'tomorrow' });
+    await waitFor(() => expect(screen.queryByText('Move me')).not.toBeInTheDocument());
+  });
+
+  test('shows postponed tasks on their scheduled date', async () => {
+    const today = getLondonDateKey();
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        { _id: '1', title: 'Scheduled today task', priority: 'must', status: 'open', scheduledLondonDate: today, postponedCount: 1 },
+      ],
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect(await screen.findByText('Scheduled today task')).toBeInTheDocument();
+    expect(screen.getByText(`Scheduled ${today}`)).toBeInTheDocument();
   });
 
   test('copies a task title without navigating or completing the task', async () => {

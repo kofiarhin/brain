@@ -93,6 +93,15 @@ These routing rules override every other instruction in this document.
 - Completion belongs to the task. Do not treat a deliverable as the completion source of truth.
 - Start Day should generate rich task workspaces, not just one-line task titles.
 
+## Task Lifecycle
+
+- Task identity is stable. Rescheduling or postponing work must update the existing task record, not create a replacement.
+- Preserve notes, deliverables, history, project links, comments, agent context, acceptance criteria, and review state when postponing or rescheduling.
+- Use scheduling metadata such as `scheduledFor`, `scheduledLondonDate`, `postponedCount`, `lastPostponedAt`, `postponedReason`, and `scheduleHistory` to track movement across days.
+- Completion remains on the task via `status` and `completedAt`; postponing must not complete, archive, or duplicate a task.
+- Before creating a task, reconcile against existing open tasks by normalized title, project link, action link, and schedule context. If equivalent open work exists, update or reference that task instead of creating another one.
+- Agents must justify postponing existing work in favor of new work, especially when the new work displaces carry-over tasks.
+
 ## MongoDB Working Context
 
 Always begin by connecting to MongoDB using the `MONGODB_URI` in `.env`.
@@ -222,13 +231,19 @@ Planning occurs only when the user intentionally invokes one of these exact plan
 For those commands:
 
 1. Read MongoDB sources of truth, including recent raw notes.
-2. Determine current priorities and unfinished next actions.
-3. Surface commitments, follow-ups, and neglected open loops.
-4. Align the day with long-term goals.
-5. Favor high-impact execution over research, planning, or busy work.
-6. Reduce context switching and define measurable task outcomes.
-7. Save the generated plan and rich task workspaces to MongoDB before returning the console breakdown.
-8. Put missing or contradictory information under `Unclear Items`.
+2. Load open tasks scheduled for today, open overdue tasks scheduled before today, and postponed tasks whose scheduled date is today.
+3. Treat that scheduled and overdue work as carry-over context before proposing new work.
+4. Estimate today’s available capacity using existing planning conventions.
+5. Fill the day with carry-over work first.
+6. Create new tasks only when capacity remains or I explicitly request additional work.
+7. If capacity is exceeded, recommend postponing lower-priority existing tasks instead of overloading the day.
+8. Determine current priorities and unfinished next actions.
+9. Surface commitments, follow-ups, and neglected open loops.
+10. Align the day with long-term goals.
+11. Favor high-impact execution over research, planning, or busy work.
+12. Reduce context switching and define measurable task outcomes.
+13. Save the generated plan and rich task workspaces to MongoDB before returning the console breakdown.
+14. Put missing or contradictory information under `Unclear Items`.
 
 ## Codex CLI Project Planning Contract
 
@@ -238,16 +253,19 @@ When planning project execution:
 2. Prefer projects where `focusToday: true`.
 3. Ignore projects with `executionState` of `blocked`, `completed`, or `ready_for_production`.
 4. Pull incomplete `nextActionableSteps`.
-5. Convert selected actionable steps into rich day task workspaces in the `tasks` collection.
-6. Link generated tasks back to the project with `projectId` and, when available, `projectActionId`.
-7. Use `codexPrompt`, `summary`, `problemStatement`, `prd`, `blockers`, and `definitionOfDone` as execution context inside the task workspace.
-8. After Codex work is complete, leave the project in `review_required` until I manually update progress, summary, blockers, and next steps.
+5. Reconcile selected steps against existing open and carry-over tasks before creating task workspaces.
+6. Convert selected actionable steps into rich day task workspaces in the `tasks` collection only when no equivalent open task already exists.
+7. Link generated tasks back to the project with `projectId` and, when available, `projectActionId`.
+8. Use `codexPrompt`, `summary`, `problemStatement`, `prd`, `blockers`, and `definitionOfDone` as execution context inside the task workspace.
+9. After Codex work is complete, leave the project in `review_required` until I manually update progress, summary, blockers, and next steps.
 
 The frontend remains CRUD only. It can edit project state, actionable steps, checklists, and progress history, but it must not generate plans, assign work, call OpenAI, or run project execution workflows.
 
 ## Daily output
 
 This section is exclusive to day-planning commands.
+
+Use this section only for dedicated day-planning triggers.
 
 Use this section only for explicit day-planning commands:
 
@@ -263,6 +281,8 @@ Never use this section for:
 
 - `update brain`
 - `update life`
+
+Do not use this section for `update life` or `update brain`.
 
 Use this exact order:
 

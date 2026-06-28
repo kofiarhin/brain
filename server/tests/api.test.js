@@ -231,6 +231,50 @@ describe('task completion', () => {
 
     expect(created.body.category).toBe('general');
   });
+
+  test('postponing keeps the same task id and updates schedule history', async () => {
+    const created = await request(app)
+      .post('/api/tasks')
+      .send({
+        title: 'Carry this task',
+        notes: 'Keep these notes',
+        expectedDeliverable: 'Keep deliverable',
+        projectId: 'project-1',
+        codexPrompt: 'Keep prompt',
+      })
+      .expect(201);
+
+    const postponed = await request(app)
+      .patch(`/api/tasks/${created.body._id}/reschedule`)
+      .send({ targetDate: '2026-06-29', reason: 'tomorrow' })
+      .expect(200);
+
+    expect(postponed.body._id).toBe(created.body._id);
+    expect(postponed.body.title).toBe('Carry this task');
+    expect(postponed.body.notes).toBe('Keep these notes');
+    expect(postponed.body.expectedDeliverable).toBe('Keep deliverable');
+    expect(postponed.body.projectId).toBe('project-1');
+    expect(postponed.body.codexPrompt).toBe('Keep prompt');
+    expect(postponed.body.status).toBe('open');
+    expect(postponed.body.scheduledLondonDate).toBe('2026-06-29');
+    expect(postponed.body.postponedCount).toBe(1);
+    expect(postponed.body.postponedReason).toBe('tomorrow');
+    expect(postponed.body.scheduleHistory).toHaveLength(1);
+    expect(postponed.body.scheduleHistory[0].toScheduledLondonDate).toBe('2026-06-29');
+
+    const listed = await request(app).get('/api/tasks').expect(200);
+    expect(listed.body).toHaveLength(1);
+    expect(listed.body[0]._id).toBe(created.body._id);
+  });
+
+  test('rejects invalid task reschedule target dates', async () => {
+    const created = await request(app).post('/api/tasks').send({ title: 'Invalid move' }).expect(201);
+
+    await request(app)
+      .patch(`/api/tasks/${created.body._id}/reschedule`)
+      .send({ targetDate: 'not-a-date' })
+      .expect(400);
+  });
 });
 
 describe('projects CRUD', () => {
@@ -448,6 +492,46 @@ describe('day plan sessions', () => {
     const plans = await request(app).get('/api/day-plans').expect(200);
     expect(plans.body).toHaveLength(2);
     expect(plans.body.map((plan) => plan.londonDate)).toEqual(['2026-06-26', '2026-06-26']);
+  });
+
+  test('start day carries scheduled and overdue work before unscheduled tasks', async () => {
+    await request(app).post('/api/tasks').send({
+      title: 'Unscheduled task',
+      priority: 'must',
+      status: 'open',
+    }).expect(201);
+    await request(app).post('/api/tasks').send({
+      title: 'Overdue scheduled task',
+      priority: 'should',
+      status: 'open',
+      scheduledLondonDate: '2026-06-25',
+    }).expect(201);
+    await request(app).post('/api/tasks').send({
+      title: 'Today postponed task',
+      priority: 'nice',
+      status: 'open',
+      scheduledLondonDate: '2026-06-26',
+      postponedCount: 1,
+    }).expect(201);
+    await request(app).post('/api/tasks').send({
+      title: 'Future task',
+      priority: 'must',
+      status: 'open',
+      scheduledLondonDate: '2026-06-27',
+    }).expect(201);
+
+    const response = await request(app)
+      .post('/api/day-plans/start')
+      .send({ now: '2026-06-26T08:00:00.000Z' })
+      .expect(201);
+
+    expect(response.body.carriedForwardItems.slice(0, 3)).toEqual([
+      'Overdue scheduled task',
+      'Today postponed task',
+      'Unscheduled task',
+    ]);
+    expect(response.body.carriedForwardItems).not.toContain('Future task');
+    expect(response.body.priorities[0]).toBe('Overdue scheduled task');
   });
 });
 

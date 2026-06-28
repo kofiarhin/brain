@@ -13,6 +13,7 @@ export function useResource(name) {
     remove: useMutation({ mutationFn: resource.remove, onSuccess: invalidate }),
     complete: useMutation({ mutationFn: resource.complete, onSuccess: invalidate }),
     reopen: useMutation({ mutationFn: resource.reopen, onSuccess: invalidate }),
-    archive: useMutation({ mutationFn: resource.archive, onSuccess: invalidate })
+    archive: useMutation({ mutationFn: resource.archive, onSuccess: invalidate }),
+    reschedule: useMutation({ mutationFn: ({ id, payload }) => resource.reschedule(id, payload), onSuccess: invalidate })
   };
 }

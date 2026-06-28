@@ -31,12 +31,26 @@ const taskSchema = new mongoose.Schema({
   completedAt: { type: Date, default: null },
   dueDate: { type: Date, default: null },
   dueLondonDate: { type: String, default: '' },
+  scheduledFor: { type: Date, default: null },
+  scheduledLondonDate: { type: String, default: '' },
+  postponedCount: { type: Number, default: 0, min: 0 },
+  lastPostponedAt: { type: Date, default: null },
+  postponedReason: { type: String, default: '' },
+  scheduleHistory: [{
+    fromScheduledFor: { type: Date, default: null },
+    fromScheduledLondonDate: { type: String, default: '' },
+    toScheduledFor: { type: Date, default: null },
+    toScheduledLondonDate: { type: String, default: '' },
+    reason: { type: String, default: '' },
+    changedAt: { type: Date, default: Date.now },
+  }],
   source: { type: String, default: 'manual' }
 }, { timestamps: true });
 
 function setTaskMatchingFields(target) {
   if (target.title) target.normalizedTitle = normalizeTaskTitle(target.title);
   if (target.dueDate) target.dueLondonDate = getLondonDateKey(new Date(target.dueDate));
+  if (target.scheduledFor) target.scheduledLondonDate = getLondonDateKey(new Date(target.scheduledFor));
 }
 
 taskSchema.pre('validate', function setMatchingFields(next) {
@@ -55,5 +69,6 @@ taskSchema.pre('findOneAndUpdate', function setUpdatedMatchingFields(next) {
 });
 
 taskSchema.index({ normalizedTitle: 1, dueLondonDate: 1 });
+taskSchema.index({ scheduledLondonDate: 1, status: 1 });
 
 export const Task = mongoose.model('Task', taskSchema);

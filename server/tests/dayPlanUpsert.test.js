@@ -201,6 +201,29 @@ describe('upsertTodaysDayPlan', () => {
     expect(TaskModel.all()[0].priority).toBe('must');
   });
 
+  test('equivalent open tasks are reused even without today schedule metadata', async () => {
+    const existing = await TaskModel.create({
+      title: 'Draft launch checklist',
+      notes: 'Preserve workspace notes',
+      codexPrompt: 'Preserve agent context',
+      priority: 'should',
+      source: 'manual',
+    });
+
+    await upsertTodaysDayPlan({ mustDo: ['Draft launch checklist'] }, {
+      now: new Date('2026-06-25T10:00:00.000Z'),
+      DayPlanModel,
+      TaskModel,
+    });
+
+    expect(TaskModel.all()).toHaveLength(1);
+    expect(TaskModel.all()[0]._id).toBe(existing._id);
+    expect(TaskModel.all()[0].notes).toBe('Preserve workspace notes');
+    expect(TaskModel.all()[0].codexPrompt).toBe('Preserve agent context');
+    expect(TaskModel.all()[0].scheduledLondonDate).toBe('2026-06-25');
+    expect(TaskModel.all()[0].priority).toBe('must');
+  });
+
   test('unrelated open tasks remain untouched', async () => {
     const unrelated = await TaskModel.create({
       title: 'Unrelated admin',

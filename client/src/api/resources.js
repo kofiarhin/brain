@@ -18,7 +18,8 @@ export const createResourceApi = (path) => ({
   remove: (id) => request(`${path}/${id}`, { method: 'DELETE' }),
   complete: (id) => request(`${path}/${id}/complete`, { method: 'PATCH' }),
   reopen: (id) => request(`${path}/${id}/reopen`, { method: 'PATCH' }),
-  archive: (id) => request(`${path}/${id}/archive`, { method: 'PATCH' })
+  archive: (id) => request(`${path}/${id}/archive`, { method: 'PATCH' }),
+  reschedule: (id, payload) => request(`${path}/${id}/reschedule`, { method: 'PATCH', body: JSON.stringify(payload) })
 });
 
 export const api = {

@@ -2,6 +2,7 @@ import { DayPlan } from '../models/DayPlan.js';
 import { Task } from '../models/Task.js';
 import { getLondonDateKey, getLondonDayRange } from './londonDate.js';
 import { normalizeTaskTitle } from './taskNormalization.js';
+import { equivalentOpenTask } from './taskScheduling.js';
 
 const planTaskSources = [
   ['mustDo', 'must'],
@@ -110,6 +111,8 @@ export function tasksFromDayPlan(plan, londonDate, dueDate) {
         codexPrompt: generatedCodexPrompt(title, item),
         dueDate,
         dueLondonDate: londonDate,
+        scheduledFor: dueDate,
+        scheduledLondonDate: londonDate,
         category: item && typeof item === 'object' ? item.category || 'general' : 'general',
         priority: normalizeGeneratedPriority(priority),
         source: 'day-plan',
@@ -143,23 +146,58 @@ async function listTasksForLondonDay(TaskModel, range) {
   }).sort({ createdAt: 1 });
 }
 
+async function listAllTasks(TaskModel) {
+  return TaskModel.find({}).sort({ createdAt: 1 });
+}
+
+function mergedGeneratedTask(existing, generatedTask) {
+  return {
+    ...generatedTask,
+    description: existing.description || generatedTask.description,
+    deliverableRequired: existing.deliverableRequired || generatedTask.deliverableRequired,
+    expectedDeliverable: existing.expectedDeliverable || generatedTask.expectedDeliverable,
+    deliverableSummary: existing.deliverableSummary || generatedTask.deliverableSummary,
+    deliverableLocation: existing.deliverableLocation || generatedTask.deliverableLocation,
+    deliverableTitle: existing.deliverableTitle || generatedTask.deliverableTitle || '',
+    deliverableDescription: existing.deliverableDescription || generatedTask.deliverableDescription || '',
+    deliverableUrl: existing.deliverableUrl || generatedTask.deliverableUrl || '',
+    acceptanceCriteria: existing.acceptanceCriteria || generatedTask.acceptanceCriteria,
+    notes: existing.notes || generatedTask.notes,
+    projectId: existing.projectId || generatedTask.projectId || null,
+    projectActionId: existing.projectActionId || generatedTask.projectActionId || null,
+    codexPrompt: existing.codexPrompt || generatedTask.codexPrompt,
+    reviewRequired: existing.reviewRequired || generatedTask.reviewRequired || false,
+    reviewStatus: existing.reviewStatus || generatedTask.reviewStatus || 'pending',
+    reviewNotes: existing.reviewNotes || generatedTask.reviewNotes || '',
+    agentReady: existing.agentReady || generatedTask.agentReady || false,
+    status: existing.status,
+    completedAt: existing.completedAt || null,
+    postponedCount: existing.postponedCount || 0,
+    lastPostponedAt: existing.lastPostponedAt || null,
+    postponedReason: existing.postponedReason || '',
+    scheduleHistory: existing.scheduleHistory || [],
+  };
+}
+
 async function upsertTasksFromPlan(TaskModel, plan, range) {
   const generatedTasks = tasksFromDayPlan(plan, range.londonDate, range.start);
   if (generatedTasks.length === 0) return { created: [], updated: [], reused: [] };
 
   const existingTasks = await listTasksForLondonDay(TaskModel, range);
+  const allTasks = await listAllTasks(TaskModel);
   const existingByKey = new Map(existingTasks.map((task) => [taskMatchKey(task), task]));
   const created = [];
   const updated = [];
   const reused = [];
 
   for (const generatedTask of generatedTasks) {
-    const existing = existingByKey.get(taskMatchKey(generatedTask));
+    const existing = existingByKey.get(taskMatchKey(generatedTask)) || equivalentOpenTask(allTasks, generatedTask);
 
     if (!existing) {
       const createdTask = await TaskModel.create(generatedTask);
       created.push(createdTask);
       existingByKey.set(taskMatchKey(createdTask), createdTask);
+      allTasks.push(createdTask);
       continue;
     }
 
@@ -170,15 +208,13 @@ async function upsertTasksFromPlan(TaskModel, plan, range) {
 
     const updatedTask = await TaskModel.findByIdAndUpdate(
       existing._id,
-      {
-        ...generatedTask,
-        status: existing.status,
-        completedAt: existing.completedAt || null,
-      },
+      mergedGeneratedTask(existing, generatedTask),
       { new: true, runValidators: true }
     );
     updated.push(updatedTask);
     existingByKey.set(taskMatchKey(updatedTask), updatedTask);
+    const allIndex = allTasks.findIndex((task) => String(task._id) === String(updatedTask._id));
+    if (allIndex >= 0) allTasks[allIndex] = updatedTask;
   }
 
   return { created, updated, reused };

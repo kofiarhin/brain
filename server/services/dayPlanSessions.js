@@ -4,6 +4,7 @@ import { Deliverable } from '../models/Deliverable.js';
 import { Task } from '../models/Task.js';
 import { getLondonDateKey } from './londonDate.js';
 import { normalizeTaskTitle } from './taskNormalization.js';
+import { listCarryOverTasks, scheduledDayKey } from './taskScheduling.js';
 
 const eightHoursMs = 8 * 60 * 60 * 1000;
 const incompleteStatuses = { $nin: ['complete', 'archived'] };
@@ -42,8 +43,16 @@ async function findLatestActivePlan(DayPlanModel) {
   return DayPlanModel.findOne({ status: 'active' }).sort({ startTime: -1, createdAt: -1 });
 }
 
-async function listOpenTasks(TaskModel) {
-  return TaskModel.find({ status: incompleteStatuses }).sort({ priority: 1, createdAt: 1 });
+async function listOpenTasks(TaskModel, londonDate) {
+  const openTasks = await TaskModel.find({ status: incompleteStatuses }).sort({ priority: 1, createdAt: 1 });
+  const carryOverTasks = await listCarryOverTasks(TaskModel, londonDate);
+  const carryOverIds = new Set(carryOverTasks.map((task) => String(task._id)));
+  const remainingTasks = openTasks.filter((task) => !carryOverIds.has(String(task._id)) && !scheduledDayKey(task));
+
+  return {
+    tasks: [...carryOverTasks, ...remainingTasks],
+    carryOverTasks,
+  };
 }
 
 async function listAllTasks(TaskModel) {
@@ -80,21 +89,23 @@ function collectPreviousWork(sourcePlan) {
   return uniqueTexts(priorPlanFields.flatMap((field) => sourcePlan[field] || []));
 }
 
-function buildSessionPayload({ now, sessionType, sourcePlan, tasks, allTasks, deliverables, allDeliverables, contextItems, priorPlans }) {
+function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTasks = [], allTasks, deliverables, allDeliverables, contextItems, priorPlans }) {
   const startTime = new Date(now);
   const endTime = new Date(startTime.getTime() + eightHoursMs);
   const londonDate = getLondonDateKey(startTime);
   const completedItems = collectCompletedItems({ allTasks, allDeliverables, priorPlans, sourcePlan });
   const completedKeys = new Set(completedItems.map(normalizeTaskTitle));
   const activeTaskTitles = excludeCompleted(tasks.map(titleFromRecord), completedKeys);
+  const carryOverTitles = excludeCompleted(carryOverTasks.map(titleFromRecord), completedKeys);
   const mustDo = excludeCompleted(tasks.filter((task) => task.priority === 'must' || task.priority === 'high').map(titleFromRecord), completedKeys);
   const shouldDo = excludeCompleted(tasks.filter((task) => task.priority === 'should' || task.priority === 'medium').map(titleFromRecord), completedKeys);
   const niceToHave = excludeCompleted(tasks.filter((task) => task.priority === 'nice' || task.priority === 'low').map(titleFromRecord), completedKeys);
   const deliverableTitles = excludeCompleted(deliverables.map(titleFromRecord), completedKeys);
   const previousWork = sessionType === 'restart' ? excludeCompleted(collectPreviousWork(sourcePlan), completedKeys) : [];
-  const carriedForwardItems = uniqueTexts([...previousWork, ...activeTaskTitles, ...deliverableTitles]);
+  const carriedForwardItems = uniqueTexts([...carryOverTitles, ...previousWork, ...activeTaskTitles, ...deliverableTitles]);
   const contextLines = uniqueTexts(contextItems.map((item) => [item.category, item.value].filter(Boolean).join(': '))).slice(0, 8);
-  const priorities = uniqueTexts([...mustDo, ...deliverableTitles, ...shouldDo, ...previousWork]).slice(0, 3);
+  const priorities = uniqueTexts([...carryOverTitles, ...mustDo, ...deliverableTitles, ...shouldDo, ...previousWork]).slice(0, 3);
+  const capacityExceeded = carriedForwardItems.length > 8;
 
   return {
     date: startTime,
@@ -125,13 +136,16 @@ function buildSessionPayload({ now, sessionType, sourcePlan, tasks, allTasks, de
       davidGogginsQuote: 'You are in danger of living a life so comfortable and soft, that you will die without ever realizing your true potential.',
       stoicQuote: 'First say to yourself what you would be; and then do what you have to do.',
     },
-    unclearItems: priorities.length ? [] : ['No active tasks or incomplete deliverables were found.'],
+    unclearItems: priorities.length
+      ? capacityExceeded ? ['Carry-over work exceeds the 8-hour planning capacity; postpone lower-priority tasks before adding new work.'] : []
+      : ['No active tasks or incomplete deliverables were found.'],
   };
 }
 
 async function readPlanningContext(models) {
-  const [tasks, allTasks, deliverables, allDeliverables, contextItems, priorPlans] = await Promise.all([
-    listOpenTasks(models.TaskModel),
+  const londonDate = getLondonDateKey(models.now || new Date());
+  const [{ tasks, carryOverTasks }, allTasks, deliverables, allDeliverables, contextItems, priorPlans] = await Promise.all([
+    listOpenTasks(models.TaskModel, londonDate),
     listAllTasks(models.TaskModel),
     listOpenDeliverables(models.DeliverableModel),
     listAllDeliverables(models.DeliverableModel),
@@ -139,7 +153,7 @@ async function readPlanningContext(models) {
     listPriorPlans(models.DayPlanModel),
   ]);
 
-  return { tasks, allTasks, deliverables, allDeliverables, contextItems, priorPlans };
+  return { tasks, carryOverTasks, allTasks, deliverables, allDeliverables, contextItems, priorPlans };
 }
 
 async function closeCurrentActivePlan(DayPlanModel, status) {
@@ -163,7 +177,7 @@ export async function startDaySession(options = {}) {
   const now = options.now || new Date();
 
   await closeCurrentActivePlan(models.DayPlanModel, 'archived');
-  const context = await readPlanningContext(models);
+  const context = await readPlanningContext({ ...models, now });
   const payload = buildSessionPayload({ now, sessionType: 'start', sourcePlan: null, ...context });
   const dayPlan = await models.DayPlanModel.create(payload);
 
@@ -186,7 +200,7 @@ export async function restartDaySession(options = {}) {
     throw error;
   }
 
-  const context = await readPlanningContext(models);
+  const context = await readPlanningContext({ ...models, now });
   const payload = buildSessionPayload({ now, sessionType: 'restart', sourcePlan, ...context });
   const dayPlan = await models.DayPlanModel.create(payload);
 
