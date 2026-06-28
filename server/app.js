@@ -10,6 +10,9 @@ import contextRouter from './routes/context.js';
 import reviewsRouter from './routes/reviews.js';
 import dayPlansRouter from './routes/dayPlans.js';
 import brainUpdateReportsRouter from './routes/brainUpdateReports.js';
+import authRouter from './routes/auth.js';
+import { requireAuth } from './middleware/auth.js';
+import { getAuthConfig } from './services/auth.js';
 import { notFound, errorHandler } from './middleware/error.js';
 
 const staticAllowedOrigins = new Set([
@@ -57,6 +60,7 @@ const corsOptions = {
 
 export function createApp() {
   const app = express();
+  app.locals.authConfig = getAuthConfig();
   app.options('*', cors(corsOptions));
   app.use(cors(corsOptions));
   app.use(express.json());
@@ -70,16 +74,17 @@ export function createApp() {
       accessControlAllowOrigin: res.get('Access-Control-Allow-Origin') || null,
     });
   });
-  app.use('/api/notes', notesRouter);
-  app.use('/api/tasks', tasksRouter);
-  app.use('/api/deliverables', deliverablesRouter);
-  app.use('/api/goals', goalsRouter);
-  app.use('/api/projects', projectsRouter);
-  app.use('/api/ideas', ideasRouter);
-  app.use('/api/context', contextRouter);
-  app.use('/api/reviews', reviewsRouter);
-  app.use('/api/day-plans', dayPlansRouter);
-  app.use('/api/brain-update-reports', brainUpdateReportsRouter);
+  app.use('/api/auth', authRouter);
+  app.use('/api/notes', requireAuth, notesRouter);
+  app.use('/api/tasks', requireAuth, tasksRouter);
+  app.use('/api/deliverables', requireAuth, deliverablesRouter);
+  app.use('/api/goals', requireAuth, goalsRouter);
+  app.use('/api/projects', requireAuth, projectsRouter);
+  app.use('/api/ideas', requireAuth, ideasRouter);
+  app.use('/api/context', requireAuth, contextRouter);
+  app.use('/api/reviews', requireAuth, reviewsRouter);
+  app.use('/api/day-plans', requireAuth, dayPlansRouter);
+  app.use('/api/brain-update-reports', requireAuth, brainUpdateReportsRouter);
 
   app.use(notFound);
   app.use(errorHandler);

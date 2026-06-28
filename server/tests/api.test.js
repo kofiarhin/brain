@@ -1,6 +1,28 @@
-import request from 'supertest';
+import supertest from 'supertest';
 import { jest } from '@jest/globals';
 import { categorizeTaskTitle } from '../services/taskCategorization.js';
+
+process.env.AUTH_USERNAME = 'admin';
+process.env.AUTH_PASSWORD = 'password';
+process.env.JWT_SECRET = 'test-secret';
+
+let authHeader;
+function request(app) {
+  const testRequest = supertest(app);
+  if (!authHeader) return testRequest;
+  return {
+    get: (path) => testRequest.get(path).set('Authorization', authHeader),
+    post: (path) => testRequest.post(path).set('Authorization', authHeader),
+    patch: (path) => testRequest.patch(path).set('Authorization', authHeader),
+    put: (path) => testRequest.put(path).set('Authorization', authHeader),
+    delete: (path) => testRequest.delete(path).set('Authorization', authHeader),
+    options: (path) => testRequest.options(path).set('Authorization', authHeader),
+  };
+}
+
+function publicRequest(app) {
+  return supertest(app);
+}
 
 function fakeModel(name) {
   let records = [];
@@ -162,9 +184,47 @@ jest.unstable_mockModule('../models/DayPlan.js', () => ({ DayPlan }));
 jest.unstable_mockModule('../models/BrainUpdateReport.js', () => ({ BrainUpdateReport }));
 
 const { createApp } = await import('../app.js');
+const { createToken } = await import('../services/auth.js');
 const app = createApp();
+authHeader = `Bearer ${createToken('admin').token}`;
 
 beforeEach(() => [Note, Task, Deliverable, Goal, Project, Idea, Context, Review, DayPlan, BrainUpdateReport].forEach((model) => model.reset()));
+
+
+describe('authentication', () => {
+  test('login succeeds with correct env credentials', async () => {
+    const response = await publicRequest(app)
+      .post('/api/auth/login')
+      .send({ username: 'admin', password: 'password' })
+      .expect(200);
+
+    expect(response.body.username).toBe('admin');
+    expect(response.body.token).toBeTruthy();
+    expect(new Date(response.body.expiresAt).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  test('login fails with wrong credentials', async () => {
+    await publicRequest(app)
+      .post('/api/auth/login')
+      .send({ username: 'admin', password: 'wrong' })
+      .expect(401);
+  });
+
+  test('protected route rejects missing token', async () => {
+    await publicRequest(app).get('/api/notes').expect(401);
+  });
+
+  test('public health route stays public', async () => {
+    await publicRequest(app).get('/api/health').expect(200);
+  });
+
+  test('missing auth env returns a clear server error', async () => {
+    const previousPassword = process.env.AUTH_PASSWORD;
+    delete process.env.AUTH_PASSWORD;
+    expect(() => createApp()).toThrow('Missing required auth environment variables: AUTH_PASSWORD');
+    process.env.AUTH_PASSWORD = previousPassword;
+  });
+});
 
 describe('notes CRUD', () => {
   test('creates, lists, updates, reads, and deletes notes', async () => {

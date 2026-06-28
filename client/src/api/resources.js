@@ -25,6 +25,9 @@ export const createResourceApi = (path) => ({
 });
 
 export const api = {
+  auth: {
+    login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  },
   notes: createResourceApi('/notes'),
   tasks: createResourceApi('/tasks'),
   deliverables: createResourceApi('/deliverables'),

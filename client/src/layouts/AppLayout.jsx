@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { GlobalPageLoadingOverlay } from '../components/GlobalPageLoader';
+import { useAuth } from '../auth/AuthContext';
 
 const nav = [
   ['/', 'Dashboard'], ['/notes', 'Notes'], ['/day-plan', 'Day Plan'], ['/tasks', 'Tasks'],
@@ -23,6 +24,7 @@ function Brand({ onNavigate }) {
 
 export function AppLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { logout, username } = useAuth();
 
   useEffect(() => {
     if (!isMenuOpen) return undefined;
@@ -57,6 +59,11 @@ export function AppLayout() {
     <aside className="hidden border-r border-slate-800 bg-slate-900/80 p-4 md:block md:min-h-screen md:w-64 md:shrink-0">
       <Brand />
       <Navigation />
+      <div className="mt-6 border-t border-slate-800 pt-4">
+        <p className="text-xs text-slate-500">Signed in as</p>
+        <p className="mt-1 text-sm font-medium text-slate-200">{username}</p>
+        <button type="button" onClick={logout} className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">Logout</button>
+      </div>
     </aside>
 
     {isMenuOpen && <div className="fixed inset-0 z-50 md:hidden">
@@ -79,6 +86,11 @@ export function AppLayout() {
           </button>
         </div>
         <Navigation onNavigate={() => setIsMenuOpen(false)} />
+        <div className="mt-6 border-t border-slate-800 pt-4">
+          <p className="text-xs text-slate-500">Signed in as</p>
+          <p className="mt-1 text-sm font-medium text-slate-200">{username}</p>
+          <button type="button" onClick={() => { setIsMenuOpen(false); logout(); }} className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200">Logout</button>
+        </div>
       </aside>
     </div>}
 
