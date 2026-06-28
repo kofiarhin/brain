@@ -92,8 +92,21 @@ function taskMatchesTab(task, tab) {
 }
 
 function tasksForTab(tab, items) {
-  const todayLondonDate = getLondonDateKey();
-  return items.filter((task) => isActiveTask(task) && isVisibleToday(task, todayLondonDate) && taskMatchesTab(task, tab));
+  return items.filter((task) => taskMatchesTab(task, tab));
+}
+
+function buildTabCounts(activeItems, completedItems) {
+  return {
+    all: activeItems.length,
+    agent: activeItems.filter((task) => task.agentReady === true).length,
+    completed: completedItems.length,
+    ...Object.fromEntries(
+      categories.map(([category]) => [
+        category,
+        activeItems.filter((task) => normalizeCategory(task.category) === category).length
+      ])
+    )
+  };
 }
 
 function wasCompletedToday(task, todayLondonDate = getLondonDateKey()) {
@@ -265,8 +278,10 @@ export function Tasks() {
   const tasks = useResource('tasks');
   const items = tasks.data || [];
   const todayLondonDate = getLondonDateKey();
+  const activeItems = items.filter((task) => isActiveTask(task) && isVisibleToday(task, todayLondonDate));
   const completedItems = items.filter((task) => wasCompletedToday(task, todayLondonDate));
-  const filteredItems = tasksForTab(selectedTab, items);
+  const filteredItems = tasksForTab(selectedTab, activeItems);
+  const tabCounts = buildTabCounts(activeItems, completedItems);
   const completingTaskId = tasks.complete.isPending ? tasks.complete.variables : null;
   const reschedulingTaskId = tasks.reschedule.isPending ? tasks.reschedule.variables?.id : null;
   const resolvingTaskId = tasks.dismiss.isPending ? tasks.dismiss.variables?.id
@@ -307,7 +322,7 @@ export function Tasks() {
     <div className="flex gap-2 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-2">
       {tabs.map(([value, label]) => {
         const isSelected = selectedTab === value;
-        const tabCount = value === 'completed' ? completedItems.length : tasksForTab(value, items).length;
+        const tabCount = tabCounts[value] ?? 0;
         return <button
           key={value}
           type="button"
