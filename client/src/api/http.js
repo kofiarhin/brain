@@ -1,4 +1,15 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export const API_UNREACHABLE_MESSAGE = 'Could not reach the API server. Check VITE_API_URL or backend deployment.';
+
+export function buildApiBaseUrl(value = import.meta.env.VITE_API_URL) {
+  const configuredUrl = value?.trim();
+  if (!configuredUrl) return '/api';
+  return configuredUrl.replace(/\/+$/, '');
+}
+
+export function buildApiUrl(path, baseUrl = buildApiBaseUrl()) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${baseUrl}${normalizedPath}`;
+}
 
 let authFailureHandler = null;
 
@@ -24,10 +35,15 @@ export async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers
-  });
+  let response;
+  try {
+    response = await fetch(buildApiUrl(path), {
+      ...options,
+      headers
+    });
+  } catch (error) {
+    throw new Error(API_UNREACHABLE_MESSAGE, { cause: error });
+  }
 
   if (response.status === 401) {
     localStorage.removeItem('brain.auth');

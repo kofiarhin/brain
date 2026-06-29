@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import notesRouter from './routes/notes.js';
 import tasksRouter from './routes/tasks.js';
 import deliverablesRouter from './routes/deliverables.js';
@@ -14,6 +17,9 @@ import authRouter from './routes/auth.js';
 import { requireAuth } from './middleware/auth.js';
 import { getAuthConfig } from './services/auth.js';
 import { notFound, errorHandler } from './middleware/error.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const staticAllowedOrigins = new Set([
   'http://localhost:5173',
@@ -58,7 +64,30 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
-export function createApp() {
+function clientDistPath() {
+  return path.resolve(__dirname, '../client/dist');
+}
+
+function shouldServeClient(options) {
+  if (typeof options.serveClient === 'boolean') return options.serveClient;
+  return process.env.NODE_ENV === 'production';
+}
+
+function configureClientStatic(app, options = {}) {
+  if (!shouldServeClient(options)) return;
+
+  const distPath = options.clientDistPath || clientDistPath();
+  const indexPath = path.join(distPath, 'index.html');
+  if (!fs.existsSync(indexPath)) return;
+
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path === '/api' || req.path.startsWith('/api/')) return next();
+    return res.sendFile(indexPath);
+  });
+}
+
+export function createApp(options = {}) {
   const app = express();
   app.locals.authConfig = getAuthConfig();
   app.options('*', cors(corsOptions));
@@ -86,6 +115,7 @@ export function createApp() {
   app.use('/api/day-plans', requireAuth, dayPlansRouter);
   app.use('/api/brain-update-reports', requireAuth, brainUpdateReportsRouter);
 
+  configureClientStatic(app, options);
   app.use(notFound);
   app.use(errorHandler);
   return app;

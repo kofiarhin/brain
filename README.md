@@ -18,15 +18,79 @@ npm run install:all
 npm run dev
 ```
 
+Local development runs the Express API on `http://localhost:5000` and the Vite client on `http://localhost:5173`. The client defaults to same-origin `/api`; in Vite dev, `client/vite.config.js` proxies `/api` to `http://localhost:5000`.
+
 ## Environment
+
+Server `.env`:
 
 ```env
 MONGODB_URI=
 PORT=5000
 CLIENT_URL=http://localhost:5173
+AUTH_USERNAME=
+AUTH_PASSWORD=
+JWT_SECRET=
 ```
 
-For the client, set `VITE_API_URL` when the API is not available at `http://localhost:5000/api`.
+The frontend API base URL is:
+
+- `VITE_API_URL` with trailing slashes removed, when set.
+- `/api` when `VITE_API_URL` is unset.
+
+Accepted `VITE_API_URL` examples:
+
+```env
+VITE_API_URL=https://example.herokuapp.com/api
+VITE_API_URL=https://example.herokuapp.com/api/
+```
+
+### Heroku Single-App Deployment
+
+Use this when Heroku serves both the API and the built React app.
+
+Heroku config vars:
+
+```env
+MONGODB_URI=
+CLIENT_URL=https://YOUR_HEROKU_APP.herokuapp.com
+AUTH_USERNAME=
+AUTH_PASSWORD=
+JWT_SECRET=
+```
+
+Do not set `PORT`; Heroku provides it. Do not set `VITE_API_URL`; the production frontend defaults to `/api` on the same Heroku app.
+
+The root scripts support this deployment:
+
+```bash
+npm start
+npm run heroku-postbuild
+```
+
+`heroku-postbuild` installs client dependencies and builds `client/dist`. In production, Express serves `client/dist` after API routes and falls back to `client/dist/index.html` for non-API routes such as `/login`.
+
+### Vercel Frontend + Heroku Backend
+
+Use this when Vercel serves the React frontend and Heroku serves only the API.
+
+Vercel environment variable:
+
+```env
+VITE_API_URL=https://YOUR_HEROKU_APP.herokuapp.com/api
+```
+
+Heroku config vars:
+
+```env
+MONGODB_URI=
+CLIENT_URL=https://YOUR_VERCEL_APP.vercel.app
+AUTH_USERNAME=
+AUTH_PASSWORD=
+JWT_SECRET=
+```
+
+`CLIENT_URL` controls CORS for the deployed frontend origin.
 
 ## Scripts
 

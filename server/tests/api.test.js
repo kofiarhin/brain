@@ -1,5 +1,8 @@
 import supertest from 'supertest';
 import { jest } from '@jest/globals';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { categorizeTaskTitle } from '../services/taskCategorization.js';
 
 process.env.AUTH_USERNAME = 'admin';
@@ -723,6 +726,32 @@ describe('forbidden AI endpoints', () => {
     await request(app).post('/api/update-life').send({}).expect(404);
     await request(app).post('/api/plan-day').send({}).expect(404);
     await request(app).post('/api/brain/update-life').send({}).expect(404);
+  });
+});
+
+describe('production frontend serving', () => {
+  let tempDir;
+
+  afterEach(() => {
+    if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+    tempDir = null;
+  });
+
+  test('serves the React app for non-API routes and leaves API routes untouched', async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'brain-client-dist-'));
+    fs.writeFileSync(path.join(tempDir, 'index.html'), '<!doctype html><div id="root">Brain OS</div>');
+
+    const staticApp = createApp({ serveClient: true, clientDistPath: tempDir });
+
+    const loginResponse = await publicRequest(staticApp).get('/login').expect(200);
+    expect(loginResponse.text).toContain('Brain OS');
+    expect(loginResponse.headers['content-type']).toContain('text/html');
+
+    const healthResponse = await publicRequest(staticApp).get('/api/health').expect(200);
+    expect(healthResponse.body).toEqual({ status: 'ok' });
+
+    const apiNotFoundResponse = await publicRequest(staticApp).get('/api/not-a-route').expect(404);
+    expect(apiNotFoundResponse.body.message).toBe('Route not found: GET /api/not-a-route');
   });
 });
 
