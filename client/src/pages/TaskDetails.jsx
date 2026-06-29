@@ -145,12 +145,52 @@ function CollapsibleSection({ title, children, defaultOpen = false }) {
   </details>;
 }
 
+function AgentInstructionsCard({ prompt, isOpen, onToggle, onCopy }) {
+  const hasPrompt = Boolean(prompt?.trim());
+
+  return <Card title="Agent Instructions" className="border-cyan-500/40 bg-cyan-950/10 shadow-cyan-950/20">
+    <div className="space-y-4">
+      <p className="text-sm text-slate-400">Delegate this task to an AI agent.</p>
+      {hasPrompt ? <>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="rounded-md border border-cyan-500/60 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-500/10"
+            onClick={onCopy}
+            aria-label="Copy Prompt"
+          >
+            Copy Prompt
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+            onClick={onToggle}
+            aria-expanded={isOpen}
+            aria-controls="agent-instructions-prompt"
+          >
+            {isOpen ? 'Hide Prompt' : 'Show Prompt'}
+          </button>
+        </div>
+        {isOpen ? <textarea
+          id="agent-instructions-prompt"
+          aria-label="Agent Instructions Prompt"
+          className="min-h-48 w-full resize-y rounded border border-cyan-500/40 bg-slate-950 p-3 leading-6 text-slate-100"
+          rows={8}
+          value={prompt}
+          readOnly
+        /> : null}
+      </> : <p className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-400">No AI instructions have been generated for this task.</p>}
+    </div>
+  </Card>;
+}
+
 export function TaskDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(emptyDraft);
   const [saveState, setSaveState] = useState('idle');
+  const [showAgentPrompt, setShowAgentPrompt] = useState(false);
 
   const taskQuery = useQuery({
     queryKey: ['tasks', id],
@@ -243,6 +283,7 @@ export function TaskDetails() {
     if (!replacementTaskId) return;
     convert.mutate({ replacementTaskId, reason: 'replaced_by_another_task' });
   };
+  const copyAgentPrompt = () => navigator.clipboard?.writeText(draft.codexPrompt || '');
 
   if (taskQuery.isLoading) return null;
   if (taskQuery.isError) return <div className="space-y-4">
@@ -301,6 +342,13 @@ export function TaskDetails() {
         </div>
       </Card>
 
+      <AgentInstructionsCard
+        prompt={draft.codexPrompt}
+        isOpen={showAgentPrompt}
+        onToggle={() => setShowAgentPrompt((current) => !current)}
+        onCopy={copyAgentPrompt}
+      />
+
       <Card title="Your Work" className="border-blue-500/50 bg-blue-950/20 shadow-blue-950/30">
         <div className="space-y-4">
           <label className="block text-sm text-slate-300">
@@ -326,33 +374,24 @@ export function TaskDetails() {
           </label>
         </div>
       </Card>
-    </> : <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-slate-800" onClick={addDeliverable}>+ Add deliverable</button>}
+    </> : <>
+      <AgentInstructionsCard
+        prompt={draft.codexPrompt}
+        isOpen={showAgentPrompt}
+        onToggle={() => setShowAgentPrompt((current) => !current)}
+        onCopy={copyAgentPrompt}
+      />
+      <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-slate-800" onClick={addDeliverable}>+ Add deliverable</button>
+    </>}
 
-    <CollapsibleSection title="Advanced">
-      <div className="space-y-4">
-        <CollapsibleSection title="Codex Prompt">
-          <div className="mb-3 flex justify-end">
-            <button type="button" className="rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={() => navigator.clipboard?.writeText(draft.codexPrompt || '')}>Copy prompt</button>
-          </div>
-          <textarea
-            aria-label="Codex Prompt"
-            className="min-h-48 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
-            rows={8}
-            value={draft.codexPrompt}
-            onChange={(event) => setField('codexPrompt')(event.target.value)}
-          />
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Task Settings">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <SelectInput label="Status" value={draft.status} options={statuses} onChange={setField('status')} />
-            <SelectInput label="Priority" value={draft.priority} options={priorities} onChange={setField('priority')} />
-            <SelectInput label="Category" value={draft.category} options={categories} onChange={setField('category')} />
-            <div className="lg:col-span-2">
-              <TextInput label="Related Project" value={draft.projectId} onChange={setField('projectId')} />
-            </div>
-          </div>
-        </CollapsibleSection>
+    <CollapsibleSection title="Task Settings">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SelectInput label="Status" value={draft.status} options={statuses} onChange={setField('status')} />
+        <SelectInput label="Priority" value={draft.priority} options={priorities} onChange={setField('priority')} />
+        <SelectInput label="Category" value={draft.category} options={categories} onChange={setField('category')} />
+        <div className="lg:col-span-2">
+          <TextInput label="Related Project" value={draft.projectId} onChange={setField('projectId')} />
+        </div>
       </div>
     </CollapsibleSection>
   </form>;

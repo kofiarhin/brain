@@ -394,7 +394,7 @@ describe('Tasks page', () => {
           deliverableUrl: 'https://example.com/old',
           acceptanceCriteria: 'Old criteria',
           notes: '',
-          codexPrompt: '',
+          codexPrompt: 'Implement this',
           }),
         });
       }
@@ -410,9 +410,12 @@ describe('Tasks page', () => {
     );
 
     expect(await screen.findByDisplayValue('Editable task')).toBeInTheDocument();
+    expect(screen.queryByText('Advanced')).not.toBeInTheDocument();
+    expect(screen.getByText('Agent Instructions')).toBeInTheDocument();
+    expect(screen.getByText('Delegate this task to an AI agent.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Agent Instructions Prompt')).not.toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText('Title'));
     await userEvent.type(screen.getByLabelText('Title'), 'Updated task');
-    await userEvent.click(screen.getByText('Advanced'));
     await userEvent.click(screen.getByText('Task Settings'));
     await userEvent.selectOptions(screen.getByLabelText('Category'), 'projects');
     await userEvent.clear(screen.getByLabelText('Task'));
@@ -426,8 +429,6 @@ describe('Tasks page', () => {
     await userEvent.clear(screen.getByLabelText('Completion Checklist'));
     await userEvent.type(screen.getByLabelText('Completion Checklist'), 'New criteria');
     await userEvent.type(screen.getByLabelText('Notes'), 'Planning notes');
-    await userEvent.click(screen.getByText('Codex Prompt'));
-    await userEvent.type(screen.getByLabelText('Codex Prompt'), 'Implement this');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1'), expect.objectContaining({ method: 'PATCH' })));
@@ -445,6 +446,89 @@ describe('Tasks page', () => {
       codexPrompt: 'Implement this',
     }));
   }, 10000);
+
+  test('shows and copies agent instructions from the detail workspace', async () => {
+    const writeText = vi.fn();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/projects')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url.includes('/tasks/1')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            _id: '1',
+            title: 'Delegation task',
+            priority: 'must',
+            status: 'open',
+            category: 'general',
+            deliverableRequired: true,
+            codexPrompt: 'Implement the workspace refactor',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/tasks/1']}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
+          <Routes><Route path="/tasks/:id" element={<TaskDetails />} /></Routes>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByDisplayValue('Delegation task')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Agent Instructions Prompt')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Copy Prompt' }));
+    expect(writeText).toHaveBeenCalledWith('Implement the workspace refactor');
+    await userEvent.click(screen.getByRole('button', { name: 'Show Prompt' }));
+    expect(screen.getByLabelText('Agent Instructions Prompt')).toHaveValue('Implement the workspace refactor');
+    expect(screen.getByLabelText('Agent Instructions Prompt')).toHaveAttribute('readonly');
+    await userEvent.click(screen.getByRole('button', { name: 'Hide Prompt' }));
+    expect(screen.queryByLabelText('Agent Instructions Prompt')).not.toBeInTheDocument();
+  });
+
+  test('renders an empty agent instructions state without prompt controls', async () => {
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/projects')) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (url.includes('/tasks/1')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            _id: '1',
+            title: 'Manual task',
+            priority: 'should',
+            status: 'open',
+            category: 'general',
+            deliverableRequired: true,
+            codexPrompt: '',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/tasks/1']}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
+          <Routes><Route path="/tasks/:id" element={<TaskDetails />} /></Routes>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByDisplayValue('Manual task')).toBeInTheDocument();
+    expect(screen.getByText('No AI instructions have been generated for this task.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy Prompt' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show Prompt' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Agent Instructions Prompt')).not.toBeInTheDocument();
+  });
 
   test('completes tasks from the detail workspace', async () => {
     global.fetch = vi.fn((url, options) => {
