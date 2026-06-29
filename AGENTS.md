@@ -92,6 +92,12 @@ These routing rules override every other instruction in this document.
 - Deliverables are optional output details attached to a task, not a standalone top-level workflow.
 - Completion belongs to the task. Do not treat a deliverable as the completion source of truth.
 - Start Day should generate rich task workspaces, not just one-line task titles.
+- During day planning, every generated or updated task must be evaluated for agent executability.
+- Agent-executable means any task where an AI agent can produce a meaningful first draft, implementation, analysis, or completed output.
+- Agent-executable examples include software implementation, bug fixes, UI/UX changes, refactoring, tests, documentation, research, content writing, design briefs, data processing, and structured planning or analysis.
+- If a task is agent-executable, generate a complete copy-paste-ready execution prompt and save it to `task.codexPrompt`.
+- Do not print generated task prompts in the day plan output; store them only in the task workspace.
+- Leave `codexPrompt` empty only when no useful AI execution prompt can be generated.
 
 ## Task Lifecycle
 
@@ -280,7 +286,9 @@ When planning project execution:
 6. Convert selected actionable steps into rich day task workspaces in the `tasks` collection only when no equivalent open task already exists.
 7. Link generated tasks back to the project with `projectId` and, when available, `projectActionId`.
 8. Use `codexPrompt`, `summary`, `problemStatement`, `prd`, `blockers`, and `definitionOfDone` as execution context inside the task workspace.
-9. After Codex work is complete, leave the project in `review_required` until I manually update progress, summary, blockers, and next steps.
+9. For each generated or updated task workspace, generate `codexPrompt` when an AI agent could reasonably produce a meaningful first draft, implementation, analysis, or completed output.
+10. Preserve an existing `codexPrompt` when updating a task unless it is empty or clearly stale for the new task objective.
+11. After Codex work is complete, leave the project in `review_required` until I manually update progress, summary, blockers, and next steps.
 
 The frontend remains CRUD only. It can edit project state, actionable steps, checklists, and progress history, but it must not generate plans, assign work, call OpenAI, or run project execution workflows.
 

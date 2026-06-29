@@ -17,4 +17,11 @@ describe('Codex command instructions', () => {
     expect(agentsInstructions).toContain('Use this section only for dedicated day-planning triggers');
     expect(agentsInstructions).toContain('Do not use this section for `update life` or `update brain`.');
   });
+
+  test('day planning task workspaces require agent prompt evaluation', () => {
+    expect(agentsInstructions).toContain('During day planning, every generated or updated task must be evaluated for agent executability.');
+    expect(agentsInstructions).toContain('If a task is agent-executable, generate a complete copy-paste-ready execution prompt and save it to `task.codexPrompt`.');
+    expect(agentsInstructions).toContain('Do not print generated task prompts in the day plan output; store them only in the task workspace.');
+    expect(agentsInstructions).toContain('Leave `codexPrompt` empty only when no useful AI execution prompt can be generated.');
+  });
 });

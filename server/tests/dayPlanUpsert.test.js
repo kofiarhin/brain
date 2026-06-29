@@ -185,6 +185,46 @@ describe('upsertTodaysDayPlan', () => {
     expect(deliverableTask.deliverableLocation).toBe('');
   });
 
+  test('generates copy-paste-ready Codex prompts for agent-executable tasks', async () => {
+    await upsertTodaysDayPlan({
+      mustDo: [{
+        title: 'Implement task prompt generation',
+        description: 'Add automatic agent prompts to generated task workspaces.',
+        expectedDeliverable: 'Planner-created tasks include useful codexPrompt text.',
+        acceptanceCriteria: ['Agent-ready tasks get prompts.', 'Physical tasks stay empty.'],
+        projectName: 'Brain OS',
+        projectSummary: 'Personal operating system for planning and task execution.',
+      }],
+    }, {
+      now: new Date('2026-06-25T10:00:00.000Z'),
+      DayPlanModel,
+      TaskModel,
+    });
+
+    const task = TaskModel.all()[0];
+
+    expect(task.agentReady).toBe(true);
+    expect(task.codexPrompt).toContain('Implement the following task.');
+    expect(task.codexPrompt).toContain('Objective:\nImplement task prompt generation');
+    expect(task.codexPrompt).toContain('Expected Output:\nPlanner-created tasks include useful codexPrompt text.');
+    expect(task.codexPrompt).toContain('Existing Project Context:\n- Project: Brain OS');
+    expect(task.codexPrompt).toContain('- Inspect the repository before making changes.');
+    expect(task.codexPrompt).toContain('- Run the relevant test/build commands.');
+  });
+
+  test('leaves codexPrompt empty when no useful AI execution prompt can be generated', async () => {
+    await upsertTodaysDayPlan({ mustDo: ['Call accountant'] }, {
+      now: new Date('2026-06-25T10:00:00.000Z'),
+      DayPlanModel,
+      TaskModel,
+    });
+
+    const task = TaskModel.all()[0];
+
+    expect(task.agentReady).toBe(false);
+    expect(task.codexPrompt).toBe('');
+  });
+
   test('matching tasks are reused, not duplicated', async () => {
     const existing = await TaskModel.create({
       title: 'Call Laura!!!',
@@ -225,6 +265,53 @@ describe('upsertTodaysDayPlan', () => {
     expect(TaskModel.all()[0].codexPrompt).toBe('Preserve agent context');
     expect(TaskModel.all()[0].scheduledLondonDate).toBe('2026-06-25');
     expect(TaskModel.all()[0].priority).toBe('must');
+  });
+
+  test('refreshes stale planner-generated prompts while preserving manual prompts', async () => {
+    await TaskModel.create({
+      title: 'Write project brief',
+      codexPrompt: [
+        'Implement the following task.',
+        '',
+        'Objective:',
+        'Write project brief',
+        '',
+        'Context:',
+        'Old generated context.',
+      ].join('\n'),
+      source: 'day-plan',
+    });
+    await TaskModel.create({
+      title: 'Write launch article',
+      codexPrompt: 'Manual prompt: keep this exact instruction.',
+      source: 'manual',
+    });
+
+    await upsertTodaysDayPlan({
+      mustDo: [
+        {
+          title: 'Write project brief',
+          description: 'Draft the updated project brief from current planning context.',
+          expectedDeliverable: 'A refreshed project brief draft.',
+        },
+        {
+          title: 'Write launch article',
+          description: 'Draft the launch article.',
+          expectedDeliverable: 'Launch article draft.',
+        },
+      ],
+    }, {
+      now: new Date('2026-06-25T10:00:00.000Z'),
+      DayPlanModel,
+      TaskModel,
+    });
+
+    const refreshed = TaskModel.all().find((task) => task.title === 'Write project brief');
+    const manual = TaskModel.all().find((task) => task.title === 'Write launch article');
+
+    expect(refreshed.codexPrompt).toContain('Context:\nDraft the updated project brief from current planning context.');
+    expect(refreshed.codexPrompt).toContain('Expected Output:\nA refreshed project brief draft.');
+    expect(manual.codexPrompt).toBe('Manual prompt: keep this exact instruction.');
   });
 
   test('unrelated open tasks remain untouched', async () => {

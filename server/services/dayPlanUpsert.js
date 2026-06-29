@@ -83,9 +83,134 @@ function generatedAcceptanceCriteria(title, item, field) {
   return criteria.join('\n');
 }
 
-function generatedCodexPrompt(title, item) {
+function compactLines(values) {
+  return values
+    .flat(Infinity)
+    .filter((value) => typeof value === 'string' && value.trim())
+    .map((value) => value.trim());
+}
+
+function markdownBullets(values, fallback) {
+  const lines = compactLines(values);
+  return (lines.length ? lines : [fallback]).map((line) => `- ${line}`).join('\n');
+}
+
+function isExplicitlyAgentExecutable(item) {
+  if (!item || typeof item !== 'object') return null;
+  if (typeof item.agentExecutable === 'boolean') return item.agentExecutable;
+  if (typeof item.agentReady === 'boolean') return item.agentReady;
+  return null;
+}
+
+function hasMeaningfulAgentOutput(title, item, field) {
+  const explicit = isExplicitlyAgentExecutable(item);
+  if (explicit !== null) return explicit;
+  if (item && typeof item === 'object' && typeof item.codexPrompt === 'string' && item.codexPrompt.trim()) return true;
+  if (field === 'deliverables') return true;
+  if (item && typeof item === 'object' && (item.expectedDeliverable || item.deliverable || item.output)) return true;
+
+  const text = compactLines([
+    title,
+    item && typeof item === 'object'
+      ? [
+          item.description,
+          item.summary,
+          item.activity,
+          item.category,
+          item.expectedDeliverable,
+          item.deliverable,
+          item.output,
+        ]
+      : [],
+  ]).join(' ').toLowerCase();
+
+  const nonAgentPatterns = [
+    /\b(call|phone|ring)\b/,
+    /\b(gym|workout|exercise|run|walk)\b/,
+    /\b(school|pickup|pick up|dropoff|drop off|nursery)\b/,
+    /\b(appointment|meeting|meet|visit)\b/,
+    /\b(buy|collect|deliver|drive|clean|cook|shop)\b/,
+  ];
+  if (nonAgentPatterns.some((pattern) => pattern.test(text))) return false;
+
+  const agentPatterns = [
+    /\b(implement|build|code|ship|develop|create|add|update|fix|debug|refactor|test|document|docs|write|draft|edit|research|analyse|analyze|review|summari[sz]e|plan|design|brief|proposal|content|copy|article|post|script|outline|audit|process|data|report|strategy|spec|prd|ui|ux|frontend|backend|api|bug)\b/,
+  ];
+  return agentPatterns.some((pattern) => pattern.test(text));
+}
+
+function generatedCodexPrompt(title, item, field, generatedTask) {
   if (item && typeof item === 'object' && typeof item.codexPrompt === 'string') return item.codexPrompt.trim();
-  return '';
+  if (!hasMeaningfulAgentOutput(title, item, field)) return '';
+
+  const projectContext = compactLines([
+    item && typeof item === 'object'
+      ? [
+          item.projectName ? `Project: ${item.projectName}` : '',
+          item.projectId ? `Project ID: ${item.projectId}` : '',
+          item.projectActionId ? `Project action ID: ${item.projectActionId}` : '',
+          item.projectSummary,
+          item.problemStatement,
+          item.prd,
+          item.definitionOfDone,
+          Array.isArray(item.blockers) ? item.blockers.map((blocker) => `Blocker: ${blocker}`) : [],
+        ]
+      : [],
+  ]);
+  const constraints = compactLines([
+    item && typeof item === 'object'
+      ? [
+          item.constraints,
+          item.notes,
+          item.deadline ? `Deadline: ${item.deadline}` : '',
+        ]
+      : [],
+    generatedTask.scheduledLondonDate ? `This task is scheduled for ${generatedTask.scheduledLondonDate}.` : '',
+  ]);
+  const expectedOutput = generatedTask.expectedDeliverable
+    || (generatedTask.deliverableRequired ? title : 'A meaningful completed output or first draft for the task.');
+
+  return [
+    'Implement the following task.',
+    '',
+    'Objective:',
+    title,
+    '',
+    'Context:',
+    generatedTask.description || `Complete this task from today's day plan: ${title}`,
+    '',
+    'Expected Output:',
+    expectedOutput,
+    '',
+    'Constraints:',
+    markdownBullets(constraints, 'Keep the work scoped to this task.'),
+    '',
+    'Existing Project Context:',
+    markdownBullets(projectContext, 'No linked project context was provided.'),
+    '',
+    'Acceptance Criteria:',
+    markdownBullets(generatedTask.acceptanceCriteria.split('\n'), `${title} is completed.`),
+    '',
+    'Instructions:',
+    '- Inspect the repository before making changes.',
+    '- Preserve existing behavior unless explicitly asked to change it.',
+    '- Do not change unrelated functionality.',
+    '- Keep changes minimal and focused.',
+    '- Add or update tests where appropriate.',
+    '- Run the relevant test/build commands.',
+  ].join('\n');
+}
+
+function isGeneratedCodexPrompt(prompt) {
+  if (typeof prompt !== 'string') return false;
+  return prompt.trim().startsWith('Implement the following task.\n\nObjective:\n');
+}
+
+function mergedCodexPrompt(existing, generatedTask) {
+  const existingPrompt = existing.codexPrompt || '';
+  if (!existingPrompt.trim()) return generatedTask.codexPrompt;
+  if (isGeneratedCodexPrompt(existingPrompt)) return generatedTask.codexPrompt;
+  return existingPrompt;
 }
 
 export function tasksFromDayPlan(plan, londonDate, dueDate) {
@@ -100,7 +225,7 @@ export function tasksFromDayPlan(plan, londonDate, dueDate) {
       if (!normalizedTitle || seen.has(key)) continue;
       seen.add(key);
 
-      tasks.push({
+      const generatedTask = {
         title,
         normalizedTitle,
         description: generatedDescription(title, item, field),
@@ -112,7 +237,6 @@ export function tasksFromDayPlan(plan, londonDate, dueDate) {
         notes: '',
         projectId: item && typeof item === 'object' ? item.projectId || null : null,
         projectActionId: item && typeof item === 'object' ? item.projectActionId || null : null,
-        codexPrompt: generatedCodexPrompt(title, item),
         dueDate,
         dueLondonDate: londonDate,
         scheduledFor: dueDate,
@@ -120,6 +244,12 @@ export function tasksFromDayPlan(plan, londonDate, dueDate) {
         category: item && typeof item === 'object' ? item.category || 'general' : 'general',
         priority: normalizeGeneratedPriority(priority),
         source: 'day-plan',
+      };
+      const agentReady = hasMeaningfulAgentOutput(title, item, field);
+      tasks.push({
+        ...generatedTask,
+        codexPrompt: generatedCodexPrompt(title, item, field, generatedTask),
+        agentReady,
       });
     }
   }
@@ -174,7 +304,7 @@ function mergedGeneratedTask(existing, generatedTask) {
     notes: existing.notes || generatedTask.notes,
     projectId: existing.projectId || generatedTask.projectId || null,
     projectActionId: existing.projectActionId || generatedTask.projectActionId || null,
-    codexPrompt: existing.codexPrompt || generatedTask.codexPrompt,
+    codexPrompt: mergedCodexPrompt(existing, generatedTask),
     reviewRequired: existing.reviewRequired || generatedTask.reviewRequired || false,
     reviewStatus: existing.reviewStatus || generatedTask.reviewStatus || 'pending',
     reviewNotes: existing.reviewNotes || generatedTask.reviewNotes || '',
