@@ -138,8 +138,8 @@ function TextAreaSection({ title, value, onChange, rows = 8, help = '' }) {
   </Card>;
 }
 
-function CollapsibleSection({ title, children }) {
-  return <details className="rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-xl sm:p-5">
+function CollapsibleSection({ title, children, defaultOpen = false }) {
+  return <details open={defaultOpen} className="rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-xl sm:p-5">
     <summary className="cursor-pointer select-none text-base font-semibold text-slate-100 sm:text-lg">{title}</summary>
     <div className="mt-4 min-w-0 break-words">{children}</div>
   </details>;
@@ -272,59 +272,87 @@ export function TaskDetails() {
 
     <TextInput label="Title" value={draft.title} onChange={setField('title')} required />
 
-    <TextAreaSection title="Description" value={draft.description} onChange={setField('description')} help="What exactly needs to be done?" />
+    <TextAreaSection title="Task" value={draft.description} onChange={setField('description')} help="What needs to be done?" />
 
-    {draft.deliverableRequired ? <Card title="Deliverable">
-      <p className="mb-4 text-sm text-slate-400">Optional output attached to this task.</p>
-      <div className="space-y-4">
-        <label className="block text-sm text-slate-300">
-          <span className="mb-1 block text-xs uppercase text-slate-400">Expected Output</span>
-          <textarea
-            aria-label="Expected Output"
-            className="min-h-36 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
-            rows={5}
-            value={draft.expectedDeliverable}
-            onChange={(event) => setField('expectedDeliverable')(event.target.value)}
-          />
-        </label>
-        <label className="block text-sm text-slate-300">
-          <span className="mb-1 block text-xs uppercase text-slate-400">Produced Output</span>
-          <textarea
-            aria-label="Produced Output"
-            className="min-h-28 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
-            rows={4}
-            value={draft.deliverableSummary}
-            onChange={(event) => setField('deliverableSummary')(event.target.value)}
-          />
-        </label>
-        <TextInput label="Link" value={draft.deliverableLocation} onChange={setField('deliverableLocation')} />
-      </div>
-    </Card> : <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-slate-800" onClick={addDeliverable}>+ Add deliverable</button>}
-
-    <TextAreaSection title="Definition of Done" value={draft.acceptanceCriteria} onChange={setField('acceptanceCriteria')} help="What must be true before this task can be completed?" />
-    <TextAreaSection title="Notes" value={draft.notes} onChange={setField('notes')} help="Scratchpad, links, decisions, blockers." />
-
-    <CollapsibleSection title="Codex Prompt">
-      <div className="mb-3 flex justify-end">
-        <button type="button" className="rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={() => navigator.clipboard?.writeText(draft.codexPrompt || '')}>Copy prompt</button>
-      </div>
-      <textarea
-        aria-label="Codex Prompt"
-        className="min-h-48 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
-        rows={8}
-        value={draft.codexPrompt}
-        onChange={(event) => setField('codexPrompt')(event.target.value)}
-      />
-    </CollapsibleSection>
-
-    <CollapsibleSection title="Task Settings">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SelectInput label="Status" value={draft.status} options={statuses} onChange={setField('status')} />
-        <SelectInput label="Priority" value={draft.priority} options={priorities} onChange={setField('priority')} />
-        <SelectInput label="Category" value={draft.category} options={categories} onChange={setField('category')} />
-        <div className="lg:col-span-2">
-          <TextInput label="Related Project" value={draft.projectId} onChange={setField('projectId')} />
+    {draft.deliverableRequired ? <>
+      <Card title="Success Criteria">
+        <p className="mb-4 text-sm text-slate-400">What success looks like before this task is completed.</p>
+        <div className="space-y-4">
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs uppercase text-slate-400">Expected Output</span>
+            <textarea
+              aria-label="Expected Output"
+              className="min-h-36 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
+              rows={5}
+              value={draft.expectedDeliverable}
+              onChange={(event) => setField('expectedDeliverable')(event.target.value)}
+            />
+          </label>
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs uppercase text-slate-400">Completion Checklist</span>
+            <textarea
+              aria-label="Completion Checklist"
+              className="min-h-36 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
+              rows={5}
+              value={draft.acceptanceCriteria}
+              onChange={(event) => setField('acceptanceCriteria')(event.target.value)}
+            />
+          </label>
         </div>
+      </Card>
+
+      <Card title="Your Work" className="border-blue-500/50 bg-blue-950/20 shadow-blue-950/30">
+        <div className="space-y-4">
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs uppercase text-slate-400">Produced Output</span>
+            <textarea
+              aria-label="Produced Output"
+              className="min-h-36 w-full resize-y rounded border border-blue-500/50 bg-slate-950 p-3 leading-6 text-slate-100 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              rows={4}
+              value={draft.deliverableSummary}
+              onChange={(event) => setField('deliverableSummary')(event.target.value)}
+            />
+          </label>
+          <TextInput label="Supporting Link" value={draft.deliverableLocation} onChange={setField('deliverableLocation')} />
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs uppercase text-slate-400">Notes</span>
+            <textarea
+              aria-label="Notes"
+              className="min-h-36 w-full resize-y rounded border border-blue-500/40 bg-slate-950 p-3 leading-6 text-slate-100 shadow-inner focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              rows={5}
+              value={draft.notes}
+              onChange={(event) => setField('notes')(event.target.value)}
+            />
+          </label>
+        </div>
+      </Card>
+    </> : <button type="button" className="rounded-lg border border-slate-600 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-slate-800" onClick={addDeliverable}>+ Add deliverable</button>}
+
+    <CollapsibleSection title="Advanced">
+      <div className="space-y-4">
+        <CollapsibleSection title="Codex Prompt">
+          <div className="mb-3 flex justify-end">
+            <button type="button" className="rounded-md border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800" onClick={() => navigator.clipboard?.writeText(draft.codexPrompt || '')}>Copy prompt</button>
+          </div>
+          <textarea
+            aria-label="Codex Prompt"
+            className="min-h-48 w-full resize-y rounded border border-slate-700 bg-slate-950 p-3 leading-6 text-slate-100"
+            rows={8}
+            value={draft.codexPrompt}
+            onChange={(event) => setField('codexPrompt')(event.target.value)}
+          />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Task Settings">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SelectInput label="Status" value={draft.status} options={statuses} onChange={setField('status')} />
+            <SelectInput label="Priority" value={draft.priority} options={priorities} onChange={setField('priority')} />
+            <SelectInput label="Category" value={draft.category} options={categories} onChange={setField('category')} />
+            <div className="lg:col-span-2">
+              <TextInput label="Related Project" value={draft.projectId} onChange={setField('projectId')} />
+            </div>
+          </div>
+        </CollapsibleSection>
       </div>
     </CollapsibleSection>
   </form>;
