@@ -29,3 +29,131 @@ Recommended next actions captured in the report:
 - Review open Brain App tasks for authentication, workflow testing, code review, and Playwright frontend validation.
 - Confirm the Telegram integration project next action before implementing contact-message routing.
 - Close the remaining Ato circumcision logistics loop by confirming Prince, route, and Luna care.
+
+
+
+Update brain summary - 2026-06-29
+
+Completed a major evolution of the Brain OS execution workflow by transforming tasks from simple records into execution workspaces designed for both humans and AI agents.
+
+What was accomplished:
+
+Task Workspace
+- Redesigned the Task Details page around execution rather than metadata.
+- Split the page into clear sections:
+  - Task
+  - Success Criteria
+  - Agent Instructions
+  - Your Work
+  - Task Settings
+- Improved information hierarchy so expectations are clearly separated from user-produced work.
+- Preserved all existing backend payloads and API contracts while simplifying the UI.
+
+Deliverable Workflow
+- Standardized every executable task around expected outputs.
+- Added dedicated sections for:
+  - Expected Output
+  - Completion Checklist
+  - Produced Output
+  - Supporting Link
+  - Notes
+- Created a clearer distinction between what the system expects and what the user actually produces.
+
+AI Agent Integration
+- Introduced Agent Instructions as a first-class task field.
+- Agent Instructions are now editable directly from the task page.
+- Added Add Instructions workflow for empty tasks.
+- Added Edit / Done Editing workflow.
+- Added Copy Prompt action.
+- Removed the previous hidden "Advanced" section.
+- Agent instructions are now intended to contain implementation-ready prompts for AI coding assistants.
+
+Codex Prompt Strategy
+- Established a new workflow where executable tasks automatically include an implementation prompt.
+- Defined that any task requiring AI implementation should have a complete Codex-ready prompt stored directly in the Agent Instructions field.
+- The user no longer needs to manually generate prompts before delegating work to Codex or Claude Code.
+
+Planning Workflow Changes
+- Updated the intended architecture so future Day Plan generation automatically creates AI implementation prompts whenever a task requires agent execution.
+- Agent-generated tasks will include:
+  - execution objective
+  - implementation scope
+  - acceptance criteria
+  - constraints
+  - repository awareness
+- The resulting prompt should be immediately copy-pasteable into Codex without additional editing.
+
+Repository Guidance
+- Updated AGENTS.md expectations to reflect that Brain OS now generates implementation-ready AI prompts as part of task generation.
+- Reinforced that Agent Instructions become part of the normal execution workflow rather than an optional advanced feature.
+
+UX Improvements
+- Simplified the task page.
+- Removed unnecessary visual complexity.
+- Eliminated the old Advanced section.
+- Made the execution flow significantly more intuitive by separating:
+  - What needs to be done
+  - What success looks like
+  - AI implementation instructions
+  - Human-produced work
+  - Administrative settings
+
+Testing
+- Existing Task Details tests were updated to match the new layout.
+- Agent Instructions editing workflow is now covered.
+- Existing persistence behavior remains unchanged.
+
+Verification
+- Task editing continues to save correctly.
+- Deliverables continue to persist.
+- Agent Instructions persist correctly.
+- Copy Prompt functionality remains available.
+- Existing task APIs and database schema remain compatible.
+- No backend breaking changes were introduced.
+
+Current Architecture
+
+Each executable task now consists of:
+
+1. Task
+   - What needs to be done.
+
+2. Success Criteria
+   - Expected output.
+   - Completion checklist.
+
+3. Agent Instructions
+   - Implementation-ready prompt for Codex / Claude Code.
+   - Editable and copyable.
+
+4. Your Work
+   - Produced output.
+   - Supporting link.
+   - Notes.
+
+5. Task Settings
+   - Status.
+   - Priority.
+   - Category.
+   - Related project.
+
+Recommended Next Actions
+
+1. Update Day Plan generation so executable tasks automatically generate implementation-ready Agent Instructions during planning.
+
+2. Extend Brain Update workflow so newly created tasks also include Agent Instructions whenever AI implementation is appropriate.
+
+3. Connect task completion to automatic project progress updates so projects become live execution dashboards rather than manually maintained records.
+
+4. Build project-level execution metrics using task completion, deliverables, and AI execution history.
+
+Overall Status
+
+The Brain OS has evolved beyond a traditional task manager into an execution operating system where every task contains:
+- clear objective
+- measurable success criteria
+- AI implementation instructions
+- human execution artifacts
+- completion evidence
+
+The next phase is to automate generation of AI implementation prompts during planning so every executable task is immediately ready to be delegated to Codex or Claude Code.
