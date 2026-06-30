@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
-    "heroku-postbuild": "npm --prefix client install && npm --prefix client run build",
+    "build": "npm run heroku-postbuild",
+    "heroku-postbuild": "npm --prefix client ci && npm --prefix client run build",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "nodemon server/index.js",
     "client": "npm --prefix client run dev",
@@ -13,6 +14,9 @@
     "test": "npm run test:server && npm run test:client",
     "test:server": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:client": "npm --prefix client run test"
+  },
+  "engines": {
+    "node": "20.x"
   },
   "dependencies": {
     "cors": "^2.8.5",

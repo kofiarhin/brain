@@ -4,3 +4,4 @@ client/dist/
 .env
 .DS_Store
 coverage/
+heroku-build.log
