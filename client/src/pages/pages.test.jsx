@@ -9,6 +9,7 @@ import { TaskDetails } from './TaskDetails';
 import { Dashboard } from './Dashboard';
 import { Projects } from './Projects';
 import { Reports } from './Reports';
+import { DayPlan } from './DayPlan';
 import { addLondonDays, getLondonDateKey } from '../utils/londonDate';
 
 function wrapper() { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>; }
@@ -27,6 +28,106 @@ describe('Notes page', () => {
     await userEvent.type(screen.getByLabelText('Note content'), 'Test note');
     await userEvent.click(screen.getByRole('button', { name: /save note/i }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/notes'), expect.objectContaining({ method: 'POST' })));
+  });
+});
+
+describe('DayPlan page', () => {
+  const previousPageOne = {
+    items: [{
+      _id: 'dp1',
+      date: '2026-06-29T08:00:00.000Z',
+      londonDate: '2026-06-29',
+      startTime: '2026-06-29T08:00:00.000Z',
+      status: 'completed',
+      sessionType: 'start',
+      focus: 'Previous focus',
+      priorities: ['Previous priority'],
+      schedule: [{ time: '09:00', title: 'Historical work' }],
+      mustDo: ['Previous must'],
+    }],
+    page: 1,
+    limit: 1,
+    total: 2,
+    totalPages: 2,
+    hasNextPage: true,
+    hasPreviousPage: false,
+  };
+
+  test('today missing shows empty state and previous plan', async () => {
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/day-plans/latest')) {
+        return Promise.resolve({ ok: false, status: 404, json: async () => ({ message: 'No day plan found for today' }) });
+      }
+      if (url.includes('/day-plans/previous')) {
+        return Promise.resolve({ ok: true, json: async () => previousPageOne });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<DayPlan />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('No plan has been generated for today yet.')).toBeInTheDocument();
+    expect(screen.getByText('Previous Plans')).toBeInTheDocument();
+    expect(await screen.findByText('Previous focus')).toBeInTheDocument();
+    expect(screen.getByText("Historical plan, not today's active plan.")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+  });
+
+  test('shows no previous plans when history is empty', async () => {
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/day-plans/latest')) {
+        return Promise.resolve({ ok: false, status: 404, json: async () => ({ message: 'No day plan found for today' }) });
+      }
+      if (url.includes('/day-plans/previous')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ items: [], page: 1, limit: 1, total: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<DayPlan />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('No previous plans found.')).toBeInTheDocument();
+  });
+
+  test('next and previous buttons update page state', async () => {
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/day-plans/latest')) {
+        return Promise.resolve({ ok: false, status: 404, json: async () => ({ message: 'No day plan found for today' }) });
+      }
+      if (url.includes('page=2')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            items: [{ _id: 'dp2', date: '2026-06-28T08:00:00.000Z', londonDate: '2026-06-28', focus: 'Older focus' }],
+            page: 2,
+            limit: 1,
+            total: 2,
+            totalPages: 2,
+            hasNextPage: false,
+            hasPreviousPage: true,
+          }),
+        });
+      }
+      if (url.includes('/day-plans/previous')) {
+        return Promise.resolve({ ok: true, json: async () => previousPageOne });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<DayPlan />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('Previous focus')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Older focus')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(await screen.findByText('Previous focus')).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/day-plans/previous?page=2&limit=1'), expect.any(Object));
   });
 });
 

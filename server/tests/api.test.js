@@ -4,6 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { categorizeTaskTitle } from '../services/taskCategorization.js';
+import { getLondonDateKey } from '../services/londonDate.js';
 
 process.env.AUTH_USERNAME = 'admin';
 process.env.AUTH_PASSWORD = 'password';
@@ -56,6 +57,38 @@ function fakeModel(name) {
     }
     return 0;
   });
+  const londonDateFrom = (value) => {
+    const date = new Date(value);
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = Object.fromEntries(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  };
+  const queryChain = (items) => {
+    let result = items.map(clone);
+    const chain = {
+      sort(sort) {
+        result = sortRecords(result, sort);
+        return chain;
+      },
+      skip(count) {
+        result = result.slice(count);
+        return chain;
+      },
+      limit(count) {
+        result = result.slice(0, count);
+        return chain;
+      },
+      then(resolve, reject) {
+        return Promise.resolve(result).then(resolve, reject);
+      },
+    };
+    return chain;
+  };
   return class FakeModel {
     static modelName = name;
     static reset() { records = []; }
@@ -107,6 +140,12 @@ function fakeModel(name) {
         if (!next.runDate) next.runDate = new Date();
         return next;
       }
+      if (name === 'dayPlan') {
+        return {
+          ...payload,
+          londonDate: payload.londonDate || (payload.date ? londonDateFrom(payload.date) : undefined),
+        };
+      }
       if (name !== 'task') return payload;
       const next = {
         category: 'general',
@@ -133,7 +172,8 @@ function fakeModel(name) {
       records.push(item);
       return clone(item);
     }
-    static find(query = {}) { return { sort: async (sort) => sortRecords(records.filter((item) => matchesQuery(item, query)), sort).map(clone) }; }
+    static find(query = {}) { return queryChain(records.filter((item) => matchesQuery(item, query))); }
+    static async countDocuments(query = {}) { return records.filter((item) => matchesQuery(item, query)).length; }
     static async findById(id) { return records.find((item) => item._id === id) || null; }
     static async findByIdAndUpdate(id, payload) {
       const index = records.findIndex((item) => item._id === id);
@@ -394,6 +434,9 @@ describe('task completion', () => {
   });
 
   test('postponing keeps the same task id and updates schedule history', async () => {
+    const todayKey = getLondonDateKey(new Date());
+    const [year, month, day] = todayKey.split('-').map(Number);
+    const targetDate = getLondonDateKey(new Date(Date.UTC(year, month - 1, day + 1, 12)));
     const created = await request(app)
       .post('/api/tasks')
       .send({
@@ -407,7 +450,7 @@ describe('task completion', () => {
 
     const postponed = await request(app)
       .patch(`/api/tasks/${created.body._id}/reschedule`)
-      .send({ targetDate: '2026-06-29', reason: 'tomorrow' })
+      .send({ targetDate, reason: 'tomorrow' })
       .expect(200);
 
     expect(postponed.body._id).toBe(created.body._id);
@@ -418,11 +461,11 @@ describe('task completion', () => {
     expect(postponed.body.codexPrompt).toBe('Keep prompt');
     expect(postponed.body.status).toBe('rescheduled');
     expect(postponed.body.outcome).toBe('rescheduled');
-    expect(postponed.body.scheduledLondonDate).toBe('2026-06-29');
+    expect(postponed.body.scheduledLondonDate).toBe(targetDate);
     expect(postponed.body.postponedCount).toBe(1);
     expect(postponed.body.postponedReason).toBe('tomorrow');
     expect(postponed.body.scheduleHistory).toHaveLength(1);
-    expect(postponed.body.scheduleHistory[0].toScheduledLondonDate).toBe('2026-06-29');
+    expect(postponed.body.scheduleHistory[0].toScheduledLondonDate).toBe(targetDate);
     expect(postponed.body.outcomeHistory.at(-1).toStatus).toBe('rescheduled');
 
     const listed = await request(app).get('/api/tasks').expect(200);
@@ -517,35 +560,104 @@ describe('projects CRUD', () => {
 });
 
 describe('latest day plan endpoint', () => {
-  test('returns the newest day plan by date', async () => {
-    await request(app).post('/api/day-plans').send({ date: '2026-06-22', focus: 'Yesterday' }).expect(201);
-    await request(app).post('/api/day-plans').send({ date: '2026-06-23', focus: 'Today' }).expect(201);
+  function londonKeyDaysAgo(days) {
+    const todayKey = getLondonDateKey(new Date());
+    const [year, month, day] = todayKey.split('-').map(Number);
+    return getLondonDateKey(new Date(Date.UTC(year, month - 1, day - days, 12)));
+  }
+
+  function planPayload(londonDate, focus, extra = {}) {
+    return {
+      date: `${londonDate}T08:00:00.000Z`,
+      londonDate,
+      startTime: `${londonDate}T08:00:00.000Z`,
+      focus,
+      ...extra,
+    };
+  }
+
+  test("returns today's plan only", async () => {
+    const today = londonKeyDaysAgo(0);
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(1), 'Yesterday')).expect(201);
+    await request(app).post('/api/day-plans').send(planPayload(today, 'Today')).expect(201);
+
     expect((await request(app).get('/api/day-plans/latest').expect(200)).body.focus).toBe('Today');
   });
 
-  test('returns active plan before more recent inactive plan', async () => {
-    await request(app).post('/api/day-plans').send({
-      date: '2026-06-26T08:00:00.000Z',
-      startTime: '2026-06-26T08:00:00.000Z',
-      status: 'active',
-      focus: 'Active session',
-    }).expect(201);
-    await request(app).post('/api/day-plans').send({
-      date: '2026-06-26T12:00:00.000Z',
-      startTime: '2026-06-26T12:00:00.000Z',
-      status: 'completed',
-      focus: 'Completed session',
-    }).expect(201);
+  test("returns 404 when only yesterday's plan exists", async () => {
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(1), 'Yesterday')).expect(201);
 
-    expect((await request(app).get('/api/day-plans/latest').expect(200)).body.focus).toBe('Active session');
+    const response = await request(app).get('/api/day-plans/latest').expect(404);
+    expect(response.body.message).toBe('No day plan found for today');
+  });
+
+  test("sorts today's plans by startTime desc then createdAt desc", async () => {
+    const today = londonKeyDaysAgo(0);
+    await request(app).post('/api/day-plans').send(planPayload(today, 'Morning', { startTime: `${today}T08:00:00.000Z` })).expect(201);
+    await request(app).post('/api/day-plans').send(planPayload(today, 'Afternoon', { startTime: `${today}T12:00:00.000Z` })).expect(201);
+
+    expect((await request(app).get('/api/day-plans/latest').expect(200)).body.focus).toBe('Afternoon');
   });
 
   test('legacy day plans without session fields still work', async () => {
-    await request(app).post('/api/day-plans').send({ date: '2026-06-22', focus: 'Legacy' }).expect(201);
+    const today = londonKeyDaysAgo(0);
+    await request(app).post('/api/day-plans').send({ date: `${today}T08:00:00.000Z`, londonDate: today, focus: 'Legacy' }).expect(201);
     const latest = await request(app).get('/api/day-plans/latest').expect(200);
 
     expect(latest.body.focus).toBe('Legacy');
     expect(latest.body.status).toBeUndefined();
+  });
+
+  test('previous excludes today', async () => {
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(0), 'Today')).expect(201);
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(1), 'Yesterday')).expect(201);
+
+    const response = await request(app).get('/api/day-plans/previous').expect(200);
+    expect(response.body.items.map((plan) => plan.focus)).toEqual(['Yesterday']);
+    expect(response.body.total).toBe(1);
+  });
+
+  test('previous sorts newest first', async () => {
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(3), 'Three days ago')).expect(201);
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(1), 'Yesterday morning', { startTime: `${londonKeyDaysAgo(1)}T08:00:00.000Z` })).expect(201);
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(1), 'Yesterday afternoon', { startTime: `${londonKeyDaysAgo(1)}T14:00:00.000Z` })).expect(201);
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(2), 'Two days ago')).expect(201);
+
+    const response = await request(app).get('/api/day-plans/previous?limit=10').expect(200);
+    expect(response.body.items.map((plan) => plan.focus)).toEqual([
+      'Yesterday afternoon',
+      'Yesterday morning',
+      'Two days ago',
+      'Three days ago',
+    ]);
+  });
+
+  test('previous paginates correctly', async () => {
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(1), 'Yesterday')).expect(201);
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(2), 'Two days ago')).expect(201);
+    await request(app).post('/api/day-plans').send(planPayload(londonKeyDaysAgo(3), 'Three days ago')).expect(201);
+
+    const pageOne = await request(app).get('/api/day-plans/previous').expect(200);
+    expect(pageOne.body.items.map((plan) => plan.focus)).toEqual(['Yesterday']);
+    expect(pageOne.body).toEqual(expect.objectContaining({
+      page: 1,
+      limit: 1,
+      total: 3,
+      totalPages: 3,
+      hasNextPage: true,
+      hasPreviousPage: false,
+    }));
+
+    const pageTwo = await request(app).get('/api/day-plans/previous?page=2&limit=1').expect(200);
+    expect(pageTwo.body.items.map((plan) => plan.focus)).toEqual(['Two days ago']);
+    expect(pageTwo.body).toEqual(expect.objectContaining({
+      page: 2,
+      limit: 1,
+      total: 3,
+      totalPages: 3,
+      hasNextPage: true,
+      hasPreviousPage: true,
+    }));
   });
 });
 
