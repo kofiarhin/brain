@@ -45,6 +45,18 @@ async function previous(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function byDate(req, res, next) {
+  try {
+    const { date } = req.params;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ message: 'Invalid date format. Use YYYY-MM-DD.' });
+    }
+
+    const plan = await DayPlan.findOne({ londonDate: date }).sort({ startTime: -1, createdAt: -1 });
+    res.json({ date, plan: plan || null });
+  } catch (error) { next(error); }
+}
+
 function parseRequestNow(req) {
   return req.body?.now ? new Date(req.body.now) : new Date();
 }
@@ -69,6 +81,7 @@ const controller = createCrudController(DayPlan);
 router.get('/', controller.list);
 router.get('/latest', latest);
 router.get('/previous', previous);
+router.get('/by-date/:date', byDate);
 router.post('/start', start);
 router.post('/restart', restart);
 router.get('/:id', controller.get);

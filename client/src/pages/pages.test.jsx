@@ -32,102 +32,109 @@ describe('Notes page', () => {
 });
 
 describe('DayPlan page', () => {
-  const previousPageOne = {
-    items: [{
-      _id: 'dp1',
-      date: '2026-06-29T08:00:00.000Z',
-      londonDate: '2026-06-29',
-      startTime: '2026-06-29T08:00:00.000Z',
-      status: 'completed',
-      sessionType: 'start',
-      focus: 'Previous focus',
-      priorities: ['Previous priority'],
-      schedule: [{ time: '09:00', title: 'Historical work' }],
-      mustDo: ['Previous must'],
-    }],
-    page: 1,
-    limit: 1,
-    total: 2,
-    totalPages: 2,
-    hasNextPage: true,
-    hasPreviousPage: false,
-  };
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-06-30T10:00:00.000Z'));
+  });
 
-  test('today missing shows empty state and previous plan', async () => {
+  test('initial view shows today date and empty state when plan is null', async () => {
     global.fetch = vi.fn((url) => {
-      if (url.includes('/day-plans/latest')) {
-        return Promise.resolve({ ok: false, status: 404, json: async () => ({ message: 'No day plan found for today' }) });
-      }
-      if (url.includes('/day-plans/previous')) {
-        return Promise.resolve({ ok: true, json: async () => previousPageOne });
+      if (url.includes('/day-plans/by-date/2026-06-30')) {
+        return Promise.resolve({ ok: true, json: async () => ({ date: '2026-06-30', plan: null }) });
       }
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
     render(<DayPlan />, { wrapper: wrapper() });
 
-    expect(await screen.findByText('No plan has been generated for today yet.')).toBeInTheDocument();
-    expect(screen.getByText('Previous Plans')).toBeInTheDocument();
-    expect(await screen.findByText('Previous focus')).toBeInTheDocument();
-    expect(screen.getByText("Historical plan, not today's active plan.")).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+    expect(screen.getByText('Tuesday, 30 Jun 2026')).toBeInTheDocument();
+    expect(await screen.findByText('No plan was generated for this day.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Today' })).toBeDisabled();
+    expect(screen.queryByText('Previous Plans')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Page/i)).not.toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/day-plans/by-date/2026-06-30'), expect.any(Object));
   });
 
-  test('shows no previous plans when history is empty', async () => {
+  test('renders the saved plan for the viewed date', async () => {
     global.fetch = vi.fn((url) => {
-      if (url.includes('/day-plans/latest')) {
-        return Promise.resolve({ ok: false, status: 404, json: async () => ({ message: 'No day plan found for today' }) });
-      }
-      if (url.includes('/day-plans/previous')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ items: [], page: 1, limit: 1, total: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({}) });
-    });
-
-    render(<DayPlan />, { wrapper: wrapper() });
-
-    expect(await screen.findByText('No previous plans found.')).toBeInTheDocument();
-  });
-
-  test('next and previous buttons update page state', async () => {
-    global.fetch = vi.fn((url) => {
-      if (url.includes('/day-plans/latest')) {
-        return Promise.resolve({ ok: false, status: 404, json: async () => ({ message: 'No day plan found for today' }) });
-      }
-      if (url.includes('page=2')) {
+      if (url.includes('/day-plans/by-date/2026-06-30')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            items: [{ _id: 'dp2', date: '2026-06-28T08:00:00.000Z', londonDate: '2026-06-28', focus: 'Older focus' }],
-            page: 2,
-            limit: 1,
-            total: 2,
-            totalPages: 2,
-            hasNextPage: false,
-            hasPreviousPage: true,
+            date: '2026-06-30',
+            plan: {
+              _id: 'dp1',
+              londonDate: '2026-06-30',
+              startTime: '2026-06-30T08:00:00.000Z',
+              status: 'active',
+              sessionType: 'start',
+              focus: 'Today focus',
+              priorities: ['Today priority'],
+              schedule: [{ time: '09:00', title: 'Deep work' }],
+              mustDo: ['Today must'],
+            },
           }),
         });
-      }
-      if (url.includes('/day-plans/previous')) {
-        return Promise.resolve({ ok: true, json: async () => previousPageOne });
       }
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
     render(<DayPlan />, { wrapper: wrapper() });
 
-    expect(await screen.findByText('Previous focus')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(await screen.findByText('Older focus')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    expect(await screen.findByText('Today focus')).toBeInTheDocument();
+    expect(screen.getByText('Plan Window')).toBeInTheDocument();
+    expect(screen.getByText('Focus')).toBeInTheDocument();
+    expect(screen.getByText('Schedule')).toBeInTheDocument();
+    expect(screen.queryByText("Historical plan, not today's active plan.")).not.toBeInTheDocument();
+  });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
-    expect(await screen.findByText('Previous focus')).toBeInTheDocument();
-    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/day-plans/previous?page=2&limit=1'), expect.any(Object));
+  test('previous day updates viewedDate and refetches', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/day-plans/by-date/2026-06-29')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ date: '2026-06-29', plan: { _id: 'dp2', londonDate: '2026-06-29', focus: 'Yesterday focus' } }),
+        });
+      }
+      if (url.includes('/day-plans/by-date/2026-06-30')) {
+        return Promise.resolve({ ok: true, json: async () => ({ date: '2026-06-30', plan: null }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<DayPlan />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('No plan was generated for this day.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '← Previous Day' }));
+    expect(await screen.findByText('Yesterday focus')).toBeInTheDocument();
+    expect(screen.getByText('Monday, 29 Jun 2026')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Today' })).toBeEnabled();
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/day-plans/by-date/2026-06-29'), expect.any(Object));
+  });
+
+  test('today button jumps back to today and disables', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/day-plans/by-date/2026-06-29')) {
+        return Promise.resolve({ ok: true, json: async () => ({ date: '2026-06-29', plan: null }) });
+      }
+      if (url.includes('/day-plans/by-date/2026-06-30')) {
+        return Promise.resolve({ ok: true, json: async () => ({ date: '2026-06-30', plan: null }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<DayPlan />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('No plan was generated for this day.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Today' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: '← Previous Day' }));
+    expect(await screen.findByText('Monday, 29 Jun 2026')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Today' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Today' }));
+    expect(await screen.findByText('Tuesday, 30 Jun 2026')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Today' })).toBeDisabled();
   });
 });
 

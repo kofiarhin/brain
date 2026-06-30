@@ -659,6 +659,31 @@ describe('latest day plan endpoint', () => {
       hasPreviousPage: true,
     }));
   });
+
+  test('by-date returns null plan for a missing London date', async () => {
+    const response = await request(app).get('/api/day-plans/by-date/2026-06-30').expect(200);
+    expect(response.body).toEqual({ date: '2026-06-30', plan: null });
+  });
+
+  test('by-date returns the matching plan for the London date', async () => {
+    await request(app).post('/api/day-plans').send(planPayload('2026-06-27', 'Matching plan')).expect(201);
+    await request(app).post('/api/day-plans').send(planPayload('2026-06-28', 'Other plan')).expect(201);
+
+    const response = await request(app).get('/api/day-plans/by-date/2026-06-27').expect(200);
+    expect(response.body.date).toBe('2026-06-27');
+    expect(response.body.plan.focus).toBe('Matching plan');
+  });
+
+  test('by-date rejects invalid date formats', async () => {
+    const response = await request(app).get('/api/day-plans/by-date/not-a-date').expect(400);
+    expect(response.body).toEqual({ message: 'Invalid date format. Use YYYY-MM-DD.' });
+  });
+
+  test('by-date route is not swallowed by the id route', async () => {
+    const response = await request(app).get('/api/day-plans/by-date/2026-06-30').expect(200);
+    expect(response.body).toHaveProperty('date', '2026-06-30');
+    expect(response.body).toHaveProperty('plan', null);
+  });
 });
 
 describe('brain update reports API', () => {

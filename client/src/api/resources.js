@@ -14,6 +14,7 @@ export const createResourceApi = (path) => ({
   get: (id) => request(`${path}/${id}`),
   latest: () => request(`${path}/latest`),
   previous: (params) => request(withQuery(`${path}/previous`, params)),
+  byDate: (date) => request(`${path}/by-date/${date}`),
   create: (payload) => request(path, { method: 'POST', body: JSON.stringify(payload) }),
   update: (id, payload) => request(`${path}/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   remove: (id) => request(`${path}/${id}`, { method: 'DELETE' }),
