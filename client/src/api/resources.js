@@ -37,6 +37,11 @@ export const api = {
   projects: createResourceApi('/projects'),
   ideas: createResourceApi('/ideas'),
   context: createResourceApi('/context'),
+  preferences: {
+    ...createResourceApi('/preferences'),
+    active: () => request('/preferences/active'),
+    updateActive: (payload) => request('/preferences/active', { method: 'PATCH', body: JSON.stringify(payload) }),
+  },
   reviews: createResourceApi('/reviews'),
   dayPlans: createResourceApi('/day-plans'),
   brainUpdateReports: createResourceApi('/brain-update-reports')

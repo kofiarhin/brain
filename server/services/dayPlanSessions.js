@@ -1,6 +1,7 @@
 import { Context } from '../models/Context.js';
 import { DayPlan } from '../models/DayPlan.js';
 import { Deliverable } from '../models/Deliverable.js';
+import { Preference } from '../models/Preference.js';
 import { Project } from '../models/Project.js';
 import { Task } from '../models/Task.js';
 import { getLondonDateKey } from './londonDate.js';
@@ -82,6 +83,11 @@ async function listContext(ContextModel) {
   return ContextModel.find().sort({ createdAt: -1 });
 }
 
+async function getActivePreference(PreferenceModel) {
+  const preference = await PreferenceModel.findOne({ active: true }).sort({ updatedAt: -1 });
+  return preference || PreferenceModel.create({});
+}
+
 async function listPriorPlans(DayPlanModel) {
   return DayPlanModel.find().sort({ startTime: -1, date: -1, createdAt: -1 });
 }
@@ -100,10 +106,44 @@ function collectPreviousWork(sourcePlan) {
   return uniqueTexts(priorPlanFields.flatMap((field) => sourcePlan[field] || []));
 }
 
-function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTasks = [], allTasks, deliverables, allDeliverables, contextItems, priorPlans }) {
+function preferenceLine(label, enabled) {
+  return enabled ? label : null;
+}
+
+function buildPreferenceSummary(preference) {
+  const scheduling = preference?.scheduling || {};
+  const planning = preference?.planning || {};
+  const personalConstraints = preference?.personalConstraints || {};
+  const agentBehaviour = preference?.agentBehaviour || {};
+  const lines = [
+    `Planning window preference: ${scheduling.planningWindowStart || '04:00'}-${scheduling.planningWindowEnd || '21:00'}.`,
+    `Daily task capacity preference: ${planning.maxDailyTasks || 5}.`,
+    `Deep work preference: ${scheduling.deepWorkPreferredTime || 'morning'}; gym preference: ${scheduling.gymPreferredTime || 'afternoon'}.`,
+    preferenceLine('Carry-over first preference is enabled.', planning.carryOverFirst !== false),
+    preferenceLine('Minimize context switching preference is enabled.', planning.minimizeContextSwitching !== false),
+    preferenceLine('Prefer high-impact execution preference is enabled.', planning.preferHighImpactExecution !== false),
+    preferenceLine('Buffer time is required.', scheduling.bufferTimeRequired !== false),
+    preferenceLine('Work from home constraint is active.', personalConstraints.workFromHome !== false),
+    preferenceLine('Family responsibilities constraint is active.', personalConstraints.familyResponsibilities !== false),
+    preferenceLine('School runs constraint is active.', personalConstraints.schoolRuns !== false),
+    preferenceLine('Helping Laura with Ato constraint is active.', personalConstraints.helpingLauraWithAto !== false),
+    `Agent behaviour preference: ${agentBehaviour.verbosity || 'concise'} verbosity, ${agentBehaviour.autonomy || 'medium'} autonomy.`,
+  ].filter(Boolean);
+
+  if (preference?.notes) lines.push(`Preference notes: ${preference.notes}`);
+  return lines;
+}
+
+function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTasks = [], allTasks, deliverables, allDeliverables, contextItems, priorPlans, preference }) {
   const startTime = new Date(now);
   const endTime = new Date(startTime.getTime() + eightHoursMs);
   const londonDate = getLondonDateKey(startTime);
+  const scheduling = preference?.scheduling || {};
+  const planning = preference?.planning || {};
+  const output = preference?.output || {};
+  const planningWindowStart = scheduling.planningWindowStart || '04:00';
+  const planningWindowEnd = scheduling.planningWindowEnd || '21:00';
+  const maxDailyTasks = Number(planning.maxDailyTasks) || 5;
   const completedItems = collectCompletedItems({ allTasks, allDeliverables, priorPlans, sourcePlan });
   const completedKeys = new Set(completedItems.map(normalizeTaskTitle));
   const activeTaskTitles = excludeCompleted(tasks.map(titleFromRecord), completedKeys);
@@ -115,8 +155,9 @@ function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTas
   const previousWork = sessionType === 'restart' ? excludeCompleted(collectPreviousWork(sourcePlan), completedKeys) : [];
   const carriedForwardItems = uniqueTexts([...carryOverTitles, ...previousWork, ...activeTaskTitles, ...deliverableTitles]);
   const contextLines = uniqueTexts(contextItems.map((item) => [item.category, item.value].filter(Boolean).join(': '))).slice(0, 8);
+  const preferenceLines = buildPreferenceSummary(preference);
   const priorities = uniqueTexts([...carryOverTitles, ...mustDo, ...deliverableTitles, ...shouldDo, ...previousWork]).slice(0, 3);
-  const capacityExceeded = carriedForwardItems.length > 8;
+  const capacityExceeded = carriedForwardItems.length > maxDailyTasks;
 
   return {
     date: startTime,
@@ -128,43 +169,50 @@ function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTas
     sourcePlanId: sourcePlan?._id || null,
     completedItems,
     carriedForwardItems,
-    focus: priorities.length ? `Execute the next 8 hours around: ${priorities.join('; ')}` : 'Review current context and choose the highest-impact next action.',
+    focus: priorities.length
+      ? `Execute the active session within the ${planningWindowStart}-${planningWindowEnd} planning window around: ${priorities.join('; ')}`
+      : `Review current context within the ${planningWindowStart}-${planningWindowEnd} planning window and choose the highest-impact next action.`,
     priorities,
     schedule: [
-      { time: `${startTime.toISOString()} - ${endTime.toISOString()}`, title: 'Active planning session', activity: 'Execute selected priorities' },
+      {
+        time: `${startTime.toISOString()} - ${endTime.toISOString()}`,
+        title: 'Active planning session',
+        activity: `Execute selected priorities inside preferred window ${planningWindowStart}-${planningWindowEnd}`,
+      },
     ],
     mustDo,
     shouldDo,
     niceToHave,
-    forgotten: contextLines,
+    forgotten: uniqueTexts([...contextLines, ...preferenceLines]),
     deliverables: deliverableTitles,
     winCondition: priorities.length ? [`Complete or materially advance: ${priorities[0]}`] : ['Define and complete one meaningful outcome for this session.'],
-    insight: sessionType === 'restart'
+    insight: output.includeInsightOfTheDay === false ? '' : sessionType === 'restart'
       ? 'Restarted from current reality; completed work has been excluded.'
       : 'Session planned from the current runtime instead of a fixed calendar start.',
-    motivationalPost: {
+    motivationalPost: output.includeMotivationalPost === false ? { message: '', davidGogginsQuote: '', stoicQuote: '' } : {
       message: 'Win this session by finishing the work that matters now.',
-      davidGogginsQuote: 'You are in danger of living a life so comfortable and soft, that you will die without ever realizing your true potential.',
-      stoicQuote: 'First say to yourself what you would be; and then do what you have to do.',
+      davidGogginsQuote: output.includeDavidGogginsQuote === false ? '' : 'You are in danger of living a life so comfortable and soft, that you will die without ever realizing your true potential.',
+      stoicQuote: output.includeStoicQuote === false ? '' : 'First say to yourself what you would be; and then do what you have to do.',
     },
     unclearItems: priorities.length
-      ? capacityExceeded ? ['Carry-over work exceeds the 8-hour planning capacity; postpone lower-priority tasks before adding new work.'] : []
-      : ['No active tasks or incomplete deliverables were found.'],
+      ? capacityExceeded ? [`Carry-over work exceeds the preference of ${maxDailyTasks} daily tasks; postpone lower-priority tasks before adding new work.`] : []
+      : [`No active tasks or incomplete deliverables were found for the ${planningWindowStart}-${planningWindowEnd} planning window.`],
   };
 }
 
 async function readPlanningContext(models) {
   const londonDate = getLondonDateKey(models.now || new Date());
-  const [{ tasks, carryOverTasks }, allTasks, deliverables, allDeliverables, contextItems, priorPlans] = await Promise.all([
+  const [{ tasks, carryOverTasks }, allTasks, deliverables, allDeliverables, contextItems, priorPlans, preference] = await Promise.all([
     listOpenTasks(models.TaskModel, models.ProjectModel, londonDate),
     listAllTasks(models.TaskModel),
     listOpenDeliverables(models.DeliverableModel),
     listAllDeliverables(models.DeliverableModel),
     listContext(models.ContextModel),
     listPriorPlans(models.DayPlanModel),
+    getActivePreference(models.PreferenceModel),
   ]);
 
-  return { tasks, carryOverTasks, allTasks, deliverables, allDeliverables, contextItems, priorPlans };
+  return { tasks, carryOverTasks, allTasks, deliverables, allDeliverables, contextItems, priorPlans, preference };
 }
 
 async function closeCurrentActivePlan(DayPlanModel, status) {
@@ -185,6 +233,7 @@ export async function startDaySession(options = {}) {
     ProjectModel: options.ProjectModel || Project,
     DeliverableModel: options.DeliverableModel || Deliverable,
     ContextModel: options.ContextModel || Context,
+    PreferenceModel: options.PreferenceModel || Preference,
   };
   const now = options.now || new Date();
 
@@ -203,6 +252,7 @@ export async function restartDaySession(options = {}) {
     ProjectModel: options.ProjectModel || Project,
     DeliverableModel: options.DeliverableModel || Deliverable,
     ContextModel: options.ContextModel || Context,
+    PreferenceModel: options.PreferenceModel || Preference,
   };
   const now = options.now || new Date();
   const sourcePlan = await closeCurrentActivePlan(models.DayPlanModel, 'restarted');

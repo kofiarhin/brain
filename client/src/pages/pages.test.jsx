@@ -10,6 +10,7 @@ import { Dashboard } from './Dashboard';
 import { Projects } from './Projects';
 import { Reports } from './Reports';
 import { DayPlan } from './DayPlan';
+import { Preferences } from './Preferences';
 import { addLondonDays, getLondonDateKey } from '../utils/londonDate';
 
 function wrapper() { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>; }
@@ -28,6 +29,102 @@ describe('Notes page', () => {
     await userEvent.type(screen.getByLabelText('Note content'), 'Test note');
     await userEvent.click(screen.getByRole('button', { name: /save note/i }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/notes'), expect.objectContaining({ method: 'POST' })));
+  });
+});
+
+describe('Preferences page', () => {
+  const preference = {
+    _id: 'pref1',
+    title: 'Default Preferences',
+    active: true,
+    scheduling: {
+      planningWindowStart: '04:00',
+      planningWindowEnd: '21:00',
+      deepWorkPreferredTime: 'morning',
+      gymPreferredTime: 'afternoon',
+      meetingAvoidBefore: '10:00',
+      bufferTimeRequired: true,
+    },
+    planning: {
+      maxDailyTasks: 5,
+      minimizeContextSwitching: true,
+      preferHighImpactExecution: true,
+      carryOverFirst: true,
+    },
+    personalConstraints: {
+      workFromHome: true,
+      familyResponsibilities: true,
+      schoolRuns: true,
+      helpingLauraWithAto: true,
+    },
+    output: {
+      concise: true,
+      includeMotivationalPost: true,
+      includeDavidGogginsQuote: true,
+      includeStoicQuote: true,
+      includeInsightOfTheDay: true,
+    },
+    agentBehaviour: {
+      verbosity: 'concise',
+      autonomy: 'medium',
+    },
+    notes: 'Protect deep work.',
+  };
+
+  test('renders fetched preferences', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => preference });
+
+    render(<Preferences />, { wrapper: wrapper() });
+
+    expect(await screen.findByDisplayValue('Default Preferences')).toBeInTheDocument();
+    expect(screen.getByLabelText('Planning window start')).toHaveValue('04:00');
+    expect(screen.getByLabelText('Max daily tasks')).toHaveValue(5);
+    expect(screen.getByLabelText('Verbosity')).toHaveValue('concise');
+    expect(screen.getByLabelText('Notes')).toHaveValue('Protect deep work.');
+  });
+
+  test('editing a field and saving calls the active PATCH endpoint', async () => {
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/preferences/active') && options?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ ...preference, planning: { ...preference.planning, maxDailyTasks: 3 } }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => preference });
+    });
+
+    render(<Preferences />, { wrapper: wrapper() });
+
+    const maxDailyTasks = await screen.findByLabelText('Max daily tasks');
+    await userEvent.clear(maxDailyTasks);
+    await userEvent.type(maxDailyTasks, '3');
+    await userEvent.click(screen.getByRole('button', { name: /save preferences/i }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/preferences/active'), expect.objectContaining({ method: 'PATCH' })));
+    const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/preferences/active') && options?.method === 'PATCH');
+    expect(JSON.parse(patchCall[1].body)).toEqual(expect.objectContaining({
+      active: true,
+      planning: expect.objectContaining({ maxDailyTasks: 3 }),
+    }));
+  });
+
+  test('boolean checkboxes update correctly', async () => {
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/preferences/active') && options?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ ...preference, output: { ...preference.output, includeMotivationalPost: false } }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => preference });
+    });
+
+    render(<Preferences />, { wrapper: wrapper() });
+
+    const checkbox = await screen.findByLabelText('Include motivational post');
+    expect(checkbox).toBeChecked();
+    await userEvent.click(checkbox);
+    expect(checkbox).not.toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: /save preferences/i }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/preferences/active'), expect.objectContaining({ method: 'PATCH' })));
+    const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/preferences/active') && options?.method === 'PATCH');
+    expect(JSON.parse(patchCall[1].body).output.includeMotivationalPost).toBe(false);
   });
 });
 

@@ -76,7 +76,7 @@ These routing rules override every other instruction in this document.
 ## Brain OS v2 Architecture
 
 - Frontend = CRUD only. It saves data to MongoDB, retrieves data from MongoDB, and displays generated data.
-- MongoDB = source of truth for notes, tasks, day plans, reviews, goals, projects, ideas, and context.
+- MongoDB = source of truth for notes, tasks, day plans, reviews, goals, projects, ideas, context, and preferences.
 - Codex CLI = AI layer. Manual commands such as `update life`, `update brain`, `good morning`,`plan my day`, and `morning briefing` read from MongoDB, run the AI workflow, and write back to MongoDB.
 - The frontend must not run AI pipelines, classify notes, determine priorities, call OpenAI, trigger `update life`/`update brain`, or trigger `plan my day`.
 - Do not add backend routes such as `POST /api/update-life`, `POST /api/plan-day`, or `POST /api/brain/*`.
@@ -134,6 +134,8 @@ These routing rules override every other instruction in this document.
 ## MongoDB Working Context
 
 Always begin by connecting to MongoDB using the `MONGODB_URI` in `.env`.
+
+Before day planning or session generation, load the active `preferences` document from MongoDB and apply it as editable planning context.
 
 Before making decisions:
 
@@ -208,9 +210,10 @@ Read MongoDB collections in this order:
 3. `projects` - active projects, status, blockers, and next actions.
 4. `ideas` - product, content, photography, and business ideas.
 5. `contextitems` - life context, routines, constraints, preferences, and working style.
-6. `reviews` - daily reviews and historical reflection.
-7. `tasks` - open, completed, and archived tasks.
-8. `dayplans` - generated plans.
+6. `preferences` - editable agent, scheduling, output, and planning preferences.
+7. `reviews` - daily reviews and historical reflection.
+8. `tasks` - open, completed, and archived tasks.
+9. `dayplans` - generated plans.
 
 Use markdown files only as backup context when MongoDB is unavailable.
 
@@ -240,7 +243,8 @@ Route information like this:
 - Long-term outcomes -> `goals`.
 - Active work, blockers, next actions, and client work -> `projects` and/or `tasks`.
 - Product, content, photography, videography, creator, business, or software ideas -> `ideas`.
-- Durable life facts, family context, routines, preferences, constraints, recurring patterns, and working style -> `contextitems`.
+- Durable life facts, family context, routines, constraints, recurring patterns, and working style -> `contextitems`.
+- Editable planning, scheduling, output, and agent behavior preferences -> `preferences`.
 - Daily wins, challenges, lessons, accomplishments, and tomorrow items -> `reviews`.
 - Concrete outputs -> optional output details on the relevant `tasks`.
 - Temporary or unclear notes remain in `notes` unless there is a clear destination.
@@ -260,19 +264,20 @@ Planning occurs only when the user intentionally invokes one of these exact plan
 For those commands:
 
 1. Read MongoDB sources of truth, including recent raw notes.
-2. Load open tasks scheduled for today, open overdue tasks scheduled before today, and postponed tasks whose scheduled date is today.
-3. Treat that scheduled and overdue work as carry-over context before proposing new work.
-4. Estimate today’s available capacity using existing planning conventions.
-5. Fill the day with carry-over work first.
-6. Create new tasks only when capacity remains or I explicitly request additional work.
-7. If capacity is exceeded, recommend postponing lower-priority existing tasks instead of overloading the day.
-8. Determine current priorities and unfinished next actions.
-9. Surface commitments, follow-ups, and neglected open loops.
-10. Align the day with long-term goals.
-11. Favor high-impact execution over research, planning, or busy work.
-12. Reduce context switching and define measurable task outcomes.
-13. Save the generated plan and rich task workspaces to MongoDB before returning the console breakdown.
-14. Put missing or contradictory information under `Unclear Items`.
+2. Load the active `preferences` document and apply it to scheduling, capacity, output, and agent behavior decisions.
+3. Load open tasks scheduled for today, open overdue tasks scheduled before today, and postponed tasks whose scheduled date is today.
+4. Treat that scheduled and overdue work as carry-over context before proposing new work.
+5. Estimate today's available capacity using active preferences and existing planning conventions.
+6. Fill the day with carry-over work first unless preferences explicitly say otherwise.
+7. Create new tasks only when capacity remains or I explicitly request additional work.
+8. If capacity is exceeded, recommend postponing lower-priority existing tasks instead of overloading the day.
+9. Determine current priorities and unfinished next actions.
+10. Surface commitments, follow-ups, and neglected open loops.
+11. Align the day with long-term goals.
+12. Favor high-impact execution over research, planning, or busy work unless preferences indicate otherwise.
+13. Reduce context switching and define measurable task outcomes.
+14. Save the generated plan and rich task workspaces to MongoDB before returning the console breakdown.
+15. Put missing or contradictory information under `Unclear Items`.
 
 ## Codex CLI Project Planning Contract
 
@@ -323,7 +328,7 @@ Use this exact order:
 
 ### Day Plan
 
-Use a realistic 04:00-21:00 schedule and account for working from home, family responsibilities, helping Laura with Ato, buffer time, school drop-offs/pickups, and gym.
+Use the active preferences document for the planning window, deep work timing, gym timing, buffer time, and personal constraints.
 
 ### Must Do
 
@@ -341,13 +346,13 @@ Use a realistic 04:00-21:00 schedule and account for working from home, family r
 
 ### Motivational Post
 
-Include a short motivational message, one David Goggins quote, and one Stoic quote.
+Include motivational content and quote types according to the active output preferences.
 
 ### Unclear Items
 
 ## Operating rules
 
-- Keep output concise and execution-focused.
+- Keep output aligned with active verbosity preferences and execution-focused.
 - Do not expose chain-of-thought.
 - Prefer progress toward long-term goals.
 - Highlight recurring priorities and neglected tasks.

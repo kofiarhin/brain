@@ -10,6 +10,7 @@ import goalsRouter from './routes/goals.js';
 import projectsRouter from './routes/projects.js';
 import ideasRouter from './routes/ideas.js';
 import contextRouter from './routes/context.js';
+import preferencesRouter from './routes/preferences.js';
 import reviewsRouter from './routes/reviews.js';
 import dayPlansRouter from './routes/dayPlans.js';
 import brainUpdateReportsRouter from './routes/brainUpdateReports.js';
@@ -111,6 +112,7 @@ export function createApp(options = {}) {
   app.use('/api/projects', requireAuth, projectsRouter);
   app.use('/api/ideas', requireAuth, ideasRouter);
   app.use('/api/context', requireAuth, contextRouter);
+  app.use('/api/preferences', requireAuth, preferencesRouter);
   app.use('/api/reviews', requireAuth, reviewsRouter);
   app.use('/api/day-plans', requireAuth, dayPlansRouter);
   app.use('/api/brain-update-reports', requireAuth, brainUpdateReportsRouter);

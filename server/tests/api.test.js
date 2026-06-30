@@ -140,6 +140,51 @@ function fakeModel(name) {
         if (!next.runDate) next.runDate = new Date();
         return next;
       }
+      if (name === 'preference') {
+        return {
+          title: 'Default Preferences',
+          active: true,
+          scheduling: {
+            planningWindowStart: '04:00',
+            planningWindowEnd: '21:00',
+            deepWorkPreferredTime: 'morning',
+            gymPreferredTime: 'afternoon',
+            meetingAvoidBefore: '10:00',
+            bufferTimeRequired: true,
+            ...(payload.scheduling || {}),
+          },
+          planning: {
+            maxDailyTasks: 5,
+            minimizeContextSwitching: true,
+            preferHighImpactExecution: true,
+            carryOverFirst: true,
+            ...(payload.planning || {}),
+          },
+          personalConstraints: {
+            workFromHome: true,
+            familyResponsibilities: true,
+            schoolRuns: true,
+            helpingLauraWithAto: true,
+            ...(payload.personalConstraints || {}),
+          },
+          output: {
+            concise: true,
+            includeMotivationalPost: true,
+            includeDavidGogginsQuote: true,
+            includeStoicQuote: true,
+            includeInsightOfTheDay: true,
+            ...(payload.output || {}),
+          },
+          agentBehaviour: {
+            verbosity: 'concise',
+            autonomy: 'medium',
+            ...(payload.agentBehaviour || {}),
+          },
+          notes: '',
+          ...payload,
+          active: true,
+        };
+      }
       if (name === 'dayPlan') {
         return {
           ...payload,
@@ -199,6 +244,7 @@ const Goal = fakeModel('goal');
 const Project = fakeModel('project');
 const Idea = fakeModel('idea');
 const Context = fakeModel('context');
+const Preference = fakeModel('preference');
 const Review = fakeModel('review');
 const DayPlan = fakeModel('dayPlan');
 const BrainUpdateReport = fakeModel('brainUpdateReport');
@@ -222,6 +268,7 @@ jest.unstable_mockModule('../models/Goal.js', () => ({ Goal }));
 jest.unstable_mockModule('../models/Project.js', () => ({ Project }));
 jest.unstable_mockModule('../models/Idea.js', () => ({ Idea }));
 jest.unstable_mockModule('../models/Context.js', () => ({ Context }));
+jest.unstable_mockModule('../models/Preference.js', () => ({ Preference }));
 jest.unstable_mockModule('../models/Review.js', () => ({ Review }));
 jest.unstable_mockModule('../models/DayPlan.js', () => ({ DayPlan }));
 jest.unstable_mockModule('../models/BrainUpdateReport.js', () => ({ BrainUpdateReport }));
@@ -231,7 +278,7 @@ const { createToken } = await import('../services/auth.js');
 const app = createApp();
 authHeader = `Bearer ${createToken('admin').token}`;
 
-beforeEach(() => [Note, Task, Deliverable, Goal, Project, Idea, Context, Review, DayPlan, BrainUpdateReport].forEach((model) => model.reset()));
+beforeEach(() => [Note, Task, Deliverable, Goal, Project, Idea, Context, Preference, Review, DayPlan, BrainUpdateReport].forEach((model) => model.reset()));
 
 
 describe('authentication', () => {
@@ -278,6 +325,38 @@ describe('notes CRUD', () => {
     await request(app).get(`/api/notes/${created.body._id}`).expect(200);
     await request(app).delete(`/api/notes/${created.body._id}`).expect(204);
     await request(app).get(`/api/notes/${created.body._id}`).expect(404);
+  });
+});
+
+describe('preferences API', () => {
+  test('active preferences endpoint creates and returns defaults', async () => {
+    const response = await request(app).get('/api/preferences/active').expect(200);
+
+    expect(response.body.active).toBe(true);
+    expect(response.body.title).toBe('Default Preferences');
+    expect(response.body.scheduling.planningWindowStart).toBe('04:00');
+    expect(response.body.planning.maxDailyTasks).toBe(5);
+    expect(response.body.agentBehaviour.verbosity).toBe('concise');
+  });
+
+  test('active preferences endpoint updates values and keeps active true', async () => {
+    await request(app).get('/api/preferences/active').expect(200);
+
+    const response = await request(app)
+      .patch('/api/preferences/active')
+      .send({
+        active: false,
+        scheduling: { planningWindowStart: '06:00', planningWindowEnd: '18:00' },
+        planning: { maxDailyTasks: 3 },
+        agentBehaviour: { verbosity: 'balanced', autonomy: 'high' },
+      })
+      .expect(200);
+
+    expect(response.body.active).toBe(true);
+    expect(response.body.scheduling.planningWindowStart).toBe('06:00');
+    expect(response.body.scheduling.planningWindowEnd).toBe('18:00');
+    expect(response.body.planning.maxDailyTasks).toBe(3);
+    expect(response.body.agentBehaviour).toEqual(expect.objectContaining({ verbosity: 'balanced', autonomy: 'high' }));
   });
 });
 
@@ -750,6 +829,32 @@ describe('day plan sessions', () => {
     expect(response.body.endTime).toBe('2026-06-26T21:15:00.000Z');
     expect(response.body.status).toBe('active');
     expect(response.body.sessionType).toBe('start');
+  });
+
+  test('start day creates default preferences when none exist', async () => {
+    const response = await request(app).post('/api/day-plans/start').send({ now: '2026-06-26T08:00:00.000Z' }).expect(201);
+
+    expect(response.body.focus).toContain('04:00-21:00');
+    expect(response.body.forgotten).toContain('Daily task capacity preference: 5.');
+    expect((await request(app).get('/api/preferences').expect(200)).body).toHaveLength(1);
+  });
+
+  test('start day uses existing active preferences', async () => {
+    await request(app)
+      .patch('/api/preferences/active')
+      .send({
+        scheduling: { planningWindowStart: '06:00', planningWindowEnd: '18:00' },
+        planning: { maxDailyTasks: 1 },
+      })
+      .expect(200);
+    await request(app).post('/api/tasks').send({ title: 'First task', priority: 'must', status: 'open' }).expect(201);
+    await request(app).post('/api/tasks').send({ title: 'Second task', priority: 'should', status: 'open' }).expect(201);
+
+    const response = await request(app).post('/api/day-plans/start').send({ now: '2026-06-26T08:00:00.000Z' }).expect(201);
+
+    expect(response.body.focus).toContain('06:00-18:00');
+    expect(response.body.forgotten).toContain('Daily task capacity preference: 1.');
+    expect(response.body.unclearItems[0]).toContain('preference of 1 daily tasks');
   });
 
   test('restart day finds the active plan and creates a restarted plan', async () => {

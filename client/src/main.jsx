@@ -13,6 +13,7 @@ import { TaskDetails } from './pages/TaskDetails';
 import { Projects } from './pages/Projects';
 import { GoalsIdeas } from './pages/GoalsIdeas';
 import { ContextPage } from './pages/Context';
+import { Preferences } from './pages/Preferences';
 import { Reviews } from './pages/Reviews';
 import { Reports } from './pages/Reports';
 import { Login } from './pages/Login';
@@ -30,6 +31,7 @@ const router = createBrowserRouter([
       { path: 'projects', element: <Projects /> },
       { path: 'goals-ideas', element: <GoalsIdeas /> },
       { path: 'context', element: <ContextPage /> },
+      { path: 'preferences', element: <Preferences /> },
       { path: 'reviews', element: <Reviews /> },
       { path: 'reports', element: <Reports /> }
     ]}
