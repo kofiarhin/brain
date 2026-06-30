@@ -84,8 +84,120 @@ describe('DayPlan page', () => {
     expect(await screen.findByText('Today focus')).toBeInTheDocument();
     expect(screen.getByText('Plan Window')).toBeInTheDocument();
     expect(screen.getByText('Focus')).toBeInTheDocument();
-    expect(screen.getByText('Schedule')).toBeInTheDocument();
+    expect(screen.getByText('Plan Timeline')).toBeInTheDocument();
     expect(screen.queryByText("Historical plan, not today's active plan.")).not.toBeInTheDocument();
+  });
+
+  test('shows task actions on day plan timeline cards and completes from the dropdown', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let completed = false;
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/tasks/t1/complete') && options?.method === 'PATCH') {
+        completed = true;
+        return Promise.resolve({ ok: true, json: async () => ({ _id: 't1', title: 'Timeline task', status: 'complete', completedAt: new Date().toISOString() }) });
+      }
+      if (url.includes('/tasks')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => completed
+            ? [{ _id: 't1', title: 'Timeline task', status: 'complete', completedAt: new Date().toISOString() }]
+            : [{ _id: 't1', title: 'Timeline task', status: 'open' }],
+        });
+      }
+      if (url.includes('/day-plans/by-date/2026-06-30')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            date: '2026-06-30',
+            plan: { _id: 'dp1', londonDate: '2026-06-30', schedule: [{ time: '09:00', title: 'Timeline task' }] },
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<DayPlan />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('Timeline task')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Actions for Timeline task' }));
+    await user.click(screen.getByRole('menu').querySelector('button'));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/t1/complete'), expect.objectContaining({ method: 'PATCH' })));
+    await waitFor(() => expect(screen.getByText('Done')).toBeInTheDocument());
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  test('reassigns and postpones a day plan timeline task from the dropdown', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const tomorrow = addLondonDays(getLondonDateKey(), 1);
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/tasks/t1/reschedule') && options?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ _id: 't1', title: 'Move timeline task', status: 'rescheduled', scheduledLondonDate: tomorrow, agentReady: true }) });
+      }
+      if (url.includes('/tasks/t1') && options?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ _id: 't1', title: 'Move timeline task', status: 'open', agentReady: true }) });
+      }
+      if (url.includes('/tasks')) {
+        return Promise.resolve({ ok: true, json: async () => [{ _id: 't1', title: 'Move timeline task', status: 'open', agentReady: false }] });
+      }
+      if (url.includes('/day-plans/by-date/2026-06-30')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            date: '2026-06-30',
+            plan: { _id: 'dp1', londonDate: '2026-06-30', schedule: [{ time: '10:00', title: 'Move timeline task' }] },
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<DayPlan />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('Move timeline task')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Actions for Move timeline task' }));
+    await user.click(screen.getByRole('button', { name: 'Reassign to Codex' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/t1'), expect.objectContaining({ method: 'PATCH' })));
+    const updateCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks/t1') && !url.includes('/reschedule') && options?.method === 'PATCH');
+    expect(JSON.parse(updateCall[1].body)).toEqual({ agentReady: true });
+
+    await user.click(await screen.findByRole('button', { name: 'Actions for Move timeline task' }));
+    await user.click(screen.getByRole('button', { name: 'Postpone' }));
+    await user.click(screen.getByRole('button', { name: 'Tomorrow' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/t1/reschedule'), expect.objectContaining({ method: 'PATCH' })));
+    const rescheduleCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks/t1/reschedule') && options?.method === 'PATCH');
+    expect(JSON.parse(rescheduleCall[1].body)).toEqual({ targetDate: tomorrow, reason: 'tomorrow' });
+  });
+
+  test('opens outcome options on day plan timeline tasks', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/tasks/t1/archive') && options?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ _id: 't1', title: 'Outcome timeline task', status: 'archived' }) });
+      }
+      if (url.includes('/tasks')) {
+        return Promise.resolve({ ok: true, json: async () => [{ _id: 't1', title: 'Outcome timeline task', status: 'open' }] });
+      }
+      if (url.includes('/day-plans/by-date/2026-06-30')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            date: '2026-06-30',
+            plan: { _id: 'dp1', londonDate: '2026-06-30', schedule: [{ time: '11:00', title: 'Outcome timeline task' }] },
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<DayPlan />, { wrapper: wrapper() });
+
+    expect(await screen.findByText('Outcome timeline task')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Actions for Outcome timeline task' }));
+    await user.click(screen.getByRole('button', { name: 'Outcome' }));
+    expect(screen.getByRole('button', { name: 'Dismiss / No longer relevant' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Archive' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/t1/archive'), expect.objectContaining({ method: 'PATCH' })));
   });
 
   test('previous day updates viewedDate and refetches', async () => {
