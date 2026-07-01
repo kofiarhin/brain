@@ -19,7 +19,7 @@
     "brain:update-brain": "node server/scripts/updateBrain.js"
   },
   "engines": {
-    "node": "20.x"
+    "node": "22.x"
   },
   "dependencies": {
     "cors": "^2.8.5",
