@@ -339,7 +339,7 @@ function hasInactiveProject(generatedTask, inactiveProjectIds) {
   return generatedTask.projectId && inactiveProjectIds.has(String(generatedTask.projectId));
 }
 
-async function upsertTasksFromPlan(TaskModel, ProjectModel, plan, range) {
+export async function upsertTasksFromPlan(TaskModel, ProjectModel, plan, range) {
   const generatedTasks = tasksFromDayPlan(plan, range.londonDate, range.start);
   if (generatedTasks.length === 0) return { created: [], updated: [], reused: [] };
 

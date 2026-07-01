@@ -153,11 +153,14 @@ function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTas
   const niceToHave = excludeCompleted(tasks.filter((task) => task.priority === 'nice' || task.priority === 'low').map(titleFromRecord), completedKeys);
   const deliverableTitles = excludeCompleted(deliverables.map(titleFromRecord), completedKeys);
   const previousWork = sessionType === 'restart' ? excludeCompleted(collectPreviousWork(sourcePlan), completedKeys) : [];
-  const carriedForwardItems = uniqueTexts([...carryOverTitles, ...previousWork, ...activeTaskTitles, ...deliverableTitles]);
+  const uncappedCarriedForwardItems = uniqueTexts([...carryOverTitles, ...previousWork, ...activeTaskTitles, ...deliverableTitles]);
+  const carriedForwardItems = uncappedCarriedForwardItems.slice(0, maxDailyTasks);
+  const selectedKeys = new Set(carriedForwardItems.map(normalizeTaskTitle));
+  const selectedOnly = (items) => items.filter((item) => selectedKeys.has(normalizeTaskTitle(item)));
   const contextLines = uniqueTexts(contextItems.map((item) => [item.category, item.value].filter(Boolean).join(': '))).slice(0, 8);
   const preferenceLines = buildPreferenceSummary(preference);
-  const priorities = uniqueTexts([...carryOverTitles, ...mustDo, ...deliverableTitles, ...shouldDo, ...previousWork]).slice(0, 3);
-  const capacityExceeded = carriedForwardItems.length > maxDailyTasks;
+  const priorities = uniqueTexts(selectedOnly([...carryOverTitles, ...mustDo, ...deliverableTitles, ...shouldDo, ...previousWork])).slice(0, 3);
+  const capacityExceeded = uncappedCarriedForwardItems.length > maxDailyTasks;
 
   return {
     date: startTime,
@@ -180,11 +183,11 @@ function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTas
         activity: `Execute selected priorities inside preferred window ${planningWindowStart}-${planningWindowEnd}`,
       },
     ],
-    mustDo,
-    shouldDo,
-    niceToHave,
+    mustDo: selectedOnly(mustDo),
+    shouldDo: selectedOnly(shouldDo),
+    niceToHave: selectedOnly(niceToHave),
     forgotten: uniqueTexts([...contextLines, ...preferenceLines]),
-    deliverables: deliverableTitles,
+    deliverables: selectedOnly(deliverableTitles),
     winCondition: priorities.length ? [`Complete or materially advance: ${priorities[0]}`] : ['Define and complete one meaningful outcome for this session.'],
     insight: output.includeInsightOfTheDay === false ? '' : sessionType === 'restart'
       ? 'Restarted from current reality; completed work has been excluded.'

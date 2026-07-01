@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { createCrudController } from '../controllers/crudController.js';
 import { DayPlan } from '../models/DayPlan.js';
-import { restartDaySession, startDaySession } from '../services/dayPlanSessions.js';
+import { executeGoodMorning, executeReplanDay } from '../services/commands/index.js';
 import { getLondonDateKey } from '../services/londonDate.js';
 
 async function latest(_req, res, next) {
@@ -63,14 +63,14 @@ function parseRequestNow(req) {
 
 async function start(req, res, next) {
   try {
-    const { dayPlan } = await startDaySession({ now: parseRequestNow(req) });
+    const { dayPlan } = await executeGoodMorning({ now: parseRequestNow(req) });
     res.status(201).json(dayPlan);
   } catch (error) { next(error); }
 }
 
 async function restart(req, res, next) {
   try {
-    const { dayPlan } = await restartDaySession({ now: parseRequestNow(req) });
+    const { dayPlan } = await executeReplanDay({ now: parseRequestNow(req) });
     res.status(201).json(dayPlan);
   } catch (error) { next(error); }
 }

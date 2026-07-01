@@ -13,7 +13,10 @@
     "install:all": "npm install && npm --prefix client install",
     "test": "npm run test:server && npm run test:client",
     "test:server": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
-    "test:client": "npm --prefix client run test"
+    "test:client": "npm --prefix client run test",
+    "brain:good-morning": "node server/scripts/goodMorning.js",
+    "brain:replan-day": "node server/scripts/replanDay.js",
+    "brain:update-brain": "node server/scripts/updateBrain.js"
   },
   "engines": {
     "node": "20.x"
