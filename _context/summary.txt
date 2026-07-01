@@ -1,4 +1,48 @@
-//issues to fix
-when i click complete on the tasks page nothing haapens
-i want it to mark the task as completed and removed from ui
+Brain MVP command layer implementation summary
 
+Verified saved on 2026-07-01.
+
+Implemented and tightened the repo-only command layer for the locked Brain MVP workflows:
+
+- good morning
+- replan day
+- update brain
+
+Changed command behavior:
+
+- goodMorning and replanDay now pass active goals and the latest BrainUpdateReport into the planning context.
+- Planning now filters inactive projects using both project status and executionState.
+- Ignored project states now include blocked, completed, abandoned, archived, and ready_for_production.
+- Closed task filtering now includes closed, complete, completed, dismissed, archived, and converted.
+- updateBrain now snapshots DayPlans before running and verifies DayPlans were not created, updated, deleted, restarted, or archived.
+- Command scripts remain executable from npm scripts and now expose importable runner functions for tests.
+
+Files changed:
+
+- server/models/Task.js
+- server/scripts/goodMorning.js
+- server/scripts/replanDay.js
+- server/scripts/updateBrain.js
+- server/services/commands/commandGuards.js
+- server/services/commands/goodMorning.js
+- server/services/commands/replanDay.js
+- server/services/commands/updateBrain.js
+- server/services/dayPlanSessions.js
+- server/services/dayPlanUpsert.js
+- server/services/taskOutcomes.js
+- server/tests/commands.test.js
+
+Tests and verification run:
+
+- npm test passed.
+- npm run brain:good-morning succeeded.
+- npm run brain:replan-day succeeded.
+- npm run brain:update-brain succeeded.
+
+Command run results:
+
+- good-morning created DayPlan 6a4529cd5b9e5510c63375aa.
+- replan-day restarted source DayPlan 6a4529cd5b9e5510c63375aa and created replacement DayPlan 6a4529e13aac4f25f8cb4448.
+- update-brain created BrainUpdateReport 6a4529f82eea004f98ca18d7 and created zero DayPlans.
+
+No auth, deployment, Windows Task Scheduler, frontend AI behavior, package location, or AI chat routes were changed.

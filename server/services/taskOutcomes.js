@@ -1,7 +1,7 @@
 import { Project } from '../models/Project.js';
 import { Task, dismissalReasons } from '../models/Task.js';
 
-export const closedTaskStatuses = ['complete', 'completed', 'dismissed', 'archived', 'converted'];
+export const closedTaskStatuses = ['closed', 'complete', 'completed', 'dismissed', 'archived', 'converted'];
 
 export function taskStatus(task) {
   return String(task?.outcome || task?.status || 'open').toLowerCase();

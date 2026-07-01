@@ -1,9 +1,12 @@
 import { Context } from '../models/Context.js';
 import { DayPlan } from '../models/DayPlan.js';
 import { Deliverable } from '../models/Deliverable.js';
+import { Goal } from '../models/Goal.js';
+import { BrainUpdateReport } from '../models/BrainUpdateReport.js';
 import { Preference } from '../models/Preference.js';
 import { Project } from '../models/Project.js';
 import { Task } from '../models/Task.js';
+import { inactiveProjectExecutionStates, inactiveProjectStatuses } from './commands/commandGuards.js';
 import { getLondonDateKey } from './londonDate.js';
 import { normalizeTaskTitle } from './taskNormalization.js';
 import { listCarryOverTasks, scheduledDayKey } from './taskScheduling.js';
@@ -48,7 +51,12 @@ async function findLatestActivePlan(DayPlanModel) {
 
 async function listInactiveProjects(ProjectModel) {
   if (!ProjectModel) return [];
-  return ProjectModel.find({ status: { $in: ['inactive', 'abandoned', 'archived'] } }).sort({ createdAt: 1 });
+  return ProjectModel.find({
+    $or: [
+      { status: { $in: inactiveProjectStatuses } },
+      { executionState: { $in: inactiveProjectExecutionStates } },
+    ],
+  }).sort({ createdAt: 1 });
 }
 
 async function listOpenTasks(TaskModel, ProjectModel, londonDate) {
@@ -81,6 +89,16 @@ async function listAllDeliverables(DeliverableModel) {
 
 async function listContext(ContextModel) {
   return ContextModel.find().sort({ createdAt: -1 });
+}
+
+async function listActiveGoals(GoalModel) {
+  if (!GoalModel) return [];
+  return GoalModel.find({ status: 'active' }).sort({ createdAt: 1 });
+}
+
+async function findLatestBrainUpdateReport(BrainUpdateReportModel) {
+  if (!BrainUpdateReportModel) return null;
+  return BrainUpdateReportModel.findOne({}).sort({ runDate: -1, createdAt: -1 });
 }
 
 async function getActivePreference(PreferenceModel) {
@@ -134,7 +152,7 @@ function buildPreferenceSummary(preference) {
   return lines;
 }
 
-function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTasks = [], allTasks, deliverables, allDeliverables, contextItems, priorPlans, preference }) {
+function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTasks = [], allTasks, deliverables, allDeliverables, contextItems, goals = [], priorPlans, latestBrainUpdateReport, preference }) {
   const startTime = new Date(now);
   const endTime = new Date(startTime.getTime() + eightHoursMs);
   const londonDate = getLondonDateKey(startTime);
@@ -158,6 +176,8 @@ function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTas
   const selectedKeys = new Set(carriedForwardItems.map(normalizeTaskTitle));
   const selectedOnly = (items) => items.filter((item) => selectedKeys.has(normalizeTaskTitle(item)));
   const contextLines = uniqueTexts(contextItems.map((item) => [item.category, item.value].filter(Boolean).join(': '))).slice(0, 8);
+  const goalLines = uniqueTexts(goals.map((goal) => `Active goal: ${titleFromRecord(goal)}`)).slice(0, 5);
+  const brainReportLines = latestBrainUpdateReport?.summary ? [`Latest brain update: ${latestBrainUpdateReport.summary}`] : [];
   const preferenceLines = buildPreferenceSummary(preference);
   const priorities = uniqueTexts(selectedOnly([...carryOverTitles, ...mustDo, ...deliverableTitles, ...shouldDo, ...previousWork])).slice(0, 3);
   const capacityExceeded = uncappedCarriedForwardItems.length > maxDailyTasks;
@@ -186,7 +206,7 @@ function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTas
     mustDo: selectedOnly(mustDo),
     shouldDo: selectedOnly(shouldDo),
     niceToHave: selectedOnly(niceToHave),
-    forgotten: uniqueTexts([...contextLines, ...preferenceLines]),
+    forgotten: uniqueTexts([...goalLines, ...contextLines, ...brainReportLines, ...preferenceLines]),
     deliverables: selectedOnly(deliverableTitles),
     winCondition: priorities.length ? [`Complete or materially advance: ${priorities[0]}`] : ['Define and complete one meaningful outcome for this session.'],
     insight: output.includeInsightOfTheDay === false ? '' : sessionType === 'restart'
@@ -205,17 +225,19 @@ function buildSessionPayload({ now, sessionType, sourcePlan, tasks, carryOverTas
 
 async function readPlanningContext(models) {
   const londonDate = getLondonDateKey(models.now || new Date());
-  const [{ tasks, carryOverTasks }, allTasks, deliverables, allDeliverables, contextItems, priorPlans, preference] = await Promise.all([
+  const [{ tasks, carryOverTasks }, allTasks, deliverables, allDeliverables, contextItems, goals, priorPlans, latestBrainUpdateReport, preference] = await Promise.all([
     listOpenTasks(models.TaskModel, models.ProjectModel, londonDate),
     listAllTasks(models.TaskModel),
     listOpenDeliverables(models.DeliverableModel),
     listAllDeliverables(models.DeliverableModel),
     listContext(models.ContextModel),
+    listActiveGoals(models.GoalModel),
     listPriorPlans(models.DayPlanModel),
+    findLatestBrainUpdateReport(models.BrainUpdateReportModel),
     getActivePreference(models.PreferenceModel),
   ]);
 
-  return { tasks, carryOverTasks, allTasks, deliverables, allDeliverables, contextItems, priorPlans, preference };
+  return { tasks, carryOverTasks, allTasks, deliverables, allDeliverables, contextItems, goals, priorPlans, latestBrainUpdateReport, preference };
 }
 
 async function closeCurrentActivePlan(DayPlanModel, status) {
@@ -234,9 +256,11 @@ export async function startDaySession(options = {}) {
     DayPlanModel: options.DayPlanModel || DayPlan,
     TaskModel: options.TaskModel || Task,
     ProjectModel: options.ProjectModel || Project,
+    GoalModel: options.GoalModel || Goal,
     DeliverableModel: options.DeliverableModel || Deliverable,
     ContextModel: options.ContextModel || Context,
     PreferenceModel: options.PreferenceModel || Preference,
+    BrainUpdateReportModel: options.BrainUpdateReportModel || BrainUpdateReport,
   };
   const now = options.now || new Date();
 
@@ -253,9 +277,11 @@ export async function restartDaySession(options = {}) {
     DayPlanModel: options.DayPlanModel || DayPlan,
     TaskModel: options.TaskModel || Task,
     ProjectModel: options.ProjectModel || Project,
+    GoalModel: options.GoalModel || Goal,
     DeliverableModel: options.DeliverableModel || Deliverable,
     ContextModel: options.ContextModel || Context,
     PreferenceModel: options.PreferenceModel || Preference,
+    BrainUpdateReportModel: options.BrainUpdateReportModel || BrainUpdateReport,
   };
   const now = options.now || new Date();
   const sourcePlan = await closeCurrentActivePlan(models.DayPlanModel, 'restarted');

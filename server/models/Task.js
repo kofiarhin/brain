@@ -4,7 +4,7 @@ import { categorizeTaskTitle } from '../services/taskCategorization.js';
 import { normalizeTaskTitle } from '../services/taskNormalization.js';
 
 export const taskCategories = ['projects', 'family', 'personal', 'admin', 'general'];
-export const taskStatuses = ['open', 'complete', 'completed', 'rescheduled', 'dismissed', 'archived', 'converted'];
+export const taskStatuses = ['open', 'closed', 'complete', 'completed', 'rescheduled', 'dismissed', 'archived', 'converted'];
 export const dismissalReasons = [
   'task_no_longer_needed',
   'project_abandoned',

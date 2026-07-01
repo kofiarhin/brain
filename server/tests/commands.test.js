@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, test } from '@jest/globals';
 import { executeGoodMorning, executeReplanDay, executeUpdateBrain } from '../services/commands/index.js';
 import { normalizeTaskTitle } from '../services/taskNormalization.js';
+import { runGoodMorningCommandScript } from '../scripts/goodMorning.js';
+import { runReplanDayCommandScript } from '../scripts/replanDay.js';
+import { runUpdateBrainCommandScript } from '../scripts/updateBrain.js';
 
 let tick = 0;
 
@@ -179,6 +182,100 @@ describe('command services', () => {
     expect(TaskModel.all().filter((task) => task.title === 'Implement command layer')).toHaveLength(1);
   });
 
+  test('good morning archives previous active plan and leaves one active plan', async () => {
+    const previous = await DayPlanModel.create({
+      date: new Date('2026-06-25T08:00:00.000Z'),
+      londonDate: '2026-06-25',
+      status: 'active',
+      sessionType: 'start',
+      priorities: [],
+      schedule: [],
+      mustDo: [],
+      shouldDo: [],
+      niceToHave: [],
+      unclearItems: [],
+    });
+
+    await executeGoodMorning({ ...models, now: new Date('2026-06-26T08:00:00.000Z') });
+
+    expect(DayPlanModel.all().filter((plan) => plan.status === 'active')).toHaveLength(1);
+    expect(DayPlanModel.all().find((plan) => plan._id === previous._id).status).toBe('archived');
+  });
+
+  test('good morning ignores tasks linked to blocked, completed, abandoned, archived, and production-ready projects', async () => {
+    const active = await ProjectModel.create({ name: 'Active project', status: 'active', executionState: 'planning' });
+    const blocked = await ProjectModel.create({ name: 'Blocked project', status: 'active', executionState: 'blocked' });
+    const completed = await ProjectModel.create({ name: 'Completed project', status: 'completed', executionState: 'planning' });
+    const abandoned = await ProjectModel.create({ name: 'Abandoned project', status: 'abandoned', executionState: 'planning' });
+    const archived = await ProjectModel.create({ name: 'Archived project', status: 'archived', executionState: 'planning' });
+    const productionReady = await ProjectModel.create({ name: 'Production-ready project', status: 'active', executionState: 'ready_for_production' });
+    await TaskModel.create({ title: 'Active project task', priority: 'must', projectId: active._id });
+    await TaskModel.create({ title: 'Blocked project task', priority: 'must', projectId: blocked._id });
+    await TaskModel.create({ title: 'Completed project task', priority: 'must', projectId: completed._id });
+    await TaskModel.create({ title: 'Abandoned project task', priority: 'must', projectId: abandoned._id });
+    await TaskModel.create({ title: 'Archived project task', priority: 'must', projectId: archived._id });
+    await TaskModel.create({ title: 'Production-ready project task', priority: 'must', projectId: productionReady._id });
+
+    const result = await executeGoodMorning({ ...models, now: new Date('2026-06-26T08:00:00.000Z') });
+
+    expect(result.dayPlan.carriedForwardItems).toEqual(['Active project task']);
+    expect(result.tasks.created.map((task) => task.title)).toEqual([]);
+  });
+
+  test('good morning ignores closed, completed, archived, dismissed, and converted tasks', async () => {
+    await TaskModel.create({ title: 'Closed task', status: 'closed' });
+    await TaskModel.create({ title: 'Completed task', status: 'completed' });
+    await TaskModel.create({ title: 'Archived task', status: 'archived' });
+    await TaskModel.create({ title: 'Dismissed task', status: 'dismissed' });
+    await TaskModel.create({ title: 'Converted task', status: 'converted' });
+    await TaskModel.create({ title: 'Open task', status: 'open' });
+
+    const result = await executeGoodMorning({ ...models, now: new Date('2026-06-26T08:00:00.000Z') });
+
+    expect(result.dayPlan.carriedForwardItems).toEqual(['Open task']);
+  });
+
+  test('good morning respects Preference.planning.maxDailyTasks', async () => {
+    await PreferenceModel.create({ active: true, planning: { maxDailyTasks: 2 } });
+    await TaskModel.create({ title: 'Task one', priority: 'must' });
+    await TaskModel.create({ title: 'Task two', priority: 'must' });
+    await TaskModel.create({ title: 'Task three', priority: 'must' });
+
+    const result = await executeGoodMorning({ ...models, now: new Date('2026-06-26T08:00:00.000Z') });
+
+    expect(result.dayPlan.carriedForwardItems).toHaveLength(2);
+    expect(result.dayPlan.unclearItems[0]).toContain('exceeds the preference of 2 daily tasks');
+  });
+
+  test('good morning prevents duplicate scheduled tasks by normalized title and London date', async () => {
+    await TaskModel.create({
+      title: 'Draft launch checklist',
+      priority: 'must',
+      scheduledFor: new Date('2026-06-26T00:00:00.000Z'),
+      scheduledLondonDate: '2026-06-26',
+    });
+
+    const result = await executeGoodMorning({ ...models, now: new Date('2026-06-26T08:00:00.000Z') });
+
+    expect(TaskModel.all().filter((task) => task.normalizedTitle === normalizeTaskTitle('Draft launch checklist'))).toHaveLength(1);
+    expect(result.counts.tasksCreated).toBe(0);
+  });
+
+  test('good morning reads active goals and latest brain update report into context', async () => {
+    await GoalModel.create({ title: 'Ship Brain MVP', status: 'active' });
+    await BrainUpdateReportModel.create({ status: 'success', runDate: new Date('2026-06-25T22:00:00.000Z'), summary: 'Yesterday clarified command boundaries.' });
+
+    const result = await executeGoodMorning({ ...models, now: new Date('2026-06-26T08:00:00.000Z') });
+
+    expect(result.dayPlan.forgotten).toContain('Active goal: Ship Brain MVP');
+    expect(result.dayPlan.forgotten).toContain('Latest brain update: Yesterday clarified command boundaries.');
+  });
+
+  test('replan day requires an active day plan', async () => {
+    await expect(executeReplanDay({ ...models, now: new Date('2026-06-26T12:00:00.000Z') }))
+      .rejects.toThrow('No active day plan found to restart');
+  });
+
   test('replan day restarts the active plan and keeps one active replacement', async () => {
     const first = await executeGoodMorning({ ...models, now: new Date('2026-06-26T08:00:00.000Z') });
 
@@ -203,5 +300,52 @@ describe('command services', () => {
     expect(DayPlanModel.all()).toHaveLength(0);
     expect(IdeaModel.all()).toHaveLength(1);
     expect(NoteModel.all()).toHaveLength(1);
+  });
+
+  test('update brain does not create, update, or delete day plans', async () => {
+    const existing = await DayPlanModel.create({
+      date: new Date('2026-06-26T08:00:00.000Z'),
+      londonDate: '2026-06-26',
+      status: 'active',
+      sessionType: 'start',
+      priorities: [],
+      schedule: [],
+      mustDo: [],
+      shouldDo: [],
+      niceToHave: [],
+      unclearItems: [],
+    });
+    await NoteModel.create({ content: 'Context: protect the command boundary.' });
+
+    await executeUpdateBrain({ ...models, now: new Date('2026-06-26T22:00:00.000Z') });
+
+    const plans = DayPlanModel.all();
+    expect(plans).toHaveLength(1);
+    expect(plans[0]._id).toBe(existing._id);
+    expect(plans[0].status).toBe('active');
+    expect(plans[0].updatedAt).toEqual(existing.updatedAt);
+  });
+
+  test('command script runners can execute command services without crashing', async () => {
+    const calls = [];
+    const dependencies = (command) => ({
+      connect: async () => calls.push(`${command}:connect`),
+      disconnect: async () => calls.push(`${command}:disconnect`),
+      execute: async () => ({ command, status: 'success', ids: {}, warnings: [], errors: [], counts: {} }),
+      log: () => {},
+      errorLog: () => {},
+    });
+
+    await expect(runGoodMorningCommandScript(dependencies('good-morning'))).resolves.toMatchObject({ command: 'good-morning', status: 'success' });
+    await expect(runReplanDayCommandScript(dependencies('replan-day'))).resolves.toMatchObject({ command: 'replan-day', status: 'success' });
+    await expect(runUpdateBrainCommandScript(dependencies('update-brain'))).resolves.toMatchObject({ command: 'update-brain', status: 'success' });
+    expect(calls).toEqual([
+      'good-morning:connect',
+      'good-morning:disconnect',
+      'replan-day:connect',
+      'replan-day:disconnect',
+      'update-brain:connect',
+      'update-brain:disconnect',
+    ]);
   });
 });

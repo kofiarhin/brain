@@ -1,6 +1,7 @@
 import { DayPlan } from '../models/DayPlan.js';
 import { Project } from '../models/Project.js';
 import { Task } from '../models/Task.js';
+import { inactiveProjectExecutionStates, inactiveProjectStatuses } from './commands/commandGuards.js';
 import { getLondonDateKey, getLondonDayRange } from './londonDate.js';
 import { normalizeTaskTitle } from './taskNormalization.js';
 import { equivalentOpenTask } from './taskScheduling.js';
@@ -286,7 +287,12 @@ async function listAllTasks(TaskModel) {
 
 async function listInactiveProjects(ProjectModel) {
   if (!ProjectModel) return [];
-  return ProjectModel.find({ status: { $in: ['inactive', 'abandoned', 'archived'] } }).sort({ createdAt: 1 });
+  return ProjectModel.find({
+    $or: [
+      { status: { $in: inactiveProjectStatuses } },
+      { executionState: { $in: inactiveProjectExecutionStates } },
+    ],
+  }).sort({ createdAt: 1 });
 }
 
 function mergedGeneratedTask(existing, generatedTask) {

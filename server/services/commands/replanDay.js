@@ -13,9 +13,11 @@ export async function executeReplanDay(options = {}) {
     DayPlanModel: models.DayPlanModel,
     TaskModel: models.TaskModel,
     ProjectModel: models.ProjectModel,
+    GoalModel: models.GoalModel,
     DeliverableModel: models.DeliverableModel,
     ContextModel: models.ContextModel,
     PreferenceModel: models.PreferenceModel,
+    BrainUpdateReportModel: models.BrainUpdateReportModel,
   });
   validateDayPlan(dayPlan, 'replan-day');
   await assertSingleActiveDayPlan(models.DayPlanModel);

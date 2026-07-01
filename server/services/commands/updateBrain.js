@@ -1,5 +1,5 @@
 import { commandModels, loadMemoryContext } from './commandContext.js';
-import { assertDayPlanCountUnchanged } from './commandGuards.js';
+import { assertDayPlanCountUnchanged, assertDayPlansUnchanged, snapshotDayPlans } from './commandGuards.js';
 import { createBrainUpdateReport, summarizeRecord } from './commandReports.js';
 import { commandResult } from './commandValidation.js';
 
@@ -68,6 +68,7 @@ export async function executeUpdateBrain(options = {}) {
   const models = commandModels(options);
   const now = options.now || new Date();
   const beforeDayPlanCount = await models.DayPlanModel.countDocuments({});
+  const beforeDayPlanSnapshot = await snapshotDayPlans(models.DayPlanModel);
   const created = [];
   const skippedItems = [];
   const linkedTasks = [];
@@ -90,6 +91,7 @@ export async function executeUpdateBrain(options = {}) {
     }
 
     await assertDayPlanCountUnchanged(models.DayPlanModel, beforeDayPlanCount);
+    await assertDayPlansUnchanged(models.DayPlanModel, beforeDayPlanSnapshot);
     const status = errors.length ? (created.length ? 'partial' : 'failed') : 'success';
     if (!context.notes.length) warnings.push('No notes found to process.');
 
