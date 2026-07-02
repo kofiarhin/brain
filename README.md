@@ -6,7 +6,7 @@ A full-stack MERN Personal Operating System where MongoDB is memory, Codex CLI i
 
 - **Frontend:** CRUD only. Saves data, retrieves data, and displays generated data.
 - **MongoDB:** Source of truth for notes, tasks, plans, reviews, goals, projects, ideas, context, and deliverables.
-- **Codex CLI:** AI layer. Run commands such as `update life`, `update brain`, `plan my day`, and `morning briefing` manually from Codex. Codex reads MongoDB, reasons over the data, and writes updates back to MongoDB.
+- **Codex CLI:** AI layer. Run commands such as `update life`, `update brain`, `refresh brain`, `plan my day`, and `morning briefing` manually from Codex. Codex reads MongoDB, reasons over the data, and writes updates back to MongoDB.
 
 The application does **not** expose AI routes such as `/api/update-life`, `/api/plan-day`, or `/api/brain/*`.
 
@@ -101,6 +101,10 @@ npm run client
 npm test
 npm run test:server
 npm run test:client
+npm run brain:update-brain
+npm run brain:refresh-brain
+npm run brain:good-morning
+npm run brain:replan-day
 ```
 
 ## API
@@ -149,6 +153,18 @@ Day plans support:
 The `update brain` Codex workflow updates brain data as before, then writes exactly one `BrainUpdateReport` document to MongoDB. The report captures the run status, summary, created and updated records, skipped items, linked tasks/projects, warnings, errors, next recommended actions, and metadata.
 
 `update brain` is not a day-planning flow. It must not call `/api/day-plans/start`, `/api/day-plans/restart`, `startDaySession()`, or `restartDaySession()`, and it must not create or update `DayPlan` records. Day planning is handled only by dedicated day-planning commands such as `plan my day` or the day plan session endpoints.
+
+## Refresh Brain
+
+The `refresh brain` Codex workflow is a pipeline command for early-morning or ad hoc refreshes. It runs the same memory update behavior as `update brain` first, then refreshes today's active day plan with the latest MongoDB context. If an active `DayPlan` exists, it restarts that plan and carries forward unfinished work. If no active `DayPlan` exists, it creates a new active plan.
+
+Use it when new notes or a brain dump should be reflected in today's tasks:
+
+```bash
+npm run brain:refresh-brain
+```
+
+This command can be run any time, including from Windows Task Scheduler at 6am. It does not change frontend behavior and does not expose AI API routes. `update brain` remains memory-only and never touches day plans; `refresh brain` is the separate workflow that updates memory first, then refreshes today's day plan.
 
 ## Project Execution Loop
 

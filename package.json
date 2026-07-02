@@ -16,6 +16,7 @@
     "test:client": "npm --prefix client run test",
     "brain:good-morning": "node server/scripts/goodMorning.js",
     "brain:replan-day": "node server/scripts/replanDay.js",
+    "brain:refresh-brain": "node server/scripts/refreshBrain.js",
     "brain:update-brain": "node server/scripts/updateBrain.js"
   },
   "engines": {

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test } from '@jest/globals';
-import { executeGoodMorning, executeReplanDay, executeUpdateBrain } from '../services/commands/index.js';
+import { executeGoodMorning, executeRefreshBrain, executeReplanDay, executeUpdateBrain } from '../services/commands/index.js';
 import { normalizeTaskTitle } from '../services/taskNormalization.js';
 import { runGoodMorningCommandScript } from '../scripts/goodMorning.js';
+import { runRefreshBrainCommandScript } from '../scripts/refreshBrain.js';
 import { runReplanDayCommandScript } from '../scripts/replanDay.js';
 import { runUpdateBrainCommandScript } from '../scripts/updateBrain.js';
 
@@ -326,6 +327,97 @@ describe('command services', () => {
     expect(plans[0].updatedAt).toEqual(existing.updatedAt);
   });
 
+  test('refresh brain updates memory first, then creates a day plan when no active plan exists', async () => {
+    const order = [];
+    await NoteModel.create({ content: 'Task: Write early morning launch notes' });
+
+    const result = await executeRefreshBrain({
+      ...models,
+      now: new Date('2026-06-26T06:00:00.000Z'),
+      executeUpdateBrain: async (options) => {
+        order.push('memory');
+        return executeUpdateBrain(options);
+      },
+    });
+
+    order.push('complete');
+    expect(result.command).toBe('refresh-brain');
+    expect(result.status).toBe('success');
+    expect(order).toEqual(['memory', 'complete']);
+    expect(result.dayPlan.sessionType).toBe('start');
+    expect(DayPlanModel.all().filter((plan) => plan.status === 'active')).toHaveLength(1);
+    expect(result.dayPlan.carriedForwardItems).toContain('Task: Write early morning launch notes');
+    expect(result.counts.reportsCreated).toBe(1);
+    expect(result.counts.dayPlansCreated).toBe(1);
+  });
+
+  test('refresh brain updates memory first, then restarts an existing active day plan', async () => {
+    const first = await executeGoodMorning({ ...models, now: new Date('2026-06-26T05:30:00.000Z') });
+    await NoteModel.create({ content: 'Task: Write refreshed personal summary' });
+
+    const result = await executeRefreshBrain({ ...models, now: new Date('2026-06-26T06:00:00.000Z') });
+
+    expect(result.command).toBe('refresh-brain');
+    expect(result.status).toBe('success');
+    expect(result.dayPlan.sessionType).toBe('restart');
+    expect(String(result.dayPlan.sourcePlanId)).toBe(String(first.dayPlan._id));
+    expect(result.ids.sourcePlanId).toBe(String(first.dayPlan._id));
+    expect(result.sourcePlan._id).toBe(first.dayPlan._id);
+    expect(DayPlanModel.all().filter((plan) => plan.status === 'active')).toHaveLength(1);
+    expect(DayPlanModel.all().find((plan) => plan._id === first.dayPlan._id).status).toBe('restarted');
+    expect(result.dayPlan.carriedForwardItems).toContain('Task: Write refreshed personal summary');
+  });
+
+  test('refresh brain includes newly created memory tasks in the refreshed plan context', async () => {
+    await NoteModel.create({ content: 'Task: Write invoice reminder automation' });
+
+    const result = await executeRefreshBrain({ ...models, now: new Date('2026-06-26T06:00:00.000Z') });
+
+    expect(TaskModel.all().map((task) => task.title)).toContain('Task: Write invoice reminder automation');
+    expect(result.dayPlan.carriedForwardItems).toContain('Task: Write invoice reminder automation');
+  });
+
+  test('refresh brain returns failed and does not create or restart day plans when memory update fails', async () => {
+    const result = await executeRefreshBrain({
+      ...models,
+      now: new Date('2026-06-26T06:00:00.000Z'),
+      executeUpdateBrain: async () => ({
+        command: 'update-brain',
+        status: 'failed',
+        ids: { brainUpdateReportId: 'brainUpdateReport-failed' },
+        warnings: ['memory warning'],
+        errors: ['memory failed'],
+        counts: { reportsCreated: 1, recordsCreated: 0, recordsUpdated: 0, skipped: 0, dayPlansCreated: 0 },
+        report: { _id: 'brainUpdateReport-failed', status: 'failed' },
+      }),
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.ids.brainUpdateReportId).toBe('brainUpdateReport-failed');
+    expect(result.warnings).toContain('memory warning');
+    expect(result.errors).toContain('memory failed');
+    expect(DayPlanModel.all()).toHaveLength(0);
+  });
+
+  test('refresh brain result includes combined brain, day plan, and task counts', async () => {
+    await NoteModel.create({ content: 'Idea: write refresh command release note' });
+    await TaskModel.create({ title: 'Implement refresh command', priority: 'must' });
+
+    const result = await executeRefreshBrain({ ...models, now: new Date('2026-06-26T06:00:00.000Z') });
+
+    expect(result.counts).toMatchObject({
+      reportsCreated: 1,
+      recordsCreated: 1,
+      recordsUpdated: 0,
+      skipped: 0,
+      dayPlansCreated: 1,
+      dayPlansRestarted: 0,
+      tasksCreated: 0,
+      tasksUpdated: 1,
+      tasksReused: 0,
+    });
+  });
+
   test('command script runners can execute command services without crashing', async () => {
     const calls = [];
     const dependencies = (command) => ({
@@ -338,14 +430,38 @@ describe('command services', () => {
 
     await expect(runGoodMorningCommandScript(dependencies('good-morning'))).resolves.toMatchObject({ command: 'good-morning', status: 'success' });
     await expect(runReplanDayCommandScript(dependencies('replan-day'))).resolves.toMatchObject({ command: 'replan-day', status: 'success' });
+    await expect(runRefreshBrainCommandScript(dependencies('refresh-brain'))).resolves.toMatchObject({ command: 'refresh-brain', status: 'success' });
     await expect(runUpdateBrainCommandScript(dependencies('update-brain'))).resolves.toMatchObject({ command: 'update-brain', status: 'success' });
     expect(calls).toEqual([
       'good-morning:connect',
       'good-morning:disconnect',
       'replan-day:connect',
       'replan-day:disconnect',
+      'refresh-brain:connect',
+      'refresh-brain:disconnect',
       'update-brain:connect',
       'update-brain:disconnect',
     ]);
+  });
+
+  test('refresh brain script logs JSON, disconnects, and sets exit code on failure', async () => {
+    const calls = [];
+    const logs = [];
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+
+    const result = await runRefreshBrainCommandScript({
+      connect: async () => calls.push('connect'),
+      disconnect: async () => calls.push('disconnect'),
+      execute: async () => ({ command: 'refresh-brain', status: 'failed', errors: ['bad refresh'] }),
+      log: (message) => logs.push(message),
+      errorLog: () => {},
+    });
+
+    expect(result.status).toBe('failed');
+    expect(calls).toEqual(['connect', 'disconnect']);
+    expect(JSON.parse(logs[0])).toMatchObject({ command: 'refresh-brain', status: 'failed' });
+    expect(process.exitCode).toBe(1);
+    process.exitCode = previousExitCode;
   });
 });
