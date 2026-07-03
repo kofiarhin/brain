@@ -1126,3 +1126,47 @@ describe('Dashboard', () => {
     expect(screen.queryByText('Operational Timeline')).not.toBeInTheDocument();
   });
 });
+
+import { GeneratedPosts } from './GeneratedPosts';
+
+describe('GeneratedPosts page', () => {
+  const firstPage = {
+    items: [{
+      _id: 'gp1', status: 'success', selectedTopic: 'AI operating systems', runDate: '2026-07-03T08:00:00.000Z',
+      topicRationale: 'High conversion topic', researchSummary: 'Research summary', linkedInPost: 'LinkedIn copy', xPost: 'X copy', inspirationalMessage: 'Ship it', reviewNotes: ['Looks good'], iterationCount: 1,
+    }],
+    pagination: { page: 1, limit: 10, total: 2, totalPages: 2, hasNextPage: true, hasPreviousPage: false },
+  };
+  const secondPage = {
+    items: [{ _id: 'gp2', status: 'partial', selectedTopic: 'Cloud security', runDate: '2026-07-02T08:00:00.000Z', linkedInPost: 'Second LinkedIn', reviewNotes: [], iterationCount: 0 }],
+    pagination: { page: 2, limit: 10, total: 2, totalPages: 2, hasNextPage: false, hasPreviousPage: true },
+  };
+
+  test('renders fetched posts', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => firstPage });
+    render(<GeneratedPosts />, { wrapper: wrapper() });
+    expect((await screen.findAllByText('AI operating systems')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Research summary')).toBeInTheDocument();
+    expect(screen.getByText('LinkedIn copy')).toBeInTheDocument();
+    expect(screen.getByText('Ship it')).toBeInTheDocument();
+  });
+
+  test('pagination controls call the API with next page', async () => {
+    global.fetch = vi.fn((url) => Promise.resolve({ ok: true, json: async () => url.includes('page=2') ? secondPage : firstPage }));
+    render(<GeneratedPosts />, { wrapper: wrapper() });
+    expect((await screen.findAllByText('AI operating systems')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('page=2'), expect.any(Object)));
+    expect((await screen.findAllByText('Cloud security')).length).toBeGreaterThan(0);
+  });
+
+  test('copy LinkedIn button writes to clipboard and shows copied feedback', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => firstPage });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn().mockResolvedValue() } });
+    render(<GeneratedPosts />, { wrapper: wrapper() });
+    expect(await screen.findByText('LinkedIn copy')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Copy LinkedIn' }));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('LinkedIn copy');
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument();
+  });
+});

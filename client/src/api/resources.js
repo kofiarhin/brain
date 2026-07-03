@@ -44,5 +44,6 @@ export const api = {
   },
   reviews: createResourceApi('/reviews'),
   dayPlans: createResourceApi('/day-plans'),
-  brainUpdateReports: createResourceApi('/brain-update-reports')
+  brainUpdateReports: createResourceApi('/brain-update-reports'),
+  generatedPosts: createResourceApi('/generated-posts')
 };

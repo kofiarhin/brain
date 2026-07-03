@@ -16,6 +16,7 @@ import { ContextPage } from './pages/Context';
 import { Preferences } from './pages/Preferences';
 import { Reviews } from './pages/Reviews';
 import { Reports } from './pages/Reports';
+import { GeneratedPosts } from './pages/GeneratedPosts';
 import { Login } from './pages/Login';
 import './index.css';
 
@@ -33,7 +34,8 @@ const router = createBrowserRouter([
       { path: 'context', element: <ContextPage /> },
       { path: 'preferences', element: <Preferences /> },
       { path: 'reviews', element: <Reviews /> },
-      { path: 'reports', element: <Reports /> }
+      { path: 'reports', element: <Reports /> },
+      { path: 'generated-posts', element: <GeneratedPosts /> }
     ]}
   ]}
 ]);

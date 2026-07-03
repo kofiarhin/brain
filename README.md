@@ -105,6 +105,7 @@ npm run brain:update-brain
 npm run brain:refresh-brain
 npm run brain:good-morning
 npm run brain:replan-day
+npm run brain:generate-post
 ```
 
 ## API
@@ -121,6 +122,7 @@ CRUD endpoints are available for:
 - `/api/reviews`
 - `/api/day-plans`
 - `/api/brain-update-reports`
+- `/api/generated-posts`
 
 Brain update reports support:
 
@@ -130,6 +132,13 @@ Brain update reports support:
 - `POST /api/brain-update-reports`
 
 Reports are read-only in the frontend. The list endpoint filters by `status`, `from`, and `to` using the report `runDate`.
+
+Generated posts support:
+
+- `GET /api/generated-posts`
+- `GET /api/generated-posts/:id`
+
+Post generation is Codex-command-driven via `npm run brain:generate-post`. The command executes the research/orchestrator/writer/reviewer workflow and persists immutable history records to MongoDB. The frontend is read-only for viewing saved generated posts and copying the LinkedIn post; it does not expose AI generation, create, update, or delete controls for generated posts.
 
 Tasks and deliverables also support:
 

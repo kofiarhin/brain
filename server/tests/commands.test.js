@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from '@jest/globals';
-import { executeGoodMorning, executeRefreshBrain, executeReplanDay, executeUpdateBrain } from '../services/commands/index.js';
+import { executeGeneratePost, executeGoodMorning, executeRefreshBrain, executeReplanDay, executeUpdateBrain } from '../services/commands/index.js';
 import { normalizeTaskTitle } from '../services/taskNormalization.js';
 import { runGoodMorningCommandScript } from '../scripts/goodMorning.js';
 import { runRefreshBrainCommandScript } from '../scripts/refreshBrain.js';
@@ -94,6 +94,9 @@ function fakeModel(name, defaults = {}) {
           ...base,
         };
       }
+      if (name === 'generatedPost') {
+        return { researchAgents: [], reviewNotes: [], warnings: [], errors: [], metadata: {}, iterationCount: 0, ...base };
+      }
       if (name === 'brainUpdateReport') {
         return {
           recordsCreated: [],
@@ -150,6 +153,7 @@ const TaskModel = fakeModel('task');
 const DayPlanModel = fakeModel('dayPlan');
 const DeliverableModel = fakeModel('deliverable', { status: 'open' });
 const BrainUpdateReportModel = fakeModel('brainUpdateReport');
+const GeneratedPostModel = fakeModel('generatedPost');
 
 const models = {
   NoteModel,
@@ -163,6 +167,7 @@ const models = {
   DayPlanModel,
   DeliverableModel,
   BrainUpdateReportModel,
+  GeneratedPostModel,
 };
 
 beforeEach(() => {
@@ -171,6 +176,49 @@ beforeEach(() => {
 });
 
 describe('command services', () => {
+
+  test('generate post saves a successful generated post', async () => {
+    const result = await executeGeneratePost({
+      ...models,
+      now: new Date('2026-07-03T08:00:00.000Z'),
+      postGenerationSkill: async () => ({
+        status: 'success',
+        selectedTopic: 'AI agents',
+        researchSummary: 'Research summary',
+        linkedInPost: 'LinkedIn post',
+        xPost: 'X post',
+        inspirationalMessage: 'Keep shipping',
+        iterationCount: 2,
+      }),
+    });
+
+    expect(result.command).toBe('generate-post');
+    expect(result.status).toBe('success');
+    expect(result.counts).toEqual({ generatedPostsCreated: 1, iterationCount: 2 });
+    expect(GeneratedPostModel.all()).toHaveLength(1);
+    expect(GeneratedPostModel.all()[0].selectedTopic).toBe('AI agents');
+  });
+
+  test('generate post returns failed result and saves failed post when skill throws', async () => {
+    const result = await executeGeneratePost({ ...models, postGenerationSkill: async () => { throw new Error('Research failed'); } });
+
+    expect(result.status).toBe('failed');
+    expect(result.errors).toEqual(['Research failed']);
+    expect(GeneratedPostModel.all()).toHaveLength(1);
+    expect(GeneratedPostModel.all()[0].status).toBe('failed');
+  });
+
+  test('generate post fails validation when iterationCount exceeds 3', async () => {
+    const result = await executeGeneratePost({
+      ...models,
+      postGenerationSkill: async () => ({ status: 'success', selectedTopic: 'AI', researchSummary: 'Summary', linkedInPost: 'LI', xPost: 'X', inspirationalMessage: 'Go', iterationCount: 4 }),
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.errors[0]).toContain('iterationCount cannot exceed 3');
+    expect(GeneratedPostModel.all()[0].status).toBe('failed');
+  });
+
   test('good morning creates one active plan and task workspaces', async () => {
     await TaskModel.create({ title: 'Implement command layer', priority: 'must' });
 

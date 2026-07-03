@@ -20,7 +20,8 @@
     "brain:update-brain": "node server/scripts/updateBrain.js",
     "brain:export": "node scripts/exportKnowledgeBase.js",
     "brain:clear": "node scripts/clearKnowledgeBase.js",
-    "brain:import": "node scripts/importKnowledgeBase.js"
+    "brain:import": "node scripts/importKnowledgeBase.js",
+    "brain:generate-post": "node server/scripts/generatePost.js"
   },
   "engines": {
     "node": "22.x"

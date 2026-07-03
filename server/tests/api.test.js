@@ -119,6 +119,9 @@ function fakeModel(name) {
         next.progressPercent = Math.max(0, Math.min(100, Number(next.progressPercent) || 0));
         return next;
       }
+      if (name === 'generatedPost') {
+        return { researchAgents: [], reviewNotes: [], warnings: [], errors: [], metadata: {}, iterationCount: 0, ...payload, runDate: payload.runDate || new Date() };
+      }
       if (name === 'brainUpdateReport') {
         const next = {
           recordsCreated: [],
@@ -248,6 +251,7 @@ const Preference = fakeModel('preference');
 const Review = fakeModel('review');
 const DayPlan = fakeModel('dayPlan');
 const BrainUpdateReport = fakeModel('brainUpdateReport');
+const GeneratedPost = fakeModel('generatedPost');
 
 jest.unstable_mockModule('../models/Note.js', () => ({ Note }));
 jest.unstable_mockModule('../models/Task.js', () => ({
@@ -272,13 +276,14 @@ jest.unstable_mockModule('../models/Preference.js', () => ({ Preference }));
 jest.unstable_mockModule('../models/Review.js', () => ({ Review }));
 jest.unstable_mockModule('../models/DayPlan.js', () => ({ DayPlan }));
 jest.unstable_mockModule('../models/BrainUpdateReport.js', () => ({ BrainUpdateReport }));
+jest.unstable_mockModule('../models/GeneratedPost.js', () => ({ GeneratedPost }));
 
 const { createApp } = await import('../app.js');
 const { createToken } = await import('../services/auth.js');
 const app = createApp();
 authHeader = `Bearer ${createToken('admin').token}`;
 
-beforeEach(() => [Note, Task, Deliverable, Goal, Project, Idea, Context, Preference, Review, DayPlan, BrainUpdateReport].forEach((model) => model.reset()));
+beforeEach(() => [Note, Task, Deliverable, Goal, Project, Idea, Context, Preference, Review, DayPlan, BrainUpdateReport, GeneratedPost].forEach((model) => model.reset()));
 
 
 describe('authentication', () => {
@@ -1067,5 +1072,32 @@ describe('CORS', () => {
       allowed: true,
       accessControlAllowOrigin: deployedOrigin,
     });
+  });
+});
+
+
+describe('generated posts API', () => {
+  test('lists paginated generated posts sorted newest first', async () => {
+    await GeneratedPost.create({ status: 'success', selectedTopic: 'Old', runDate: new Date('2026-07-01T00:00:00.000Z') });
+    await GeneratedPost.create({ status: 'success', selectedTopic: 'New', runDate: new Date('2026-07-03T00:00:00.000Z') });
+    await GeneratedPost.create({ status: 'failed', selectedTopic: 'Failed', runDate: new Date('2026-07-02T00:00:00.000Z') });
+
+    const response = await request(app).get('/api/generated-posts?page=1&limit=2').expect(200);
+
+    expect(response.body.items.map((item) => item.selectedTopic)).toEqual(['New', 'Failed']);
+    expect(response.body.pagination).toEqual(expect.objectContaining({ page: 1, limit: 2, total: 3, totalPages: 2, hasNextPage: true, hasPreviousPage: false }));
+  });
+
+  test('gets one generated post', async () => {
+    const created = await GeneratedPost.create({ status: 'success', selectedTopic: 'One post' });
+    const response = await request(app).get(`/api/generated-posts/${created._id}`).expect(200);
+    expect(response.body.selectedTopic).toBe('One post');
+  });
+
+  test('does not expose mutable generated post routes', async () => {
+    const created = await GeneratedPost.create({ status: 'success', selectedTopic: 'Immutable' });
+    await request(app).post('/api/generated-posts').send({ status: 'success' }).expect(404);
+    await request(app).patch(`/api/generated-posts/${created._id}`).send({ selectedTopic: 'Changed' }).expect(404);
+    await request(app).delete(`/api/generated-posts/${created._id}`).expect(404);
   });
 });

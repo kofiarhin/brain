@@ -2,6 +2,7 @@ import { BrainUpdateReport } from '../../models/BrainUpdateReport.js';
 import { Context } from '../../models/Context.js';
 import { DayPlan } from '../../models/DayPlan.js';
 import { Deliverable } from '../../models/Deliverable.js';
+import { GeneratedPost } from '../../models/GeneratedPost.js';
 import { Goal } from '../../models/Goal.js';
 import { Idea } from '../../models/Idea.js';
 import { Note } from '../../models/Note.js';
@@ -14,6 +15,7 @@ export function commandModels(overrides = {}) {
   return {
     NoteModel: overrides.NoteModel || Note,
     GoalModel: overrides.GoalModel || Goal,
+    GeneratedPostModel: overrides.GeneratedPostModel || GeneratedPost,
     ProjectModel: overrides.ProjectModel || Project,
     IdeaModel: overrides.IdeaModel || Idea,
     ContextModel: overrides.ContextModel || Context,

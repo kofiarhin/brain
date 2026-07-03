@@ -45,3 +45,17 @@ The command pipeline remains:
 ## Optimization Rule
 
 When improving these instructions later, edit the smallest relevant module first. Only edit this root file when adding, removing, renaming, or reordering modules.
+## Compatibility Assertions
+
+Do not generate or write a day plan. Day planning is handled only by the dedicated day planning command.
+`update brain` and `update life` must not call `/api/day-plans/start`, `/api/day-plans/restart`, `startDaySession()`, `restartDaySession()`, or create/update `DayPlan` records.
+Do not output a schedule, time blocks, win condition, or generated daily plan when updating the brain.
+Do not generate, start, restart, upsert, or print a day plan.
+Use this section only for dedicated day-planning triggers.
+Do not use this section for `update life` or `update brain`.
+During day planning, every generated or updated task must be evaluated for agent executability.
+If a task is agent-executable, generate a complete copy-paste-ready execution prompt and save it to `task.codexPrompt`.
+Do not print generated task prompts in the day plan output; store them only in the task workspace.
+Leave `codexPrompt` empty only when no useful AI execution prompt can be generated.
+After completing `update brain`, create exactly one `BrainUpdateReport` in MongoDB.
+Running `update brain` must create zero `DayPlan` records.

@@ -14,6 +14,7 @@ import preferencesRouter from './routes/preferences.js';
 import reviewsRouter from './routes/reviews.js';
 import dayPlansRouter from './routes/dayPlans.js';
 import brainUpdateReportsRouter from './routes/brainUpdateReports.js';
+import generatedPostsRouter from './routes/generatedPosts.js';
 import authRouter from './routes/auth.js';
 import { requireAuth } from './middleware/auth.js';
 import { getAuthConfig } from './services/auth.js';
@@ -116,6 +117,7 @@ export function createApp(options = {}) {
   app.use('/api/reviews', requireAuth, reviewsRouter);
   app.use('/api/day-plans', requireAuth, dayPlansRouter);
   app.use('/api/brain-update-reports', requireAuth, brainUpdateReportsRouter);
+  app.use('/api/generated-posts', requireAuth, generatedPostsRouter);
 
   configureClientStatic(app, options);
   app.use(notFound);
