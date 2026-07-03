@@ -1,385 +1,760 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useResource } from '../hooks/useResource';
-import { Card } from '../components/Card';
 import { addLondonDays, getLondonDateKey, nextWeekendLondonDate } from '../utils/londonDate';
 
-const groups = [['must', 'Must Do'], ['should', 'Should Do'], ['nice', 'Nice To Have']];
-const hiddenStatuses = new Set(['complete', 'completed', 'done', 'dismissed', 'archived', 'converted']);
-const completedStatuses = new Set(['complete', 'completed', 'done']);
-const dismissalReasons = [
-  ['task_no_longer_needed', 'Task no longer needed'],
-  ['project_abandoned', 'Project abandoned'],
-  ['duplicate', 'Duplicate'],
-  ['generated_incorrectly', 'Generated incorrectly'],
-  ['circumstances_changed', 'Circumstances changed'],
-  ['external_blocker', 'External blocker'],
-  ['replaced_by_another_task', 'Replaced by another task'],
-  ['other', 'Other']
+const views = [
+  ['inbox', 'Inbox'],
+  ['today', 'Today'],
+  ['upcoming', 'Upcoming'],
+  ['waiting', 'Waiting'],
+  ['projects', 'Projects'],
+  ['delegated', 'Delegated'],
+  ['completed', 'Completed'],
 ];
-const categories = [
+
+const priorityOptions = [
+  ['critical', 'Critical'],
+  ['high', 'High'],
+  ['medium', 'Medium'],
+  ['low', 'Low'],
+  ['someday', 'Someday'],
+];
+
+const priorityLegacyMap = {
+  critical: 'must',
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+  someday: 'nice',
+};
+
+const categoryOptions = [
   ['projects', 'Projects'],
   ['family', 'Family'],
   ['personal', 'Personal'],
   ['admin', 'Admin'],
-  ['general', 'General']
+  ['general', 'General'],
 ];
-const tabs = [['all', 'All'], ['agent', 'Agent'], ...categories, ['completed', 'Completed']];
 
-function normalizeCategory(category) {
-  const normalized = String(category || '').toLowerCase();
-  return categories.some(([value]) => value === normalized) ? normalized : 'general';
+const closedStatuses = new Set(['complete', 'completed', 'done', 'closed', 'archived', 'converted', 'dismissed']);
+const completedStatuses = new Set(['complete', 'completed', 'done', 'closed']);
+
+function cx(...classes) {
+  return classes.filter(Boolean).join(' ');
 }
 
-function normalizePriority(priority) {
-  const normalized = String(priority || '').toLowerCase();
-  if (normalized === 'high') return 'must';
-  if (normalized === 'medium') return 'should';
-  if (normalized === 'low') return 'nice';
-  return groups.some(([value]) => value === normalized) ? normalized : 'should';
-}
-
-function categoryLabel(category) {
-  return categories.find(([value]) => value === category)?.[1] || 'General';
-}
-
-function priorityLabel(priority) {
-  const normalized = normalizePriority(priority);
-  return groups.find(([value]) => value === normalized)?.[1] || 'Should Do';
-}
-
-function statusLabel(status) {
-  const normalized = String(status || 'open').toLowerCase();
-  if (['complete', 'completed', 'done'].includes(normalized)) return 'Done';
-  if (normalized === 'rescheduled') return 'Rescheduled';
-  if (normalized === 'dismissed') return 'Dismissed';
-  if (normalized === 'converted') return 'Converted';
-  if (normalized === 'archived') return 'Archived';
-  return 'Open';
-}
-
-function badgeClass(tone = 'default') {
-  const tones = {
-    default: 'border-slate-700 bg-slate-900 text-slate-300',
-    open: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
-    done: 'border-blue-500/30 bg-blue-500/10 text-blue-200',
-    archived: 'border-slate-600 bg-slate-800 text-slate-400',
-    category: 'border-cyan-500/25 bg-cyan-500/10 text-cyan-100',
-    agent: 'border-amber-400/30 bg-amber-400/10 text-amber-100'
-  };
-  return `inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${tones[tone] || tones.default}`;
-}
-
-function isActiveTask(task) {
-  return !hiddenStatuses.has(String(task.status || '').toLowerCase());
-}
-
-function taskScheduledLondonDate(task) {
+function taskDate(task) {
   return task.scheduledLondonDate
     || (task.scheduledFor ? getLondonDateKey(task.scheduledFor) : '')
     || task.dueLondonDate
     || (task.dueDate ? getLondonDateKey(task.dueDate) : '');
 }
 
-function isVisibleToday(task, todayLondonDate) {
-  const scheduledDate = taskScheduledLondonDate(task);
-  return !scheduledDate || scheduledDate <= todayLondonDate;
+function normalizePriority(priority) {
+  const value = String(priority || '').toLowerCase();
+  if (value === 'must') return 'critical';
+  if (value === 'should') return 'medium';
+  if (value === 'nice') return 'someday';
+  if (['critical', 'high', 'medium', 'low', 'someday'].includes(value)) return value;
+  return 'medium';
 }
 
-function taskMatchesTab(task, tab) {
-  if (tab === 'all') return true;
-  if (tab === 'agent') return task.agentReady === true;
-  return normalizeCategory(task.category) === tab;
+function backendPriority(priority) {
+  return priorityLegacyMap[priority] || priority;
 }
 
-function tasksForTab(tab, items) {
-  return items.filter((task) => taskMatchesTab(task, tab));
+function priorityLabel(priority) {
+  const normalized = normalizePriority(priority);
+  return priorityOptions.find(([value]) => value === normalized)?.[1] || 'Medium';
 }
 
-function buildTabCounts(activeItems, completedItems) {
-  return {
-    all: activeItems.length,
-    agent: activeItems.filter((task) => task.agentReady === true).length,
-    completed: completedItems.length,
-    ...Object.fromEntries(
-      categories.map(([category]) => [
-        category,
-        activeItems.filter((task) => normalizeCategory(task.category) === category).length
-      ])
-    )
+function priorityTone(priority) {
+  const normalized = normalizePriority(priority);
+  if (normalized === 'critical') return 'bg-red-500';
+  if (normalized === 'high') return 'bg-red-400';
+  if (normalized === 'medium') return 'bg-blue-400';
+  if (normalized === 'low') return 'bg-slate-400';
+  return 'bg-slate-500';
+}
+
+function categoryLabel(category) {
+  return categoryOptions.find(([value]) => value === String(category || '').toLowerCase())?.[1] || 'General';
+}
+
+function isCompleted(task) {
+  return completedStatuses.has(String(task.status || task.outcome || '').toLowerCase());
+}
+
+function isClosed(task) {
+  return closedStatuses.has(String(task.status || task.outcome || '').toLowerCase());
+}
+
+function isBlocked(task) {
+  return String(task.dismissedReason || '').toLowerCase() === 'external_blocker';
+}
+
+function taskUiStatus(task, today = getLondonDateKey()) {
+  if (isCompleted(task)) return ['completed', 'Completed'];
+  if (String(task.status || '').toLowerCase() === 'archived') return ['archived', 'Archived'];
+  if (isBlocked(task)) return ['blocked', 'Blocked'];
+  const date = taskDate(task);
+  if (date && date > today) return ['waiting', 'Waiting'];
+  if (String(task.status || '').toLowerCase() === 'rescheduled') return ['waiting', 'Waiting'];
+  return ['open', 'Open'];
+}
+
+function visibleToday(task, today) {
+  const date = taskDate(task);
+  return !date || date <= today;
+}
+
+function previewText(task) {
+  return String(task.expectedDeliverable || task.description || task.notes || '').replace(/\s+/g, ' ').trim();
+}
+
+function lines(value) {
+  return String(value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
+function appendNote(existing, heading, value) {
+  const note = String(value || '').trim();
+  const stamp = new Date().toISOString().slice(0, 10);
+  const entry = `[${stamp}] ${heading}${note ? `: ${note}` : ''}`;
+  return [String(existing || '').trim(), entry].filter(Boolean).join('\n\n');
+}
+
+function tasksForView(view, items, today) {
+  const active = items.filter((task) => !isClosed(task) || isBlocked(task));
+  if (view === 'completed') return items.filter(isCompleted);
+  if (view === 'today') return active.filter((task) => !isBlocked(task) && visibleToday(task, today));
+  if (view === 'upcoming') return active.filter((task) => {
+    const date = taskDate(task);
+    return date && date > today;
+  });
+  if (view === 'waiting') return active.filter((task) => taskUiStatus(task, today)[0] === 'waiting' || isBlocked(task));
+  if (view === 'projects') return active.filter((task) => String(task.category || '').toLowerCase() === 'projects');
+  if (view === 'delegated') return active.filter((task) => task.agentReady === true);
+  return active.filter((task) => !isBlocked(task) && visibleToday(task, today));
+}
+
+function viewCounts(items, today) {
+  return Object.fromEntries(views.map(([view]) => [view, tasksForView(view, items, today).length]));
+}
+
+function Section({ title, children, defaultOpen = true }) {
+  return <details open={defaultOpen} className="border-t border-slate-800 py-5">
+    <summary className="cursor-pointer list-none text-sm font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <span>{title}</span>
+    </summary>
+    <div className="mt-4">{children}</div>
+  </details>;
+}
+
+function IconButton({ label, children, className = '', ...props }) {
+  return <button
+    type="button"
+    aria-label={label}
+    title={label}
+    className={cx('inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-700 text-sm text-slate-200 transition hover:border-blue-500 hover:bg-blue-500/10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60', className)}
+    {...props}
+  >
+    {children}
+  </button>;
+}
+
+function CompletionDialog({ task, open, onClose, onFinish, onPostpone, onBlocked, onCancelled }) {
+  const [mode, setMode] = useState('finished');
+  const [date, setDate] = useState(addLondonDays(getLondonDateKey(), 1));
+  const [reason, setReason] = useState('');
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previous = document.activeElement;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.body.classList.add('overflow-hidden');
+    window.addEventListener('keydown', closeOnEscape);
+    window.setTimeout(() => dialogRef.current?.focus(), 0);
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+      window.removeEventListener('keydown', closeOnEscape);
+      previous?.focus?.();
+    };
+  }, [open, onClose]);
+
+  if (!open || !task) return null;
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (mode === 'finished') return onFinish();
+    if (mode === 'postponed') return onPostpone(date);
+    if (mode === 'blocked') return onBlocked(reason);
+    return onCancelled(reason);
   };
-}
 
-function wasCompletedToday(task, todayLondonDate = getLondonDateKey()) {
-  return completedStatuses.has(String(task.status || '').toLowerCase()) && getLondonDateKey(task.completedAt) === todayLondonDate;
-}
+  const needsReason = mode === 'blocked' || mode === 'cancelled';
+  const needsDate = mode === 'postponed';
 
-function previewText(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
+  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur sm:items-center sm:p-6" role="presentation">
+    <form
+      ref={dialogRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="completion-title"
+      onSubmit={submit}
+      className="w-full max-w-lg rounded-t-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl focus:outline-none sm:rounded-2xl"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Complete task</p>
+          <h2 id="completion-title" className="mt-1 text-lg font-semibold text-slate-50">{task.title}</h2>
+        </div>
+        <IconButton label="Close completion dialog" onClick={onClose}>x</IconButton>
+      </div>
 
-function TaskSummary({ task }) {
-  const taskCategory = normalizeCategory(task.category);
-  const status = statusLabel(task.status);
-  const scheduledDate = taskScheduledLondonDate(task);
-  return <div className="min-w-0 flex-1">
-    <h2 className="break-words text-base font-semibold leading-6 text-slate-50 sm:text-lg">{task.title}</h2>
-    <div className="mt-2 flex flex-wrap gap-2">
-      <span className={badgeClass(status === 'Done' ? 'done' : status === 'Archived' ? 'archived' : 'open')}>{status}</span>
-      <span className={badgeClass()}>{priorityLabel(task.priority)}</span>
-      <span className={badgeClass('category')}>{categoryLabel(taskCategory)}</span>
-      {scheduledDate ? <span className={badgeClass()}>Scheduled {scheduledDate}</span> : null}
-      {task.agentReady === true ? <span className={badgeClass('agent')}>Agent-ready</span> : null}
-    </div>
-    {previewText(task.expectedDeliverable) ? <p className="mt-3 truncate text-sm text-slate-300">{previewText(task.expectedDeliverable)}</p> : null}
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        {[
+          ['finished', 'Finished'],
+          ['blocked', 'Blocked'],
+          ['postponed', 'Postponed'],
+          ['cancelled', 'Cancelled'],
+        ].map(([value, label]) => <button
+          key={value}
+          type="button"
+          className={cx('min-h-11 rounded-lg border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500', mode === value ? 'border-blue-500 bg-blue-500/15 text-blue-100' : 'border-slate-700 text-slate-300 hover:bg-slate-900')}
+          onClick={() => setMode(value)}
+        >
+          {label}
+        </button>)}
+      </div>
+
+      {needsDate ? <label className="mt-4 block text-sm text-slate-300">
+        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">New date</span>
+        <input required type="date" value={date} onChange={(event) => setDate(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </label> : null}
+
+      {needsReason ? <label className="mt-4 block text-sm text-slate-300">
+        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">{mode === 'blocked' ? 'Blocker reason' : 'Optional reason'}</span>
+        <textarea
+          required={mode === 'blocked'}
+          rows={4}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </label> : null}
+
+      <div className="mt-5 flex justify-end gap-3">
+        <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm font-medium text-slate-200 hover:bg-slate-900">Cancel</button>
+        <button type="submit" className="min-h-11 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-500">Apply</button>
+      </div>
+    </form>
   </div>;
 }
 
-function CompletedTaskCard({ task }) {
+function TaskSidebar({ selectedView, counts, onSelectView, search, onSearch, onNewTask }) {
+  return <aside className="flex min-h-0 flex-col border-b border-slate-800 bg-slate-950 md:w-72 md:border-b-0 md:border-r">
+    <div className="p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-50">Tasks</h1>
+          <p className="mt-1 text-sm text-slate-500">Scan, choose, execute.</p>
+        </div>
+        <IconButton label="Quick capture task" onClick={onNewTask}>+</IconButton>
+      </div>
+      <label className="mt-4 block">
+        <span className="sr-only">Search tasks</span>
+        <input
+          value={search}
+          onChange={(event) => onSearch(event.target.value)}
+          placeholder="Search tasks"
+          className="min-h-11 w-full rounded-lg border border-slate-800 bg-slate-900 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </label>
+    </div>
+    <nav aria-label="Task views" className="grid gap-1 px-3 pb-4">
+      {views.map(([value, label]) => <button
+        key={value}
+        type="button"
+        className={cx('flex min-h-11 items-center justify-between rounded-lg px-3 text-left text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500', selectedView === value ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-900')}
+        onClick={() => onSelectView(value)}
+      >
+        <span>{label}</span>
+        <span className={cx('rounded-full px-2 py-0.5 text-xs', selectedView === value ? 'bg-blue-500 text-white' : 'bg-slate-900 text-slate-400')}>{counts[value] || 0}</span>
+      </button>)}
+    </nav>
+  </aside>;
+}
+
+function TaskListItem({ task, selected, onSelect }) {
+  const [statusKey, status] = taskUiStatus(task);
+  const date = taskDate(task);
+  const preview = previewText(task);
+
   return <li>
-    <a href={`/tasks/${task._id}`} className="block rounded-lg border border-slate-700/80 bg-slate-800/80 p-4 shadow-sm shadow-slate-950/20 transition hover:border-blue-500/50 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950">
-      <TaskSummary task={task} />
-    </a>
+    <button
+      type="button"
+      aria-current={selected ? 'true' : undefined}
+      onClick={() => onSelect(task._id)}
+      className={cx('group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-3 rounded-lg border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950', selected ? 'border-blue-500 bg-blue-500/10' : 'border-transparent bg-transparent hover:border-slate-800 hover:bg-slate-900/70')}
+    >
+      <span className={cx('mt-1 h-2.5 w-2.5 rounded-full', priorityTone(task.priority))} aria-label={`${priorityLabel(task.priority)} priority`} />
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-medium leading-6 text-slate-100">{task.title || 'Untitled task'}</span>
+        <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+          <span>{date ? `Due ${date}` : status}</span>
+          {task.agentReady ? <span>Agent ready</span> : null}
+          {preview ? <span className="hidden max-w-[20rem] truncate sm:inline">{preview}</span> : null}
+        </span>
+      </span>
+      <span className={cx('rounded-full px-2 py-1 text-xs font-medium', statusKey === 'blocked' ? 'bg-red-500/10 text-red-200' : statusKey === 'waiting' ? 'bg-amber-500/10 text-amber-200' : statusKey === 'completed' ? 'bg-green-500/10 text-green-200' : 'bg-slate-800 text-slate-300')}>
+        {status}
+      </span>
+    </button>
   </li>;
 }
 
-function TaskCard({ task, onComplete, onReschedule, onDismiss, onArchive, onConvert, isCompleting = false, isRescheduling = false, isResolving = false }) {
-  const [copyStatus, setCopyStatus] = useState('idle');
-  const dateInputRef = useRef(null);
+function TaskList({ tasks, selectedId, onSelect }) {
+  if (tasks.length === 0) {
+    return <div className="rounded-xl border border-dashed border-slate-800 p-6 text-sm text-slate-400">No tasks match this view.</div>;
+  }
 
-  const copyTaskTitle = async (event) => {
+  return <ul className="space-y-1" aria-label="Task list">
+    {tasks.map((task) => <TaskListItem key={task._id} task={task} selected={task._id === selectedId} onSelect={onSelect} />)}
+  </ul>;
+}
+
+function QuickCaptureSheet({ open, onClose, onCreate, isSaving }) {
+  const [title, setTitle] = useState('');
+  const [priority, setPriority] = useState('medium');
+  const [agentReady, setAgentReady] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (open) window.setTimeout(() => inputRef.current?.focus(), 0);
+  }, [open]);
+
+  if (!open) return null;
+
+  const submit = async (event) => {
     event.preventDefault();
-    event.stopPropagation();
-
-    try {
-      await navigator.clipboard.writeText(task.title);
-      setCopyStatus('copied');
-      window.setTimeout(() => setCopyStatus('idle'), 1600);
-    } catch (error) {
-      setCopyStatus('failed');
-      window.setTimeout(() => setCopyStatus('idle'), 1600);
-      console.warn('Unable to copy task title', error);
-    }
+    if (!title.trim()) return;
+    await onCreate({ title: title.trim(), priority: backendPriority(priority), agentReady });
+    setTitle('');
+    setPriority('medium');
+    setAgentReady(false);
+    onClose();
   };
 
-  const completeTask = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onComplete(task._id);
-  };
+  return <div className="fixed inset-0 z-40 flex items-end bg-slate-950/70 p-0 backdrop-blur sm:items-center sm:justify-center sm:p-6">
+    <form onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="capture-title" className="w-full rounded-t-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Capture</p>
+          <h2 id="capture-title" className="mt-1 text-lg font-semibold">New task</h2>
+        </div>
+        <IconButton label="Close capture" onClick={onClose}>x</IconButton>
+      </div>
+      <label className="mt-5 block text-sm text-slate-300">
+        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Title</span>
+        <input ref={inputRef} aria-label="Task title" value={title} onChange={(event) => setTitle(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </label>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="block text-sm text-slate-300">
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Priority</span>
+          <select aria-label="Task priority" value={priority} onChange={(event) => setPriority(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
+        <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200">
+          <input aria-label="Assignable to Codex" type="checkbox" checked={agentReady} onChange={(event) => setAgentReady(event.target.checked)} />
+          Assignable to Codex
+        </label>
+      </div>
+      <button disabled={isSaving} className="mt-5 min-h-11 w-full rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60">Save task</button>
+    </form>
+  </div>;
+}
 
-  const chooseOutcome = async (event) => {
-    const action = event.target.value;
-    if (!action) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.target.value = '';
+function Field({ label, children }) {
+  return <label className="block text-sm text-slate-300">
+    <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+    {children}
+  </label>;
+}
 
-    if (action === 'complete') return onComplete(task._id);
-    if (action === 'archive') return onArchive(task._id);
-    if (action === 'dismiss') {
-      const reasonInput = window.prompt(`Dismiss reason:\n${dismissalReasons.map(([, label], index) => `${index + 1}. ${label}`).join('\n')}`, '1');
-      if (!reasonInput) return;
-      const selectedReason = dismissalReasons[Number(reasonInput) - 1]?.[0]
-        || dismissalReasons.find(([value, label]) => value === reasonInput || label.toLowerCase() === reasonInput.toLowerCase())?.[0];
-      if (!selectedReason) return;
-      const note = window.prompt('Optional dismissal note', '') || '';
-      const markProjectInactive = selectedReason === 'project_abandoned' && task.projectId
-        ? window.confirm('Also mark the linked project inactive? Cancel dismisses this task only.')
-        : false;
-      return onDismiss(task._id, { reason: selectedReason, note, markProjectInactive });
-    }
-    if (action === 'convert') {
-      const replacementTaskId = window.prompt('Replacement task ID');
-      if (!replacementTaskId) return;
-      return onConvert(task._id, { replacementTaskId, reason: 'replaced_by_another_task' });
-    }
-  };
+function TaskActionBar({ task, isClosedTask, onStart, onComplete, onSchedule, onArchive, onDelete, onConvert, isSaving }) {
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  const openDatePicker = () => {
-    const dateInput = dateInputRef.current;
-    if (!dateInput) return;
-
-    dateInput.value = '';
-    if (typeof dateInput.showPicker === 'function') {
-      dateInput.showPicker();
-      return;
-    }
-
-    dateInput.focus();
-    dateInput.click();
-  };
-
-  const choosePickedDate = (event) => {
-    const targetDate = event.target.value;
-    if (!targetDate) return;
-    onReschedule(task._id, { targetDate, reason: 'pick' });
-  };
-
-  const postponeTask = async (event) => {
-    const option = event.target.value;
-    if (!option) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.target.value = '';
-
-    if (option === 'pick') {
-      openDatePicker();
-      return;
-    }
-
-    const today = getLondonDateKey();
-    const targetDate = {
-      tomorrow: addLondonDays(today, 1),
-      weekend: nextWeekendLondonDate(today),
-      nextWeek: addLondonDays(today, 7),
-    }[option];
-
-    if (!targetDate) return;
-    onReschedule(task._id, { targetDate, reason: option });
-  };
-
-  return <li className="relative rounded-lg border border-slate-700/80 bg-slate-800/80 shadow-sm shadow-slate-950/20 transition hover:border-blue-500/50 hover:bg-slate-800 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 focus-within:ring-offset-slate-950">
-    <a href={`/tasks/${task._id}`} aria-label={task.title} className="absolute inset-0 z-0 rounded-lg focus:outline-none" />
-    <div className="relative z-10 flex flex-col gap-4 p-4 pointer-events-none sm:flex-row sm:items-start sm:justify-between">
-      <TaskSummary task={task} />
-      <div className="pointer-events-auto flex w-full items-center gap-2 sm:w-auto">
-        <button
-          type="button"
-          aria-label="Copy task title"
-          title={copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy failed' : 'Copy task title'}
-          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-slate-100 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950 ${copyStatus === 'copied' ? 'border-blue-400/70 bg-blue-500/15' : 'border-slate-600 hover:border-blue-500/60 hover:bg-blue-500/10'}`}
-          onClick={copyTaskTitle}
-        >
-          {copyStatus === 'copied' ? <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 6 9 17l-5-5" />
-          </svg> : <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="9" y="9" width="11" height="11" rx="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>}
-        </button>
-        <select
-          aria-label={`Postpone ${task.title}`}
-          className="min-h-10 rounded-full border border-slate-600 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-          defaultValue=""
-          disabled={isRescheduling}
-          onChange={postponeTask}
-        >
-          <option value="" disabled>{isRescheduling ? 'Moving...' : 'Postpone'}</option>
-          <option value="tomorrow">Tomorrow</option>
-          <option value="weekend">This Weekend</option>
-          <option value="nextWeek">Next Week</option>
-          <option value="pick">Pick Date</option>
-        </select>
-        <input
-          ref={dateInputRef}
-          type="date"
-          aria-label={`Pick postpone date for ${task.title}`}
-          className="absolute h-px w-px opacity-0"
-          tabIndex={-1}
-          onChange={choosePickedDate}
-          onClick={(event) => event.stopPropagation()}
-        />
-        <select
-          aria-label={`Resolve ${task.title}`}
-          className="min-h-10 rounded-full border border-slate-600 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-          defaultValue=""
-          disabled={isResolving || isCompleting}
-          onChange={chooseOutcome}
-        >
-          <option value="" disabled>{isResolving ? 'Resolving...' : 'Outcome'}</option>
-          <option value="complete">Complete</option>
-          <option value="dismiss">Dismiss / No longer relevant</option>
-          <option value="archive">Archive</option>
-          <option value="convert">Convert / Replace</option>
-        </select>
-        <button
-          type="button"
-          className="w-full rounded-full border border-emerald-500/60 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-          disabled={isCompleting}
-          onClick={completeTask}
-        >
-          {isCompleting ? 'Completing...' : 'Complete'}
-        </button>
+  return <div className="sticky top-0 z-10 -mx-5 border-b border-slate-800 bg-slate-950/95 px-5 py-3 backdrop-blur">
+    <div className="flex flex-wrap items-center gap-2">
+      <button type="button" onClick={onStart} disabled={isSaving || isClosedTask} className="min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60">{task?.startedAt ? 'Continue' : 'Start'}</button>
+      {isClosedTask
+        ? null
+        : <button type="button" onClick={onComplete} disabled={isSaving} className="min-h-11 rounded-lg border border-green-500/50 px-4 text-sm font-semibold text-green-100 hover:bg-green-500/10">Complete</button>}
+      <button type="button" onClick={onSchedule} disabled={isSaving || isClosedTask} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm font-medium text-slate-200 hover:bg-slate-900 disabled:opacity-60">Schedule</button>
+      <div className="relative">
+        <IconButton label="More task actions" onClick={() => setMoreOpen((current) => !current)}>...</IconButton>
+        {moreOpen ? <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-slate-800 bg-slate-950 p-2 shadow-xl" role="menu">
+          <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900" onClick={() => { setMoreOpen(false); onConvert(); }}>Split or convert</button>
+          <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900" onClick={() => { setMoreOpen(false); onArchive(); }}>Archive</button>
+          <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-red-200 hover:bg-red-500/10" onClick={() => { setMoreOpen(false); onDelete(); }}>Delete</button>
+        </div> : null}
       </div>
     </div>
-  </li>;
+  </div>;
+}
+
+export function TaskDetailPanel({ task, projects = [], actions, onEnterExecution, compact = false }) {
+  const [draft, setDraft] = useState(() => taskToDraft(task));
+  const [saveState, setSaveState] = useState('idle');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
+
+  useEffect(() => {
+    setDraft(taskToDraft(task));
+  }, [task]);
+
+  if (!task) {
+    return <section className="flex h-full items-center justify-center p-8 text-center text-sm text-slate-500">
+      Select a task to view details.
+    </section>;
+  }
+
+  const closed = isClosed(task) && !isBlocked(task);
+  const projectItems = Array.isArray(projects) ? projects : [];
+  const project = projectItems.find((item) => item._id === draft.projectId);
+  const checklist = lines(draft.acceptanceCriteria);
+
+  const setField = (field) => (value) => setDraft((current) => ({ ...current, [field]: value }));
+
+  const save = async () => {
+    setSaveState('saving');
+    await actions.update(task._id, { ...draft, projectId: draft.projectId || null, priority: backendPriority(normalizePriority(draft.priority)) });
+    setSaveState('saved');
+    window.setTimeout(() => setSaveState('idle'), 1500);
+  };
+
+  const scheduleTomorrow = () => actions.reschedule(task._id, { targetDate: addLondonDays(getLondonDateKey(), 1), reason: 'tomorrow' });
+  const archive = () => actions.archive(task._id);
+  const remove = () => {
+    if (window.confirm(`Delete "${task.title}"? This cannot be undone.`)) actions.remove(task._id);
+  };
+  const convert = () => {
+    const replacementTaskId = window.prompt('Replacement task ID');
+    if (replacementTaskId) actions.convert(task._id, { replacementTaskId, reason: 'replaced_by_another_task' });
+  };
+  const start = async () => {
+    await actions.update(task._id, { notes: appendNote(draft.notes, 'Started') });
+    onEnterExecution?.(task);
+  };
+
+  const finish = async () => {
+    await actions.complete(task._id);
+    setDialogOpen(false);
+  };
+  const postpone = async (date) => {
+    await actions.reschedule(task._id, { targetDate: date, reason: 'postponed' });
+    setDialogOpen(false);
+  };
+  const blocked = async (reason) => {
+    await actions.dismiss(task._id, { reason: 'external_blocker', note: reason });
+    setDialogOpen(false);
+  };
+  const cancelled = async (reason) => {
+    await actions.dismiss(task._id, { reason: 'task_no_longer_needed', note: reason });
+    setDialogOpen(false);
+  };
+
+  return <section className={cx('flex h-full min-h-0 flex-col bg-slate-950', compact ? '' : 'border-l border-slate-800')}>
+    <TaskActionBar
+      task={task}
+      isClosedTask={closed}
+      isSaving={saveState === 'saving'}
+      onStart={start}
+      onComplete={() => setDialogOpen(true)}
+      onSchedule={scheduleTomorrow}
+      onArchive={archive}
+      onDelete={remove}
+      onConvert={convert}
+    />
+    <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-24 pt-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task detail</p>
+          <h2 className="mt-1 break-words text-2xl font-semibold tracking-tight text-slate-50">{task.title}</h2>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">
+            <span className="rounded-full bg-slate-900 px-2.5 py-1">{taskUiStatus(task)[1]}</span>
+            <span className="rounded-full bg-slate-900 px-2.5 py-1">{priorityLabel(task.priority)}</span>
+            <span className="rounded-full bg-slate-900 px-2.5 py-1">{categoryLabel(task.category)}</span>
+            {taskDate(task) ? <span className="rounded-full bg-slate-900 px-2.5 py-1">{taskDate(task)}</span> : null}
+            {project ? <span className="rounded-full bg-slate-900 px-2.5 py-1">{project.name}</span> : null}
+          </div>
+        </div>
+        <a href={`/tasks/${task._id}`} className="hidden rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 md:inline-flex">Open page</a>
+      </div>
+
+      <Section title="Overview">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Title">
+            <input value={draft.title} onChange={(event) => setField('title')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </Field>
+          <Field label="Priority">
+            <select value={normalizePriority(draft.priority)} onChange={(event) => setField('priority')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              {priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </Field>
+          <Field label="Category">
+            <select value={draft.category} onChange={(event) => setField('category')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              {categoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </Field>
+          <Field label="Project ID">
+            <input value={draft.projectId} onChange={(event) => setField('projectId')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </Field>
+        </div>
+      </Section>
+
+      <Section title="Description">
+        <textarea aria-label="Description" value={draft.description} onChange={(event) => setField('description')(event.target.value)} rows={6} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </Section>
+
+      <Section title="Checklist">
+        <textarea aria-label="Completion checklist" value={draft.acceptanceCriteria} onChange={(event) => setField('acceptanceCriteria')(event.target.value)} rows={5} placeholder="One checklist item per line" className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        {checklist.length ? <ul className="mt-3 space-y-2 text-sm text-slate-300">
+          {checklist.map((item) => <li key={item} className="flex gap-2"><span className="mt-1 h-4 w-4 rounded border border-slate-600" aria-hidden="true" /> <span>{item}</span></li>)}
+        </ul> : null}
+      </Section>
+
+      <Section title="Notes">
+        <textarea aria-label="Notes" value={draft.notes} onChange={(event) => setField('notes')(event.target.value)} rows={6} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </Section>
+
+      <Section title="Agent">
+        <div className="space-y-3">
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 text-sm text-slate-200">
+            <input type="checkbox" checked={draft.agentReady} onChange={(event) => setField('agentReady')(event.target.checked)} />
+            Assignable to Codex
+          </label>
+          {draft.codexPrompt?.trim() ? <button type="button" onClick={() => setAgentOpen((current) => !current)} className="min-h-11 rounded-lg border border-blue-500/50 px-4 text-sm font-medium text-blue-100 hover:bg-blue-500/10">{agentOpen ? 'Hide prompt' : 'Show prompt'}</button> : <p className="text-sm text-slate-500">No AI execution prompt has been saved for this task.</p>}
+          {agentOpen || !draft.codexPrompt?.trim() ? <textarea aria-label="Agent Instructions Prompt" value={draft.codexPrompt} onChange={(event) => setField('codexPrompt')(event.target.value)} rows={8} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" /> : null}
+        </div>
+      </Section>
+
+      <Section title="Execution">
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+          <p className="text-sm text-slate-300">{draft.expectedDeliverable || 'Define the intended output before executing.'}</p>
+          <button type="button" onClick={() => onEnterExecution?.(task)} className="mt-4 min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500">Open execution mode</button>
+        </div>
+      </Section>
+
+      <Section title="Activity / History" defaultOpen={false}>
+        <div className="space-y-4 text-sm text-slate-400">
+          {(task.outcomeHistory || []).length ? <div>
+            <h3 className="font-medium text-slate-200">Outcome history</h3>
+            <ul className="mt-2 space-y-2">
+              {task.outcomeHistory.map((item, index) => <li key={`${item.timestamp}-${index}`} className="rounded-lg bg-slate-900 p-3">{item.fromStatus || 'open'} to {item.toStatus} {item.reason ? `- ${item.reason}` : ''}</li>)}
+            </ul>
+          </div> : null}
+          {(task.scheduleHistory || []).length ? <div>
+            <h3 className="font-medium text-slate-200">Schedule history</h3>
+            <ul className="mt-2 space-y-2">
+              {task.scheduleHistory.map((item, index) => <li key={`${item.changedAt}-${index}`} className="rounded-lg bg-slate-900 p-3">{item.fromScheduledLondonDate || 'unscheduled'} to {item.toScheduledLondonDate}</li>)}
+            </ul>
+          </div> : null}
+          {!(task.outcomeHistory || []).length && !(task.scheduleHistory || []).length ? <p>No activity yet.</p> : null}
+        </div>
+      </Section>
+    </div>
+    <div className="fixed inset-x-0 bottom-0 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur md:static md:p-5">
+      <button type="button" onClick={save} disabled={saveState === 'saving'} className="min-h-11 w-full rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60">{saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save changes'}</button>
+    </div>
+    <CompletionDialog task={task} open={dialogOpen} onClose={() => setDialogOpen(false)} onFinish={finish} onPostpone={postpone} onBlocked={blocked} onCancelled={cancelled} />
+  </section>;
+}
+
+function taskToDraft(task) {
+  return {
+    title: task?.title || '',
+    description: task?.description || '',
+    priority: normalizePriority(task?.priority),
+    category: task?.category || 'general',
+    projectId: task?.projectId || '',
+    expectedDeliverable: task?.expectedDeliverable || '',
+    acceptanceCriteria: task?.acceptanceCriteria || '',
+    notes: task?.notes || '',
+    codexPrompt: task?.codexPrompt || '',
+    agentReady: task?.agentReady === true,
+    deliverableRequired: Boolean(task?.deliverableRequired),
+    deliverableSummary: task?.deliverableSummary || task?.deliverableDescription || '',
+    deliverableLocation: task?.deliverableLocation || task?.deliverableUrl || '',
+  };
+}
+
+function MobileTaskHome({ tasks, selectedTask, counts, onCapture, onSelect, onExecution }) {
+  const todayTasks = tasksForView('today', tasks, getLondonDateKey()).slice(0, 4);
+  return <div className="space-y-5 md:hidden">
+    <div>
+      <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
+      <p className="mt-1 text-sm text-slate-500">Today, waiting, blocked.</p>
+    </div>
+    <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-blue-200">Continue current task</p>
+      <h2 className="mt-2 text-lg font-semibold text-slate-50">{selectedTask?.title || 'No task selected'}</h2>
+      <button disabled={!selectedTask} onClick={() => selectedTask && onExecution(selectedTask)} className="mt-4 min-h-11 w-full rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-50">Continue</button>
+    </div>
+    <div className="grid grid-cols-3 gap-2">
+      {[
+        ['Due', counts.today || 0, 'text-blue-100'],
+        ['Waiting', counts.waiting || 0, 'text-amber-100'],
+        ['Done', counts.completed || 0, 'text-green-100'],
+      ].map(([label, value, tone]) => <div key={label} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+        <p className="text-xs text-slate-500">{label}</p>
+        <p className={cx('mt-1 text-2xl font-semibold', tone)}>{value}</p>
+      </div>)}
+    </div>
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-200">Today's focus</h2>
+        <button type="button" onClick={onCapture} className="min-h-11 rounded-lg border border-slate-700 px-3 text-sm text-slate-200">Capture</button>
+      </div>
+      <TaskList tasks={todayTasks} selectedId={selectedTask?._id} onSelect={onSelect} />
+    </div>
+  </div>;
+}
+
+function TaskExecutionMode({ task, actions, onExit }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  if (!task) return null;
+  const checklist = lines(task.acceptanceCriteria);
+  const [statusKey, status] = taskUiStatus(task);
+
+  return <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950 text-slate-100">
+    <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-5 py-5">
+      <div className="flex items-center justify-between gap-4">
+        <button type="button" onClick={onExit} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm text-slate-200 hover:bg-slate-900">Exit</button>
+        <button type="button" onClick={() => setDialogOpen(true)} className="min-h-11 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-500">Complete</button>
+      </div>
+      <main className="flex-1 py-8">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Execution mode</p>
+        <h1 className="mt-2 break-words text-3xl font-semibold tracking-tight">{task.title}</h1>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs">
+          <span className={cx('rounded-full px-2.5 py-1', statusKey === 'blocked' ? 'bg-red-500/10 text-red-200' : statusKey === 'waiting' ? 'bg-amber-500/10 text-amber-200' : 'bg-blue-500/10 text-blue-200')}>{status}</span>
+          <span className="rounded-full bg-slate-900 px-2.5 py-1 text-slate-300">{priorityLabel(task.priority)}</span>
+        </div>
+        <section className="mt-8 space-y-6">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-200">Goal</h2>
+            <p className="mt-2 leading-7 text-slate-300">{task.expectedDeliverable || task.description || 'Clarify the intended output, then complete the next step.'}</p>
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-200">Next step</h2>
+            <p className="mt-2 rounded-xl border border-slate-800 bg-slate-900 p-4 text-slate-300">{checklist[0] || 'Work the smallest concrete step and update notes before completion.'}</p>
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-200">Checklist</h2>
+            {checklist.length ? <ul className="mt-3 space-y-2">{checklist.map((item) => <li key={item} className="flex gap-3 rounded-lg border border-slate-800 p-3 text-slate-300"><span className="mt-1 h-4 w-4 rounded border border-slate-600" />{item}</li>)}</ul> : <p className="mt-2 text-slate-500">No checklist yet.</p>}
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-200">Notes</h2>
+            <p className="mt-2 whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900 p-4 leading-7 text-slate-300">{task.notes || 'No notes yet.'}</p>
+          </div>
+          {task.codexPrompt ? <div>
+            <h2 className="text-sm font-semibold text-slate-200">Agent output</h2>
+            <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-sm leading-6 text-blue-100">{task.codexPrompt}</pre>
+          </div> : null}
+        </section>
+      </main>
+    </div>
+    <CompletionDialog
+      task={task}
+      open={dialogOpen}
+      onClose={() => setDialogOpen(false)}
+      onFinish={async () => { await actions.complete(task._id); setDialogOpen(false); onExit(); }}
+      onPostpone={async (date) => { await actions.reschedule(task._id, { targetDate: date, reason: 'postponed' }); setDialogOpen(false); onExit(); }}
+      onBlocked={async (reason) => { await actions.dismiss(task._id, { reason: 'external_blocker', note: reason }); setDialogOpen(false); onExit(); }}
+      onCancelled={async (reason) => { await actions.dismiss(task._id, { reason: 'task_no_longer_needed', note: reason }); setDialogOpen(false); onExit(); }}
+    />
+  </div>;
 }
 
 export function Tasks() {
-  const [selectedTab, setSelectedTab] = useState('all');
-  const [title, setTitle] = useState('');
-  const [priority, setPriority] = useState('should');
-  const [agentReady, setAgentReady] = useState(false);
+  const [selectedView, setSelectedView] = useState('today');
+  const [selectedId, setSelectedId] = useState('');
+  const [search, setSearch] = useState('');
+  const [captureOpen, setCaptureOpen] = useState(false);
+  const [executionTask, setExecutionTask] = useState(null);
   const tasks = useResource('tasks');
+  const projects = useResource('projects');
   const items = tasks.data || [];
-  const todayLondonDate = getLondonDateKey();
-  const activeItems = items.filter((task) => isActiveTask(task) && isVisibleToday(task, todayLondonDate));
-  const completedItems = items.filter((task) => wasCompletedToday(task, todayLondonDate));
-  const filteredItems = tasksForTab(selectedTab, activeItems);
-  const tabCounts = buildTabCounts(activeItems, completedItems);
-  const completingTaskId = tasks.complete.isPending ? tasks.complete.variables : null;
-  const reschedulingTaskId = tasks.reschedule.isPending ? tasks.reschedule.variables?.id : null;
-  const resolvingTaskId = tasks.dismiss.isPending ? tasks.dismiss.variables?.id
-    : tasks.archive.isPending ? tasks.archive.variables
-      : tasks.convert.isPending ? tasks.convert.variables?.id
-        : null;
+  const today = getLondonDateKey();
 
-  const save = async (event) => {
-    event.preventDefault();
-    if (!title.trim()) return;
-    await tasks.create.mutateAsync({ title: title.trim(), priority, agentReady });
-    setTitle('');
-    setPriority('should');
-    setAgentReady(false);
+  const counts = useMemo(() => viewCounts(items, today), [items, today]);
+  const visibleTasks = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return tasksForView(selectedView, items, today)
+      .filter((task) => !query || `${task.title} ${task.description} ${task.notes} ${task.expectedDeliverable}`.toLowerCase().includes(query))
+      .sort((left, right) => {
+        const leftDate = taskDate(left) || '9999-99-99';
+        const rightDate = taskDate(right) || '9999-99-99';
+        if (leftDate !== rightDate) return leftDate.localeCompare(rightDate);
+        return normalizePriority(left.priority).localeCompare(normalizePriority(right.priority));
+      });
+  }, [items, search, selectedView, today]);
+
+  useEffect(() => {
+    if (visibleTasks.length === 0) {
+      setSelectedId('');
+      return;
+    }
+    if (!visibleTasks.some((task) => task._id === selectedId)) setSelectedId(visibleTasks[0]._id);
+  }, [selectedId, visibleTasks]);
+
+  const selectedTask = items.find((task) => task._id === selectedId) || visibleTasks[0] || null;
+  const actions = {
+    update: (id, payload) => tasks.update.mutateAsync({ id, payload }),
+    remove: (id) => tasks.remove.mutateAsync(id),
+    complete: (id) => tasks.complete.mutateAsync(id),
+    archive: (id) => tasks.archive.mutateAsync(id),
+    dismiss: (id, payload) => tasks.dismiss.mutateAsync({ id, payload }),
+    convert: (id, payload) => tasks.convert.mutateAsync({ id, payload }),
+    reschedule: (id, payload) => tasks.reschedule.mutateAsync({ id, payload }),
   };
 
-  return <div className="space-y-6">
-    <h1 className="text-2xl font-bold sm:text-3xl">Tasks</h1>
-    <Card title="Create Task">
-      <form onSubmit={save} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_auto_auto] lg:items-end">
-        <label className="text-sm text-slate-300">
-          <span className="mb-1 block text-xs uppercase text-slate-400">Title</span>
-          <input aria-label="Task title" className="w-full rounded border border-slate-700 bg-slate-950 p-3" value={title} onChange={(e) => setTitle(e.target.value)} />
-        </label>
-        <label className="text-sm text-slate-300">
-          <span className="mb-1 block text-xs uppercase text-slate-400">Priority</span>
-          <select aria-label="Task priority" className="w-full rounded border border-slate-700 bg-slate-950 p-3" value={priority} onChange={(e) => setPriority(e.target.value)}>
-            {groups.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <label className="flex items-center gap-2 rounded border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-slate-200">
-          <input aria-label="Assignable to Codex" type="checkbox" checked={agentReady} onChange={(e) => setAgentReady(e.target.checked)} />
-          Assignable to Codex
-        </label>
-        <button className="rounded-lg bg-blue-600 px-4 py-3 font-medium">Save task</button>
-      </form>
-    </Card>
-    <div className="flex gap-2 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-2">
-      {tabs.map(([value, label]) => {
-        const isSelected = selectedTab === value;
-        const tabCount = tabCounts[value] ?? 0;
-        return <button
-          key={value}
-          type="button"
-          className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${isSelected ? 'bg-blue-600 text-white shadow shadow-blue-950/40' : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
-          onClick={() => setSelectedTab(value)}
-        >
-          <span>{label}</span>
-          <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-950 text-slate-400'}`}>{tabCount}</span>
-        </button>;
-      })}
+  return <div className="min-h-[calc(100vh-5rem)]">
+    <MobileTaskHome tasks={items} selectedTask={selectedTask} counts={counts} onCapture={() => setCaptureOpen(true)} onSelect={setSelectedId} onExecution={setExecutionTask} />
+
+    <div className="hidden min-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 md:grid md:grid-cols-[minmax(360px,42%)_minmax(0,1fr)] lg:grid-cols-[420px_minmax(0,1fr)]">
+      <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+        <TaskSidebar selectedView={selectedView} counts={counts} onSelectView={setSelectedView} search={search} onSearch={setSearch} onNewTask={() => setCaptureOpen(true)} />
+        <div className="min-h-0 overflow-y-auto p-3">
+          <TaskList tasks={visibleTasks} selectedId={selectedTask?._id} onSelect={setSelectedId} />
+        </div>
+      </div>
+      <TaskDetailPanel task={selectedTask} projects={Array.isArray(projects.data) ? projects.data : []} actions={actions} onEnterExecution={setExecutionTask} />
     </div>
-    {selectedTab === 'agent' ? <p className="text-sm text-slate-400">Tasks marked as assignable to Codex.</p> : null}
-    {selectedTab === 'completed' ? categories.map(([category, groupTitle]) => {
-      const groupItems = completedItems.filter((task) => normalizeCategory(task.category) === category);
-      if (groupItems.length === 0) return null;
-      return <Card key={category} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <CompletedTaskCard key={task._id} task={task} />)}</ul></Card>;
-    }) : groups.map(([priority, groupTitle]) => {
-      const groupItems = filteredItems.filter((task) => normalizePriority(task.priority) === priority);
-      if (groupItems.length === 0) return null;
-      return <Card key={priority} title={groupTitle}><ul className="space-y-3">{groupItems.map((task) => <TaskCard key={task._id} task={task} onComplete={tasks.complete.mutate} onReschedule={(id, payload) => tasks.reschedule.mutate({ id, payload })} onDismiss={(id, payload) => tasks.dismiss.mutate({ id, payload })} onArchive={tasks.archive.mutate} onConvert={(id, payload) => tasks.convert.mutate({ id, payload })} isCompleting={completingTaskId === task._id} isRescheduling={reschedulingTaskId === task._id} isResolving={resolvingTaskId === task._id} />)}</ul></Card>;
-    })}
-    {selectedTab === 'completed' && completedItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No tasks completed today.</p> : null}
-    {selectedTab !== 'completed' && filteredItems.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No open tasks in this tab.</p> : null}
+
+    <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-800 bg-slate-950/95 px-2 py-2 backdrop-blur md:hidden">
+      {[
+        ['Home', 'today'],
+        ['Tasks', 'inbox'],
+        ['Capture', 'capture'],
+        ['Projects', 'projects'],
+        ['More', 'completed'],
+      ].map(([label, value]) => <button
+        key={label}
+        type="button"
+        onClick={() => value === 'capture' ? setCaptureOpen(true) : setSelectedView(value)}
+        className={cx('min-h-11 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500', selectedView === value ? 'bg-blue-600 text-white' : 'text-slate-400')}
+      >
+        {label}
+      </button>)}
+    </div>
+
+    <QuickCaptureSheet open={captureOpen} onClose={() => setCaptureOpen(false)} onCreate={(payload) => tasks.create.mutateAsync(payload)} isSaving={tasks.create.isPending} />
+    {executionTask ? <TaskExecutionMode task={items.find((task) => task._id === executionTask._id) || executionTask} actions={actions} onExit={() => setExecutionTask(null)} /> : null}
   </div>;
 }

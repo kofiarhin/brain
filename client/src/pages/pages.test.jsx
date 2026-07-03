@@ -347,517 +347,160 @@ describe('DayPlan page', () => {
   });
 });
 
-describe('Tasks page', () => {
-  test('maps UTC timestamps to London calendar days', () => {
-    expect(getLondonDateKey('2026-06-25T23:30:00.000Z')).toBe('2026-06-26');
-    expect(getLondonDateKey('2026-06-25T22:30:00.000Z')).toBe('2026-06-25');
-  });
-
-  test('shows complete shortcuts on open overview cards', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'Must task', priority: 'must', status: 'open' }] });
-    render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Must task')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Copy task title' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Complete' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Must task/ })).toHaveAttribute('href', '/tasks/1');
-  });
-
-  test('renders copy buttons for every open task card', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        { _id: '1', title: 'First open task', priority: 'must', status: 'open' },
-        { _id: '2', title: 'Second open task', priority: 'should', status: 'open' },
-        { _id: '3', title: 'Completed task', priority: 'nice', status: 'complete', completedAt: new Date().toISOString() },
-      ],
+describe('Tasks redesigned experience', () => {
+  test('renders clean task rows with detail actions instead of per-card action clutter', async () => {
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
+      if (url.includes('/tasks')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ _id: '1', title: 'Focused task', priority: 'must', status: 'open', category: 'general', expectedDeliverable: 'Ship calmer task UI' }],
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
     render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('First open task')).toBeInTheDocument();
-    expect(screen.getByText('Second open task')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Copy task title' })).toHaveLength(2);
+
+    expect((await screen.findAllByText('Focused task')).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Start' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Complete' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'More task actions' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy task title' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Postpone Focused task/)).not.toBeInTheDocument();
   });
 
-  test('hides postponed tasks until their scheduled date', async () => {
+  test('filters into recommended views and keeps future tasks out of today', async () => {
     const today = getLondonDateKey();
     const tomorrow = addLondonDays(today, 1);
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        { _id: '1', title: 'Today task', priority: 'must', status: 'open', scheduledLondonDate: today },
-        { _id: '2', title: 'Tomorrow task', priority: 'must', status: 'open', scheduledLondonDate: tomorrow },
-      ],
-    });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Today task')).toBeInTheDocument();
-    expect(screen.queryByText('Tomorrow task')).not.toBeInTheDocument();
-  });
-
-  test('postpones an open task from the overview and removes it from today', async () => {
-    const tomorrow = addLondonDays(getLondonDateKey(), 1);
-    let postponed = false;
-    global.fetch = vi.fn((url, options) => {
-      if (url.includes('/tasks/1/reschedule') && options?.method === 'PATCH') {
-        postponed = true;
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            _id: '1',
-            title: 'Move me',
-            priority: 'must',
-            status: 'rescheduled',
-            scheduledLondonDate: tomorrow,
-            postponedCount: 1,
-            scheduleHistory: [{ toScheduledLondonDate: tomorrow }],
-          }),
-        });
-      }
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
       if (url.includes('/tasks')) {
         return Promise.resolve({
           ok: true,
-          json: async () => postponed
-            ? [{ _id: '1', title: 'Move me', priority: 'must', status: 'rescheduled', scheduledLondonDate: tomorrow }]
-            : [{ _id: '1', title: 'Move me', priority: 'must', status: 'open' }],
+          json: async () => [
+            { _id: '1', title: 'Today task', priority: 'must', status: 'open', scheduledLondonDate: today },
+            { _id: '2', title: 'Future task', priority: 'medium', status: 'open', scheduledLondonDate: tomorrow },
+            { _id: '3', title: 'Delegated task', priority: 'low', status: 'open', agentReady: true },
+            { _id: '4', title: 'Completed task', priority: 'nice', status: 'complete', completedAt: new Date().toISOString() },
+          ],
         });
       }
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
     render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Move me')).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText('Postpone Move me'), 'tomorrow');
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/tasks/1/reschedule'),
-      expect.objectContaining({ method: 'PATCH' })
-    ));
-    const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks/1/reschedule') && options?.method === 'PATCH');
-    expect(JSON.parse(patchCall[1].body)).toEqual({ targetDate: tomorrow, reason: 'tomorrow' });
-    await waitFor(() => expect(screen.queryByText('Move me')).not.toBeInTheDocument());
-  });
-
-  test('shows postponed tasks on their scheduled date', async () => {
-    const today = getLondonDateKey();
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        { _id: '1', title: 'Scheduled today task', priority: 'must', status: 'open', scheduledLondonDate: today, postponedCount: 1 },
-      ],
-    });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Scheduled today task')).toBeInTheDocument();
-    expect(screen.getByText(`Scheduled ${today}`)).toBeInTheDocument();
-  });
-
-  test('hides dismissed archived and converted tasks from active tabs', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        { _id: '1', title: 'Active task', priority: 'must', status: 'open' },
-        { _id: '2', title: 'Dismissed task', priority: 'must', status: 'dismissed' },
-        { _id: '3', title: 'Archived task', priority: 'should', status: 'archived' },
-        { _id: '4', title: 'Converted task', priority: 'nice', status: 'converted' },
-      ],
-    });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Active task')).toBeInTheDocument();
-    expect(screen.queryByText('Dismissed task')).not.toBeInTheDocument();
-    expect(screen.queryByText('Archived task')).not.toBeInTheDocument();
-    expect(screen.queryByText('Converted task')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /All 1/ })).toBeInTheDocument();
-  });
-
-  test('copies a task title without navigating or completing the task', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText },
-    });
-    window.history.pushState({}, '', '/tasks');
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [{ _id: '1', title: 'Copyable task', priority: 'must', status: 'open' }],
-    });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Copyable task')).toBeInTheDocument();
-    const copyButton = screen.getByRole('button', { name: 'Copy task title' });
-    await userEvent.click(copyButton);
-
-    expect(writeText).toHaveBeenCalledWith('Copyable task');
-    expect(window.location.pathname).toBe('/tasks');
-    expect(global.fetch).not.toHaveBeenCalledWith(expect.stringContaining('/tasks/1/complete'), expect.objectContaining({ method: 'PATCH' }));
-    await waitFor(() => expect(copyButton).toHaveAttribute('title', 'Copied'));
-  });
-
-  test('completes a task from the overview without navigating and refreshes tabs', async () => {
-    const today = new Date().toISOString();
-    let completed = false;
-    window.history.pushState({}, '', '/tasks');
-    global.fetch = vi.fn((url, options) => {
-      if (url.includes('/tasks/1/complete') && options?.method === 'PATCH') {
-        completed = true;
-        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Shortcut task', priority: 'must', status: 'complete', category: 'projects', completedAt: today }) });
-      }
-      if (url.includes('/tasks')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => completed
-            ? [{ _id: '1', title: 'Shortcut task', priority: 'must', status: 'complete', category: 'projects', completedAt: today }]
-            : [{ _id: '1', title: 'Shortcut task', priority: 'must', status: 'open', category: 'projects' }],
-        });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({}) });
-    });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Shortcut task')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Complete' }));
-
-    expect(window.location.pathname).toBe('/tasks');
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/complete'), expect.objectContaining({ method: 'PATCH' })));
-    await waitFor(() => expect(screen.queryByText('Shortcut task')).not.toBeInTheDocument());
-
+    expect((await screen.findAllByText('Today task')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Future task')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Upcoming 1/ }));
+    expect((await screen.findAllByText('Future task')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: /Delegated 1/ }));
+    expect((await screen.findAllByText('Delegated task')).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole('button', { name: /Completed 1/ }));
-    expect(await screen.findByText('Shortcut task')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Complete' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Copy task title' })).not.toBeInTheDocument();
+    expect((await screen.findAllByText('Completed task')).length).toBeGreaterThan(0);
   });
 
-  test('filters tasks by category and agent readiness', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        { _id: '1', title: 'Project task', priority: 'must', status: 'open', category: 'projects', agentReady: true },
-        { _id: '2', title: 'Family task', priority: 'should', status: 'open', category: 'family', agentReady: false },
-        { _id: '3', title: 'Inbox task', priority: 'nice', status: 'open' },
-        { _id: '4', title: 'Hidden agent task', priority: 'must', status: 'complete', category: 'projects', agentReady: true },
-      ],
+  test('captures a task through the mobile-first capture sheet', async () => {
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
+      if (url.includes('/tasks') && options?.method === 'POST') {
+        return Promise.resolve({ ok: true, status: 201, json: async () => ({ _id: '1', title: 'Captured task', priority: 'high', agentReady: true }) });
+      }
+      if (url.includes('/tasks')) return Promise.resolve({ ok: true, json: async () => [] });
+      return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
     render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Project task')).toBeInTheDocument();
-
-    expect(screen.getByRole('button', { name: /All 3/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Agent 1/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Projects 1/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Family 1/ })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: /Agent 1/ }));
-    expect(screen.getByText('Tasks marked as assignable to Codex.')).toBeInTheDocument();
-    expect(screen.getByText('Project task')).toBeInTheDocument();
-    expect(screen.queryByText('Family task')).not.toBeInTheDocument();
-    expect(screen.queryByText('Hidden agent task')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: /Family 1/ }));
-    expect(screen.getByText('Family task')).toBeInTheDocument();
-    expect(screen.queryByText('Project task')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: /General 1/ }));
-    expect(screen.getByText('Inbox task')).toBeInTheDocument();
-    expect(screen.queryByText('Family task')).not.toBeInTheDocument();
-  });
-
-  test('uses the same active task filters for tab counts and displayed priority groups', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        { _id: '1', title: 'Family high task', priority: 'high', status: 'open', category: 'family' },
-        { _id: '2', title: 'Family medium task', priority: 'medium', status: 'open', category: 'family' },
-        { _id: '3', title: 'Family missing priority task', status: 'open', category: 'family' },
-        { _id: '4', title: 'Project high task', priority: 'high', status: 'open', category: 'projects' },
-        { _id: '5', title: 'Project low task', priority: 'low', status: 'open', category: 'projects' },
-        { _id: '6', title: 'Project invalid priority task', priority: 'urgent', status: 'open', category: 'projects' },
-        { _id: '7', title: 'Project missing priority task', status: 'open', category: 'projects' },
-        { _id: '8', title: 'Project nice task', priority: 'nice', status: 'open', category: 'projects' },
-        { _id: '9', title: 'Project should task', priority: 'should', status: 'open', category: 'projects' },
-        { _id: '10', title: 'Archived family task', priority: 'must', status: 'archived', category: 'family' },
-        { _id: '11', title: 'Complete family task', priority: 'must', status: 'complete', category: 'family' },
-        { _id: '12', title: 'Invalid category task', priority: 'must', status: 'open', category: 'work' },
-      ],
-    });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByRole('button', { name: /Family 3/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Projects 6/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /General 1/ })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: /Family 3/ }));
-    expect(screen.getByText('Family high task')).toBeInTheDocument();
-    expect(screen.getByText('Family medium task')).toBeInTheDocument();
-    expect(screen.getByText('Family missing priority task')).toBeInTheDocument();
-    expect(screen.queryByText('Archived family task')).not.toBeInTheDocument();
-    expect(screen.queryByText('Complete family task')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: /Projects 6/ }));
-    expect(screen.getByText('Project high task')).toBeInTheDocument();
-    expect(screen.getByText('Project low task')).toBeInTheDocument();
-    expect(screen.getByText('Project invalid priority task')).toBeInTheDocument();
-    expect(screen.getByText('Project missing priority task')).toBeInTheDocument();
-    expect(screen.getByText('Project nice task')).toBeInTheDocument();
-    expect(screen.getByText('Project should task')).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: /General 1/ }));
-    expect(screen.getByText('Invalid category task')).toBeInTheDocument();
-  });
-
-  test('creates a task without manual category and with agent readiness', async () => {
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ _id: '1', title: 'New task', priority: 'must', category: 'projects', agentReady: true }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => [{ _id: '1', title: 'New task', priority: 'must', status: 'open', category: 'projects', agentReady: true }] });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    await screen.findByText('Create Task');
-    await userEvent.type(screen.getByLabelText('Task title'), 'New task');
-    await userEvent.selectOptions(screen.getByLabelText('Task priority'), 'must');
-    expect(screen.queryByLabelText('Task category')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByLabelText(/^Assignable to Codex$/));
+    await userEvent.click(screen.getAllByRole('button', { name: /Capture/i })[0]);
+    await userEvent.type(await screen.findByLabelText('Task title'), 'Captured task');
+    await userEvent.selectOptions(screen.getByLabelText('Task priority'), 'high');
+    await userEvent.click(screen.getByLabelText('Assignable to Codex'));
     await userEvent.click(screen.getByRole('button', { name: /save task/i }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks'), expect.objectContaining({ method: 'POST' })));
     const postCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks') && options?.method === 'POST');
-    expect(JSON.parse(postCall[1].body)).toEqual({ title: 'New task', priority: 'must', agentReady: true });
+    expect(JSON.parse(postCall[1].body)).toEqual({ title: 'Captured task', priority: 'high', agentReady: true });
   });
 
-  test('shows only tasks completed today grouped by category and hides them from active tabs', async () => {
-    const today = new Date().toISOString();
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        { _id: '1', title: 'Open project task', priority: 'must', status: 'open', category: 'projects' },
-        { _id: '2', title: 'Done project task', priority: 'must', status: 'complete', category: 'projects', completedAt: today },
-        { _id: '3', title: 'Done family task', priority: 'should', status: 'complete', category: 'family', completedAt: today },
-        { _id: '4', title: 'Yesterday task', priority: 'should', status: 'complete', category: 'admin', completedAt: yesterday },
-        { _id: '5', title: 'Archived task', priority: 'nice', status: 'archived', category: 'admin' },
-      ],
-    });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Open project task')).toBeInTheDocument();
-    expect(screen.queryByText('Done project task')).not.toBeInTheDocument();
-    expect(screen.queryByText('Archived task')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: /Completed 2/ }));
-    expect(screen.getByText('Done project task')).toBeInTheDocument();
-    expect(screen.getByText('Done family task')).toBeInTheDocument();
-    expect(screen.queryByText('Yesterday task')).not.toBeInTheDocument();
-    expect(screen.queryByText('Open project task')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Projects' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Family' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Done project task/ })).toHaveAttribute('href', '/tasks/2');
-  });
-
-  test('links each task to its details page', async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => [{ _id: '1', title: 'Editable task', priority: 'must', status: 'open', category: 'general', agentReady: false, expectedDeliverable: 'Updated task brief' }],
-    });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByText('Editable task')).toBeInTheDocument();
-    expect(screen.getByText('Open')).toBeInTheDocument();
-    expect(screen.getAllByText('General').length).toBeGreaterThan(0);
-    expect(screen.getByText('Updated task brief')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Editable task/ })).toHaveAttribute('href', '/tasks/1');
-  });
-
-  test('edits task details through the dedicated page', async () => {
+  test('uses a single completion dialog for finish and postpone outcomes', async () => {
+    const tomorrow = addLondonDays(getLondonDateKey(), 1);
+    let taskState = { _id: '1', title: 'Dialog task', priority: 'must', status: 'open' };
     global.fetch = vi.fn((url, options) => {
-      if (url.includes('/projects')) {
-        return Promise.resolve({ ok: true, json: async () => [] });
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
+      if (url.includes('/tasks/1/reschedule') && options?.method === 'PATCH') {
+        taskState = { ...taskState, status: 'rescheduled', scheduledLondonDate: tomorrow };
+        return Promise.resolve({ ok: true, json: async () => taskState });
       }
-      if (url.includes('/tasks/1') && options?.method === 'PATCH') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            _id: '1',
-            title: 'Updated task',
-            priority: 'must',
-            status: 'open',
-            category: 'projects',
-            description: 'New description',
-            deliverableRequired: true,
-            expectedDeliverable: 'New deliverable',
-            deliverableSummary: 'New artifact notes',
-            deliverableLocation: 'https://example.com/new',
-            acceptanceCriteria: 'New criteria',
-            notes: 'Planning notes',
-            codexPrompt: 'Implement this',
-          }),
-        });
-      }
-      if (url.includes('/tasks/1')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-          _id: '1',
-          title: 'Editable task',
-          priority: 'must',
-          status: 'open',
-          category: 'general',
-          description: 'Old description',
-          deliverableRequired: true,
-          expectedDeliverable: 'Old deliverable',
-          deliverableDescription: 'Old artifact notes',
-          deliverableUrl: 'https://example.com/old',
-          acceptanceCriteria: 'Old criteria',
-          notes: '',
-          codexPrompt: 'Implement this',
-          }),
-        });
-      }
+      if (url.includes('/tasks')) return Promise.resolve({ ok: true, json: async () => [taskState] });
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(
-      <MemoryRouter initialEntries={['/tasks/1']}>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
-          <Routes><Route path="/tasks/:id" element={<TaskDetails />} /></Routes>
-        </QueryClientProvider>
-      </MemoryRouter>
-    );
+    render(<Tasks />, { wrapper: wrapper() });
+    expect((await screen.findAllByText('Dialog task')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Complete' })[0]);
+    await userEvent.click(screen.getByRole('button', { name: 'Postponed' }));
+    fireEvent.change(screen.getByLabelText('New date'), { target: { value: tomorrow } });
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/reschedule'), expect.objectContaining({ method: 'PATCH' })));
+    const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks/1/reschedule') && options?.method === 'PATCH');
+    expect(JSON.parse(patchCall[1].body)).toEqual({ targetDate: tomorrow, reason: 'postponed' });
+  });
+
+  test('edits and saves task detail fields from the selected detail panel', async () => {
+    global.fetch = vi.fn((url, options) => {
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
+      if (url.includes('/tasks/1') && options?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Edited task', priority: 'high', status: 'open', category: 'admin', notes: 'Planning notes' }) });
+      }
+      if (url.includes('/tasks')) return Promise.resolve({ ok: true, json: async () => [{ _id: '1', title: 'Editable task', priority: 'must', status: 'open', category: 'general' }] });
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
     expect(await screen.findByDisplayValue('Editable task')).toBeInTheDocument();
-    expect(screen.queryByText('Advanced')).not.toBeInTheDocument();
-    expect(screen.getByText('Agent Instructions')).toBeInTheDocument();
-    expect(screen.getByText('Delegate this task to an AI agent.')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Agent Instructions Prompt')).not.toBeInTheDocument();
     await userEvent.clear(screen.getByLabelText('Title'));
-    await userEvent.type(screen.getByLabelText('Title'), 'Updated task');
-    await userEvent.click(screen.getByText('Task Settings'));
-    await userEvent.selectOptions(screen.getByLabelText('Category'), 'projects');
-    await userEvent.clear(screen.getByLabelText('Task'));
-    await userEvent.type(screen.getByLabelText('Task'), 'New description');
-    await userEvent.clear(screen.getByLabelText('Expected Output'));
-    await userEvent.type(screen.getByLabelText('Expected Output'), 'New deliverable');
-    await userEvent.clear(screen.getByLabelText('Produced Output'));
-    await userEvent.type(screen.getByLabelText('Produced Output'), 'New artifact notes');
-    await userEvent.clear(screen.getByLabelText('Supporting Link'));
-    await userEvent.type(screen.getByLabelText('Supporting Link'), 'https://example.com/new');
-    await userEvent.clear(screen.getByLabelText('Completion Checklist'));
-    await userEvent.type(screen.getByLabelText('Completion Checklist'), 'New criteria');
+    await userEvent.type(screen.getByLabelText('Title'), 'Edited task');
+    await userEvent.selectOptions(screen.getByLabelText('Category'), 'admin');
     await userEvent.type(screen.getByLabelText('Notes'), 'Planning notes');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1'), expect.objectContaining({ method: 'PATCH' })));
     const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks/1') && options?.method === 'PATCH');
-    expect(JSON.parse(patchCall[1].body)).toEqual(expect.objectContaining({
-      title: 'Updated task',
-      category: 'projects',
-      description: 'New description',
-      deliverableRequired: true,
-      expectedDeliverable: 'New deliverable',
-      deliverableSummary: 'New artifact notes',
-      deliverableLocation: 'https://example.com/new',
-      acceptanceCriteria: 'New criteria',
-      notes: 'Planning notes',
-      codexPrompt: 'Implement this',
-    }));
-  }, 10000);
+    expect(JSON.parse(patchCall[1].body)).toEqual(expect.objectContaining({ title: 'Edited task', category: 'admin', notes: 'Planning notes' }));
+  });
 
-  test('shows and copies agent instructions from the detail workspace', async () => {
-    const writeText = vi.fn();
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText },
-    });
+  test('opens focused execution mode for a selected task', async () => {
     global.fetch = vi.fn((url) => {
-      if (url.includes('/projects')) {
-        return Promise.resolve({ ok: true, json: async () => [] });
-      }
-      if (url.includes('/tasks/1')) {
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
+      if (url.includes('/tasks')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({
-            _id: '1',
-            title: 'Delegation task',
-            priority: 'must',
-            status: 'open',
-            category: 'general',
-            deliverableRequired: true,
-            codexPrompt: 'Implement the workspace refactor',
-          }),
+          json: async () => [{ _id: '1', title: 'Execute task', priority: 'must', status: 'open', expectedDeliverable: 'Focused output', acceptanceCriteria: 'First step' }],
         });
       }
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(
-      <MemoryRouter initialEntries={['/tasks/1']}>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
-          <Routes><Route path="/tasks/:id" element={<TaskDetails />} /></Routes>
-        </QueryClientProvider>
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByDisplayValue('Delegation task')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Agent Instructions Prompt')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Copy Prompt' }));
-    expect(writeText).toHaveBeenCalledWith('Implement the workspace refactor');
-    await userEvent.click(screen.getByRole('button', { name: 'Show Prompt' }));
-    expect(screen.getByLabelText('Agent Instructions Prompt')).toHaveValue('Implement the workspace refactor');
-    expect(screen.getByLabelText('Agent Instructions Prompt')).toHaveAttribute('readonly');
-    await userEvent.click(screen.getByRole('button', { name: 'Hide Prompt' }));
-    expect(screen.queryByLabelText('Agent Instructions Prompt')).not.toBeInTheDocument();
+    render(<Tasks />, { wrapper: wrapper() });
+    expect((await screen.findAllByText('Execute task')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Open execution mode' }));
+    expect(screen.getByText('Execution mode')).toBeInTheDocument();
+    expect(screen.getAllByText('Focused output').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('First step').length).toBeGreaterThan(0);
   });
 
-  test('renders an empty agent instructions state without prompt controls', async () => {
-    global.fetch = vi.fn((url) => {
-      if (url.includes('/projects')) {
-        return Promise.resolve({ ok: true, json: async () => [] });
-      }
-      if (url.includes('/tasks/1')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            _id: '1',
-            title: 'Manual task',
-            priority: 'should',
-            status: 'open',
-            category: 'general',
-            deliverableRequired: true,
-            codexPrompt: '',
-          }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({}) });
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/tasks/1']}>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
-          <Routes><Route path="/tasks/:id" element={<TaskDetails />} /></Routes>
-        </QueryClientProvider>
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByDisplayValue('Manual task')).toBeInTheDocument();
-    expect(screen.getByText('No AI instructions have been generated for this task.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Copy Prompt' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Show Prompt' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Agent Instructions Prompt')).not.toBeInTheDocument();
-  });
-
-  test('completes tasks from the detail workspace', async () => {
+  test('standalone task detail route saves and completes through the redesigned workspace', async () => {
     global.fetch = vi.fn((url, options) => {
-      if (url.includes('/projects')) {
-        return Promise.resolve({ ok: true, json: async () => [] });
-      }
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
       if (url.includes('/tasks/1/complete') && options?.method === 'PATCH') {
-        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'complete', category: 'general' }) });
+        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Route task', priority: 'must', status: 'complete', category: 'general' }) });
       }
-      if (url.includes('/tasks/1')) {
-        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'open', category: 'general' }) });
+      if (url.includes('/tasks/1') && options?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Route task saved', priority: 'must', status: 'open', category: 'general' }) });
       }
+      if (url.includes('/tasks/1')) return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Route task', priority: 'must', status: 'open', category: 'general' }) });
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
@@ -869,36 +512,10 @@ describe('Tasks page', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByDisplayValue('Lifecycle task')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Complete task' }));
+    expect(await screen.findByDisplayValue('Route task')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Complete' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/complete'), expect.objectContaining({ method: 'PATCH' })));
-  });
-
-  test('reopens tasks from the detail workspace', async () => {
-    global.fetch = vi.fn((url, options) => {
-      if (url.includes('/projects')) {
-        return Promise.resolve({ ok: true, json: async () => [] });
-      }
-      if (url.includes('/tasks/1/reopen') && options?.method === 'PATCH') {
-        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'open', category: 'general' }) });
-      }
-      if (url.includes('/tasks/1')) {
-        return Promise.resolve({ ok: true, json: async () => ({ _id: '1', title: 'Lifecycle task', priority: 'must', status: 'complete', category: 'general' }) });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({}) });
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/tasks/1']}>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
-          <Routes><Route path="/tasks/:id" element={<TaskDetails />} /></Routes>
-        </QueryClientProvider>
-      </MemoryRouter>
-    );
-
-    expect(await screen.findByDisplayValue('Lifecycle task')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Reopen task' }));
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1/reopen'), expect.objectContaining({ method: 'PATCH' })));
   });
 });
 
