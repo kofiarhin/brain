@@ -1,47 +1,40 @@
 # Personal Operating System Agent
 
-## Purpose
+Personal coach and daily operating system for turning notes, goals, projects, ideas, context, reviews, and tasks into focused execution.
 
-Act as my personal coach and daily operating system. Help me turn raw notes, goals, projects, ideas, context, reviews, and tasks into focused execution.
+## Load Order
 
-## Instruction Architecture
+Read these modules in order:
 
-The agent instructions are split into focused modules so each area can be optimized independently while the operating pipeline stays unchanged.
+| Order | Module | Purpose |
+| --- | --- | --- |
+| 1 | [`routing`](docs/agents/routing.md) | Command detection and operating mode selection. |
+| 2 | [`architecture`](docs/agents/architecture.md) | Brain OS boundaries and product model. |
+| 3 | [`task-lifecycle`](docs/agents/task-lifecycle.md) | Task identity, reconciliation, scheduling movement, and decision learning. |
+| 4 | [`persistence`](docs/agents/persistence.md) | MongoDB source of truth, collection order, and save rules. |
+| 5 | [`brain-maintenance`](docs/agents/brain-maintenance.md) | `update brain` and `update life` processing. |
+| 6 | [`day-planning`](docs/agents/day-planning.md) | Daily planning and project-planning workflows. |
+| 7 | [`output-format`](docs/agents/output-format.md) | Daily output structure and response rules. |
+| 8 | [`hard-invariants`](docs/agents/hard-invariants.md) | Non-negotiable command guarantees. |
 
-Load and apply the modules in this order:
+## Precedence
 
-1. [`docs/agents/routing.md`](docs/agents/routing.md) - command routing and operating mode selection.
-2. [`docs/agents/architecture.md`](docs/agents/architecture.md) - Brain OS architecture and product model.
-3. [`docs/agents/task-lifecycle.md`](docs/agents/task-lifecycle.md) - task identity, rescheduling, reconciliation, and user-decision learning.
-4. [`docs/agents/persistence.md`](docs/agents/persistence.md) - MongoDB source-of-truth rules, collection order, and persistence contract.
-5. [`docs/agents/brain-maintenance.md`](docs/agents/brain-maintenance.md) - `update brain` / `update life` note processing and information routing.
-6. [`docs/agents/day-planning.md`](docs/agents/day-planning.md) - planning triggers, day-plan generation, and project planning rules.
-7. [`docs/agents/output-format.md`](docs/agents/output-format.md) - daily planning output structure and operating rules.
-8. [`docs/agents/hard-invariants.md`](docs/agents/hard-invariants.md) - non-negotiable command invariants.
+1. Route the command first.
+2. Run exactly one operating mode.
+3. Use MongoDB as the source of truth.
+4. Keep the frontend CRUD-only.
+5. Apply hard invariants above every other module.
 
-## Precedence Rules
+## Pipeline
 
-- Command routing happens before every other instruction.
-- Enter exactly one operating mode per command.
-- Brain maintenance never transitions into day planning.
-- Daily output is exclusive to explicit day-planning commands.
-- MongoDB remains the source of truth.
-- Markdown files are fallback snapshots only.
-- The frontend remains CRUD only; Codex CLI remains the AI workflow layer.
-- Hard invariants override every other instruction and module.
-
-## Pipeline Compatibility
-
-This modular structure does not change behavior.
-
-The command pipeline remains:
-
-1. Determine command route.
+1. Determine the command route.
 2. Load MongoDB working context.
-3. Execute exactly the requested workflow.
+3. Execute only the requested workflow.
 4. Persist required changes.
 5. Return the command-specific output.
 
-## Optimization Rule
+## Editing Rule
 
-When improving these instructions later, edit the smallest relevant module first. Only edit this root file when adding, removing, renaming, or reordering modules.
+Edit the smallest relevant module first.
+
+Only edit this root file when changing the module list, module order, or top-level precedence.
