@@ -467,27 +467,52 @@ function TaskOverviewPanel({ task, project, closed, onStart, onComplete, onInspe
 }
 
 function TaskInspectorNav({ activeSection, onSectionChange }) {
-  return <nav aria-label="Task inspector sections" className="flex gap-2 overflow-x-auto border-b border-slate-800 px-4 py-3 md:grid md:w-36 md:shrink-0 md:content-start md:gap-1 md:overflow-visible md:border-b-0 md:border-r md:p-3">
+  return <nav aria-label="Task inspector sections" className="hidden w-44 shrink-0 content-start gap-1 border-r border-slate-800 p-4 md:grid" role="tablist" aria-orientation="vertical">
     {inspectorSections.map(([value, label]) => <button
       key={value}
       type="button"
       onClick={() => onSectionChange(value)}
-      className={cx('min-h-11 whitespace-nowrap rounded-lg px-3 text-left text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500', activeSection === value ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-900')}
+      role="tab"
+      aria-current={activeSection === value ? 'page' : undefined}
+      aria-selected={activeSection === value}
+      aria-controls={`task-inspector-panel-${value}`}
+      id={`task-inspector-tab-${value}`}
+      className={cx('min-h-11 whitespace-nowrap rounded-lg px-3 text-left text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500', activeSection === value ? 'border border-blue-500 bg-blue-600 text-white' : 'border border-transparent text-slate-300 hover:bg-slate-900')}
     >
       {label}
     </button>)}
   </nav>;
 }
 
-function TaskInspectorSection({ title, children }) {
-  return <section aria-labelledby={`inspector-${title.toLowerCase().replace(/\s+/g, '-')}`} className="space-y-4">
-    <h3 id={`inspector-${title.toLowerCase().replace(/\s+/g, '-')}`} className="text-lg font-semibold text-slate-50">{title}</h3>
+function TaskInspectorMobileTabs({ activeSection, onSectionChange }) {
+  return <nav aria-label="Task inspector sections" className="border-b border-slate-800 bg-slate-950/95 md:hidden" role="tablist" aria-orientation="horizontal">
+    <div className="flex gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none]">
+      {inspectorSections.map(([value, label]) => <button
+        key={value}
+        type="button"
+        onClick={() => onSectionChange(value)}
+        role="tab"
+        aria-selected={activeSection === value}
+        aria-controls={`task-inspector-panel-${value}`}
+        id={`task-inspector-mobile-tab-${value}`}
+        className={cx('min-h-11 shrink-0 rounded-lg border px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500', activeSection === value ? 'border-blue-500 bg-blue-600 text-white shadow-lg shadow-blue-950/40' : 'border-slate-700 text-slate-300 hover:bg-slate-900')}
+      >
+        {label}
+      </button>)}
+    </div>
+  </nav>;
+}
+
+function TaskInspectorSection({ title, sectionId, children }) {
+  const headingId = `inspector-${sectionId}`;
+  return <section id={`task-inspector-panel-${sectionId}`} role="tabpanel" aria-labelledby={`task-inspector-tab-${sectionId}`} className="space-y-4">
+    <h3 id={headingId} className="text-lg font-semibold text-slate-50">{title}</h3>
     {children}
   </section>;
 }
 
 function TaskOverviewSection({ task, draft, project, setField }) {
-  return <TaskInspectorSection title="Overview">
+  return <TaskInspectorSection title="Overview" sectionId="overview">
     <dl className="rounded-xl border border-slate-800 bg-slate-900/30 px-4">
       <MetadataRow label="Title" value={draft.title || task.title} />
       <MetadataRow label="Status" value={taskUiStatus(task)[1]} />
@@ -518,14 +543,14 @@ function TaskOverviewSection({ task, draft, project, setField }) {
 }
 
 function TaskDescriptionSection({ draft, setField }) {
-  return <TaskInspectorSection title="Description">
+  return <TaskInspectorSection title="Description" sectionId="description">
     {draft.description?.trim() ? null : <EmptyState>No description yet.</EmptyState>}
     <textarea aria-label="Description" value={draft.description} onChange={(event) => setField('description')(event.target.value)} rows={10} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
   </TaskInspectorSection>;
 }
 
 function TaskChecklistSection({ draft, setField, checklist }) {
-  return <TaskInspectorSection title="Checklist">
+  return <TaskInspectorSection title="Checklist" sectionId="checklist">
     {checklist.length ? <ul className="space-y-2 text-sm text-slate-300">
       {checklist.map((item) => <li key={item} className="flex gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3"><span className="mt-1 h-4 w-4 rounded border border-slate-600" aria-hidden="true" /> <span>{item}</span></li>)}
     </ul> : <EmptyState>No checklist items yet.</EmptyState>}
@@ -534,7 +559,7 @@ function TaskChecklistSection({ draft, setField, checklist }) {
 }
 
 function TaskNotesSection({ draft, setField }) {
-  return <TaskInspectorSection title="Notes">
+  return <TaskInspectorSection title="Notes" sectionId="notes">
     {draft.notes?.trim() ? null : <EmptyState>No notes yet.</EmptyState>}
     <textarea aria-label="Notes" value={draft.notes} onChange={(event) => setField('notes')(event.target.value)} rows={10} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
   </TaskInspectorSection>;
@@ -542,7 +567,7 @@ function TaskNotesSection({ draft, setField }) {
 
 function TaskFilesSection({ draft }) {
   const files = [draft.deliverableLocation, draft.deliverableSummary].filter((value) => String(value || '').trim());
-  return <TaskInspectorSection title="Files">
+  return <TaskInspectorSection title="Files" sectionId="files">
     {files.length ? <ul className="space-y-2 text-sm text-slate-300">
       {files.map((file) => <li key={file} className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">{file}</li>)}
     </ul> : <EmptyState>No files attached.</EmptyState>}
@@ -550,7 +575,7 @@ function TaskFilesSection({ draft }) {
 }
 
 function TaskAgentSection({ draft, setField, agentOpen, onToggleAgent }) {
-  return <TaskInspectorSection title="Agent">
+  return <TaskInspectorSection title="Agent" sectionId="agent">
     <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 text-sm text-slate-200">
       <input type="checkbox" checked={draft.agentReady} onChange={(event) => setField('agentReady')(event.target.checked)} />
       Assignable to Codex
@@ -563,7 +588,7 @@ function TaskAgentSection({ draft, setField, agentOpen, onToggleAgent }) {
 function TaskActivitySection({ task }) {
   const hasOutcome = (task.outcomeHistory || []).length > 0;
   const hasSchedule = (task.scheduleHistory || []).length > 0;
-  return <TaskInspectorSection title="Activity">
+  return <TaskInspectorSection title="Activity" sectionId="activity">
     {hasOutcome ? <div>
       <h4 className="text-sm font-medium text-slate-200">Outcome history</h4>
       <ul className="mt-2 space-y-2 text-sm text-slate-400">
@@ -581,7 +606,7 @@ function TaskActivitySection({ task }) {
 }
 
 function TaskAutomationSection({ task, closed, isSaving, onSchedule }) {
-  return <TaskInspectorSection title="Automation">
+  return <TaskInspectorSection title="Automation" sectionId="automation">
     <dl className="rounded-xl border border-slate-800 bg-slate-900/30 px-4">
       <MetadataRow label="Agent ready" value={task.agentReady ? 'Yes' : 'No'} />
       <MetadataRow label="Postponed" value={task.postponedCount ? `${task.postponedCount} times` : 'No'} />
@@ -592,8 +617,34 @@ function TaskAutomationSection({ task, closed, isSaving, onSchedule }) {
   </TaskInspectorSection>;
 }
 
-function TaskInspectorDrawer({ task, draft, project, open, activeSection, onClose, onSectionChange, setField, checklist, saveState, onSave, agentOpen, onToggleAgent, closed, onSchedule }) {
-  const drawerRef = useRef(null);
+function TaskInspectorHeader({ task, onClose }) {
+  return <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur md:static md:px-5 md:pt-4">
+    <div className="flex min-h-11 items-start justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task Inspector</p>
+        <h2 id="task-inspector-title" className="mt-1 break-words text-lg font-semibold leading-6 text-slate-50 md:truncate">{task.title || 'Untitled task'}</h2>
+      </div>
+      <IconButton label="Close task inspector" onClick={onClose}>x</IconButton>
+    </div>
+  </header>;
+}
+
+function TaskInspectorContent({ children }) {
+  return <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 pb-28 md:p-6">
+    {children}
+  </div>;
+}
+
+function TaskInspectorFooter({ saveState, onSave }) {
+  return <footer className="sticky bottom-0 z-20 border-t border-slate-800 bg-slate-950/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur md:px-5 md:pb-4">
+    <div className="flex justify-end">
+      <button type="button" onClick={onSave} disabled={saveState === 'saving'} className="min-h-11 w-full rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:opacity-60 md:w-auto md:min-w-40">{saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save changes'}</button>
+    </div>
+  </footer>;
+}
+
+function TaskInspectorModal({ task, draft, project, open, activeSection, onClose, onSectionChange, setField, checklist, saveState, onSave, agentOpen, onToggleAgent, closed, onSchedule }) {
+  const modalRef = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -603,7 +654,7 @@ function TaskInspectorDrawer({ task, draft, project, open, activeSection, onClos
     };
     document.body.classList.add('overflow-hidden');
     window.addEventListener('keydown', closeOnEscape);
-    drawerRef.current?.focus();
+    window.setTimeout(() => modalRef.current?.focus(), 0);
     return () => {
       document.body.classList.remove('overflow-hidden');
       window.removeEventListener('keydown', closeOnEscape);
@@ -624,34 +675,26 @@ function TaskInspectorDrawer({ task, draft, project, open, activeSection, onClos
     automation: <TaskAutomationSection task={task} closed={closed} isSaving={saveState === 'saving'} onSchedule={onSchedule} />,
   }[activeSection] || null;
 
-  return <div className="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <aside
-      ref={drawerRef}
+  return <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 p-0 backdrop-blur-md md:p-6" role="presentation" data-testid="task-inspector-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div
+      ref={modalRef}
       tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-labelledby="task-inspector-title"
-      className="ml-auto flex h-[100dvh] w-full flex-col border-l border-slate-800 bg-slate-950 shadow-2xl outline-none md:w-[440px]"
+      data-testid="task-inspector-modal"
+      className="flex h-[100dvh] w-screen flex-col overflow-hidden border-slate-800 bg-slate-950 shadow-2xl outline-none md:h-[min(820px,calc(100vh-48px))] md:w-[min(1100px,calc(100vw-48px))] md:rounded-2xl md:border"
     >
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/95 p-4 backdrop-blur">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task Inspector</p>
-            <h2 id="task-inspector-title" className="mt-1 truncate text-lg font-semibold text-slate-50">{task.title || 'Untitled task'}</h2>
-          </div>
-          <IconButton label="Close task inspector" onClick={onClose}>x</IconButton>
-        </div>
-      </header>
+      <TaskInspectorHeader task={task} onClose={onClose} />
+      <TaskInspectorMobileTabs activeSection={activeSection} onSectionChange={onSectionChange} />
       <div className="min-h-0 flex-1 md:flex">
         <TaskInspectorNav activeSection={activeSection} onSectionChange={onSectionChange} />
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-28">
+        <TaskInspectorContent>
           {section}
-        </div>
+        </TaskInspectorContent>
       </div>
-      <footer className="border-t border-slate-800 bg-slate-950/95 p-4">
-        <button type="button" onClick={onSave} disabled={saveState === 'saving'} className="min-h-11 w-full rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60">{saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save changes'}</button>
-      </footer>
-    </aside>
+      <TaskInspectorFooter saveState={saveState} onSave={onSave} />
+    </div>
   </div>;
 }
 
@@ -732,7 +775,7 @@ export function TaskDetailPanel({ task, projects = [], actions, onEnterExecution
       onInspect={() => setInspectorOpen(true)}
     />
     <TaskOverviewPanel task={task} project={project} closed={closed} onStart={start} onComplete={() => setDialogOpen(true)} onInspect={() => setInspectorOpen(true)} saveState={saveState} />
-    <TaskInspectorDrawer
+    <TaskInspectorModal
       task={task}
       draft={draft}
       project={project}

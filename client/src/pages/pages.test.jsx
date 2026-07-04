@@ -448,7 +448,7 @@ describe('Tasks redesigned experience', () => {
     expect(JSON.parse(patchCall[1].body)).toEqual({ targetDate: tomorrow, reason: 'postponed' });
   });
 
-  test('edits and saves task detail fields from the inspector drawer', async () => {
+  test('edits and saves task detail fields from the inspector modal', async () => {
     global.fetch = vi.fn((url, options) => {
       if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
       if (url.includes('/tasks/1') && options?.method === 'PATCH') {
@@ -464,7 +464,7 @@ describe('Tasks redesigned experience', () => {
     expect(await screen.findByRole('dialog', { name: /Editable task/ })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Edited task' } });
     await userEvent.selectOptions(screen.getByLabelText('Category'), 'admin');
-    await userEvent.click(screen.getByRole('button', { name: 'Notes' }));
+    await userEvent.click(screen.getAllByRole('tab', { name: 'Notes' })[0]);
     fireEvent.change(screen.getByRole('textbox', { name: 'Notes' }), { target: { value: 'Planning notes' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
@@ -473,7 +473,7 @@ describe('Tasks redesigned experience', () => {
     expect(JSON.parse(patchCall[1].body)).toEqual(expect.objectContaining({ title: 'Edited task', category: 'admin', notes: 'Planning notes' }));
   });
 
-  test('opens, switches, and closes the task inspector drawer', async () => {
+  test('opens, switches, and closes the task inspector modal', async () => {
     global.fetch = vi.fn((url) => {
       if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
       if (url.includes('/tasks')) {
@@ -488,16 +488,70 @@ describe('Tasks redesigned experience', () => {
     render(<Tasks />, { wrapper: wrapper() });
     expect((await screen.findAllByText('Inspectable task')).length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole('button', { name: 'Inspect' }));
-    expect(await screen.findByRole('dialog', { name: /Inspectable task/ })).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog', { name: /Inspectable task/ });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByTestId('task-inspector-overlay')).toHaveClass('items-center', 'justify-center', 'backdrop-blur-md');
+    expect(screen.getByTestId('task-inspector-modal')).toHaveClass('md:w-[min(1100px,calc(100vw-48px))]', 'md:h-[min(820px,calc(100vh-48px))]', 'md:rounded-2xl');
+    expect(document.body).toHaveClass('overflow-hidden');
     expect(screen.getByRole('heading', { name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab', { name: 'Overview' })[0]).toHaveAttribute('aria-selected', 'true');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Checklist' }));
+    await userEvent.click(screen.getAllByRole('tab', { name: 'Checklist' })[0]);
     expect(screen.getByRole('heading', { name: 'Checklist' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab', { name: 'Checklist' })[0]).toHaveAttribute('aria-selected', 'true');
     expect(screen.getAllByText('Check item').length).toBeGreaterThan(0);
     expect(screen.queryByRole('heading', { name: 'Notes' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Close task inspector' }));
     expect(screen.queryByRole('dialog', { name: /Inspectable task/ })).not.toBeInTheDocument();
+    expect(document.body).not.toHaveClass('overflow-hidden');
+  });
+
+  test('closes the task inspector modal from the blurred backdrop', async () => {
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
+      if (url.includes('/tasks')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ _id: '1', title: 'Backdrop task', priority: 'must', status: 'open' }],
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect((await screen.findAllByText('Backdrop task')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Inspect' }));
+    expect(await screen.findByRole('dialog', { name: /Backdrop task/ })).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByTestId('task-inspector-overlay'));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Backdrop task/ })).not.toBeInTheDocument());
+    expect(document.body).not.toHaveClass('overflow-hidden');
+  });
+
+  test('closes the task inspector modal with Escape', async () => {
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
+      if (url.includes('/tasks')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ _id: '1', title: 'Escape task', priority: 'must', status: 'open' }],
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect((await screen.findAllByText('Escape task')).length).toBeGreaterThan(0);
+    const inspectButton = screen.getByRole('button', { name: 'Inspect' });
+    await userEvent.click(inspectButton);
+    expect(await screen.findByRole('dialog', { name: /Escape task/ })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Escape task/ })).not.toBeInTheDocument());
+    expect(inspectButton).toHaveFocus();
   });
 
   test('opens focused execution mode for a selected task', async () => {
