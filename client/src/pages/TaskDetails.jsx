@@ -63,7 +63,7 @@ export function TaskDetails() {
     <div className="border-b border-slate-800 p-4">
       <Link to="/tasks" className="inline-flex min-h-11 items-center rounded-lg border border-slate-700 px-3 text-sm text-slate-200 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">Back to tasks</Link>
     </div>
-    <TaskDetailPanel task={task} projects={projectsQuery.data || []} actions={actions} onEnterExecution={setExecutionTask} compact />
+    <TaskDetailPanel task={task} projects={projectsQuery.data || []} actions={actions} onEnterExecution={setExecutionTask} onBack={() => navigate('/tasks')} compact />
     {executionTask ? <div className="fixed inset-0 z-50 bg-slate-950 p-6">
       <div className="mx-auto max-w-2xl">
         <button type="button" onClick={() => setExecutionTask(null)} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm text-slate-200 hover:bg-slate-900">Exit execution mode</button>
