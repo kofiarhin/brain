@@ -21,6 +21,7 @@
     "brain:export": "node scripts/exportKnowledgeBase.js",
     "brain:clear": "node scripts/clearKnowledgeBase.js",
     "brain:import": "node scripts/importKnowledgeBase.js",
+    "seed:context": "node scripts/seedContext.js",
     "brain:generate-post": "node server/scripts/generatePost.js"
   },
   "engines": {
