@@ -448,7 +448,7 @@ describe('Tasks redesigned experience', () => {
     expect(JSON.parse(patchCall[1].body)).toEqual({ targetDate: tomorrow, reason: 'postponed' });
   });
 
-  test('edits and saves task detail fields from the selected detail panel', async () => {
+  test('edits and saves task detail fields from the inspector drawer', async () => {
     global.fetch = vi.fn((url, options) => {
       if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
       if (url.includes('/tasks/1') && options?.method === 'PATCH') {
@@ -459,16 +459,45 @@ describe('Tasks redesigned experience', () => {
     });
 
     render(<Tasks />, { wrapper: wrapper() });
-    expect(await screen.findByDisplayValue('Editable task')).toBeInTheDocument();
-    await userEvent.clear(screen.getByLabelText('Title'));
-    await userEvent.type(screen.getByLabelText('Title'), 'Edited task');
+    expect((await screen.findAllByText('Editable task')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Inspect' }));
+    expect(await screen.findByRole('dialog', { name: /Editable task/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Edited task' } });
     await userEvent.selectOptions(screen.getByLabelText('Category'), 'admin');
-    await userEvent.type(screen.getByLabelText('Notes'), 'Planning notes');
+    await userEvent.click(screen.getByRole('button', { name: 'Notes' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Notes' }), { target: { value: 'Planning notes' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/tasks/1'), expect.objectContaining({ method: 'PATCH' })));
-    const patchCall = global.fetch.mock.calls.find(([url, options]) => url.includes('/tasks/1') && options?.method === 'PATCH');
+    const patchCall = global.fetch.mock.calls.filter(([url, options]) => url.includes('/tasks/1') && options?.method === 'PATCH').at(-1);
     expect(JSON.parse(patchCall[1].body)).toEqual(expect.objectContaining({ title: 'Edited task', category: 'admin', notes: 'Planning notes' }));
+  });
+
+  test('opens, switches, and closes the task inspector drawer', async () => {
+    global.fetch = vi.fn((url) => {
+      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
+      if (url.includes('/tasks')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [{ _id: '1', title: 'Inspectable task', priority: 'must', status: 'open', description: 'Full detail', acceptanceCriteria: 'Check item' }],
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    render(<Tasks />, { wrapper: wrapper() });
+    expect((await screen.findAllByText('Inspectable task')).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Inspect' }));
+    expect(await screen.findByRole('dialog', { name: /Inspectable task/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Overview' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Checklist' }));
+    expect(screen.getByRole('heading', { name: 'Checklist' })).toBeInTheDocument();
+    expect(screen.getAllByText('Check item').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('heading', { name: 'Notes' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close task inspector' }));
+    expect(screen.queryByRole('dialog', { name: /Inspectable task/ })).not.toBeInTheDocument();
   });
 
   test('opens focused execution mode for a selected task', async () => {
@@ -485,7 +514,7 @@ describe('Tasks redesigned experience', () => {
 
     render(<Tasks />, { wrapper: wrapper() });
     expect((await screen.findAllByText('Execute task')).length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByRole('button', { name: 'Open execution mode' }));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Start' })[0]);
     expect(screen.getByText('Execution mode')).toBeInTheDocument();
     expect(screen.getAllByText('Focused output').length).toBeGreaterThan(0);
     expect(screen.getAllByText('First step').length).toBeGreaterThan(0);
@@ -512,6 +541,8 @@ describe('Tasks redesigned experience', () => {
       </MemoryRouter>
     );
 
+    expect(await screen.findByText('Route task')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Inspect' }));
     expect(await screen.findByDisplayValue('Route task')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Complete' }));
     await userEvent.click(screen.getByRole('button', { name: 'Apply' }));

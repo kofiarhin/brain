@@ -386,19 +386,15 @@ function Field({ label, children }) {
   </label>;
 }
 
-function TaskActionBar({ task, isClosedTask, onStart, onComplete, onSchedule, onArchive, onDelete, onConvert, isSaving }) {
+function TaskActionBar({ task, isClosedTask, onStart, onComplete, onSchedule, onArchive, onDelete, onConvert, onInspect, isSaving }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
-  return <div className="sticky top-0 z-10 -mx-5 border-b border-slate-800 bg-slate-950/95 px-5 py-3 backdrop-blur">
-    <div className="flex flex-wrap items-center gap-2">
-      <button type="button" onClick={onStart} disabled={isSaving || isClosedTask} className="min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60">{task?.startedAt ? 'Continue' : 'Start'}</button>
-      {isClosedTask
-        ? null
-        : <button type="button" onClick={onComplete} disabled={isSaving} className="min-h-11 rounded-lg border border-green-500/50 px-4 text-sm font-semibold text-green-100 hover:bg-green-500/10">Complete</button>}
-      <button type="button" onClick={onSchedule} disabled={isSaving || isClosedTask} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm font-medium text-slate-200 hover:bg-slate-900 disabled:opacity-60">Schedule</button>
+  return <div className="-mx-5 border-b border-slate-800 bg-slate-950/95 px-5 py-3">
+    <div className="flex justify-end">
       <div className="relative">
         <IconButton label="More task actions" onClick={() => setMoreOpen((current) => !current)}>...</IconButton>
         {moreOpen ? <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-slate-800 bg-slate-950 p-2 shadow-xl" role="menu">
+          <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900 disabled:opacity-60" disabled={isSaving || isClosedTask} onClick={() => { setMoreOpen(false); onSchedule(); }}>Schedule tomorrow</button>
           <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900" onClick={() => { setMoreOpen(false); onConvert(); }}>Split or convert</button>
           <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900" onClick={() => { setMoreOpen(false); onArchive(); }}>Archive</button>
           <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-red-200 hover:bg-red-500/10" onClick={() => { setMoreOpen(false); onDelete(); }}>Delete</button>
@@ -408,11 +404,264 @@ function TaskActionBar({ task, isClosedTask, onStart, onComplete, onSchedule, on
   </div>;
 }
 
+const inspectorSections = [
+  ['overview', 'Overview'],
+  ['description', 'Description'],
+  ['checklist', 'Checklist'],
+  ['notes', 'Notes'],
+  ['files', 'Files'],
+  ['agent', 'Agent'],
+  ['activity', 'Activity'],
+  ['automation', 'Automation'],
+];
+
+function EmptyState({ children }) {
+  return <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-500">{children}</div>;
+}
+
+function MetadataRow({ label, value }) {
+  return <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-3 border-b border-slate-800 py-3 text-sm last:border-b-0">
+    <dt className="text-slate-500">{label}</dt>
+    <dd className="min-w-0 break-words text-slate-200">{value || 'None'}</dd>
+  </div>;
+}
+
+function TaskOverviewPanel({ task, project, closed, onStart, onComplete, onInspect, saveState }) {
+  const [statusKey, status] = taskUiStatus(task);
+  const date = taskDate(task);
+  const preview = previewText(task);
+
+  return <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6">
+    <div className="max-w-3xl">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Selected task</p>
+      <h2 className="mt-2 break-words text-2xl font-semibold tracking-tight text-slate-50">{task.title || 'Untitled task'}</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <p className="text-xs text-slate-500">Status</p>
+          <p className={cx('mt-1 text-sm font-semibold', statusKey === 'blocked' ? 'text-red-200' : statusKey === 'waiting' ? 'text-amber-200' : statusKey === 'completed' ? 'text-green-200' : 'text-slate-100')}>{status}</p>
+        </div>
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <p className="text-xs text-slate-500">Priority</p>
+          <p className="mt-1 text-sm font-semibold text-slate-100">{priorityLabel(task.priority)}</p>
+        </div>
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <p className="text-xs text-slate-500">Due / schedule</p>
+          <p className="mt-1 text-sm font-semibold text-slate-100">{date || 'Unscheduled'}</p>
+        </div>
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <p className="text-xs text-slate-500">Category / project</p>
+          <p className="mt-1 text-sm font-semibold text-slate-100">{project?.name || categoryLabel(task.category)}</p>
+        </div>
+      </div>
+      <div className="mt-5 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Preview</p>
+        <p className="mt-2 line-clamp-4 text-sm leading-6 text-slate-300">{preview || 'No description yet.'}</p>
+      </div>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button type="button" onClick={onStart} disabled={saveState === 'saving' || closed} className="min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60">{task?.startedAt ? 'Continue' : 'Start'}</button>
+        {closed ? null : <button type="button" onClick={onComplete} disabled={saveState === 'saving'} className="min-h-11 rounded-lg border border-green-500/50 px-4 text-sm font-semibold text-green-100 hover:bg-green-500/10 disabled:opacity-60">Complete</button>}
+        <button type="button" onClick={onInspect} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm font-medium text-slate-100 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">Inspect</button>
+      </div>
+    </div>
+  </div>;
+}
+
+function TaskInspectorNav({ activeSection, onSectionChange }) {
+  return <nav aria-label="Task inspector sections" className="flex gap-2 overflow-x-auto border-b border-slate-800 px-4 py-3 md:grid md:w-36 md:shrink-0 md:content-start md:gap-1 md:overflow-visible md:border-b-0 md:border-r md:p-3">
+    {inspectorSections.map(([value, label]) => <button
+      key={value}
+      type="button"
+      onClick={() => onSectionChange(value)}
+      className={cx('min-h-11 whitespace-nowrap rounded-lg px-3 text-left text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500', activeSection === value ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-900')}
+    >
+      {label}
+    </button>)}
+  </nav>;
+}
+
+function TaskInspectorSection({ title, children }) {
+  return <section aria-labelledby={`inspector-${title.toLowerCase().replace(/\s+/g, '-')}`} className="space-y-4">
+    <h3 id={`inspector-${title.toLowerCase().replace(/\s+/g, '-')}`} className="text-lg font-semibold text-slate-50">{title}</h3>
+    {children}
+  </section>;
+}
+
+function TaskOverviewSection({ task, draft, project, setField }) {
+  return <TaskInspectorSection title="Overview">
+    <dl className="rounded-xl border border-slate-800 bg-slate-900/30 px-4">
+      <MetadataRow label="Title" value={draft.title || task.title} />
+      <MetadataRow label="Status" value={taskUiStatus(task)[1]} />
+      <MetadataRow label="Priority" value={priorityLabel(draft.priority)} />
+      <MetadataRow label="Schedule" value={taskDate(task) || 'Unscheduled'} />
+      <MetadataRow label="Category" value={categoryLabel(draft.category)} />
+      <MetadataRow label="Project" value={project?.name || draft.projectId} />
+    </dl>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field label="Title">
+        <input aria-label="Title" value={draft.title} onChange={(event) => setField('title')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </Field>
+      <Field label="Priority">
+        <select aria-label="Priority" value={normalizePriority(draft.priority)} onChange={(event) => setField('priority')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </Field>
+      <Field label="Category">
+        <select aria-label="Category" value={draft.category} onChange={(event) => setField('category')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {categoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </Field>
+      <Field label="Project ID">
+        <input aria-label="Project ID" value={draft.projectId} onChange={(event) => setField('projectId')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </Field>
+    </div>
+  </TaskInspectorSection>;
+}
+
+function TaskDescriptionSection({ draft, setField }) {
+  return <TaskInspectorSection title="Description">
+    {draft.description?.trim() ? null : <EmptyState>No description yet.</EmptyState>}
+    <textarea aria-label="Description" value={draft.description} onChange={(event) => setField('description')(event.target.value)} rows={10} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+  </TaskInspectorSection>;
+}
+
+function TaskChecklistSection({ draft, setField, checklist }) {
+  return <TaskInspectorSection title="Checklist">
+    {checklist.length ? <ul className="space-y-2 text-sm text-slate-300">
+      {checklist.map((item) => <li key={item} className="flex gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3"><span className="mt-1 h-4 w-4 rounded border border-slate-600" aria-hidden="true" /> <span>{item}</span></li>)}
+    </ul> : <EmptyState>No checklist items yet.</EmptyState>}
+    <textarea aria-label="Completion checklist" value={draft.acceptanceCriteria} onChange={(event) => setField('acceptanceCriteria')(event.target.value)} rows={7} placeholder="One checklist item per line" className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+  </TaskInspectorSection>;
+}
+
+function TaskNotesSection({ draft, setField }) {
+  return <TaskInspectorSection title="Notes">
+    {draft.notes?.trim() ? null : <EmptyState>No notes yet.</EmptyState>}
+    <textarea aria-label="Notes" value={draft.notes} onChange={(event) => setField('notes')(event.target.value)} rows={10} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+  </TaskInspectorSection>;
+}
+
+function TaskFilesSection({ draft }) {
+  const files = [draft.deliverableLocation, draft.deliverableSummary].filter((value) => String(value || '').trim());
+  return <TaskInspectorSection title="Files">
+    {files.length ? <ul className="space-y-2 text-sm text-slate-300">
+      {files.map((file) => <li key={file} className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">{file}</li>)}
+    </ul> : <EmptyState>No files attached.</EmptyState>}
+  </TaskInspectorSection>;
+}
+
+function TaskAgentSection({ draft, setField, agentOpen, onToggleAgent }) {
+  return <TaskInspectorSection title="Agent">
+    <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 text-sm text-slate-200">
+      <input type="checkbox" checked={draft.agentReady} onChange={(event) => setField('agentReady')(event.target.checked)} />
+      Assignable to Codex
+    </label>
+    {draft.codexPrompt?.trim() ? <button type="button" onClick={onToggleAgent} className="min-h-11 rounded-lg border border-blue-500/50 px-4 text-sm font-medium text-blue-100 hover:bg-blue-500/10">{agentOpen ? 'Hide prompt' : 'Show prompt'}</button> : <EmptyState>No agent activity yet.</EmptyState>}
+    {agentOpen || !draft.codexPrompt?.trim() ? <textarea aria-label="Agent Instructions Prompt" value={draft.codexPrompt} onChange={(event) => setField('codexPrompt')(event.target.value)} rows={10} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" /> : null}
+  </TaskInspectorSection>;
+}
+
+function TaskActivitySection({ task }) {
+  const hasOutcome = (task.outcomeHistory || []).length > 0;
+  const hasSchedule = (task.scheduleHistory || []).length > 0;
+  return <TaskInspectorSection title="Activity">
+    {hasOutcome ? <div>
+      <h4 className="text-sm font-medium text-slate-200">Outcome history</h4>
+      <ul className="mt-2 space-y-2 text-sm text-slate-400">
+        {task.outcomeHistory.map((item, index) => <li key={`${item.timestamp}-${index}`} className="rounded-lg bg-slate-900 p-3">{item.fromStatus || 'open'} to {item.toStatus} {item.reason ? `- ${item.reason}` : ''}</li>)}
+      </ul>
+    </div> : null}
+    {hasSchedule ? <div>
+      <h4 className="text-sm font-medium text-slate-200">Schedule history</h4>
+      <ul className="mt-2 space-y-2 text-sm text-slate-400">
+        {task.scheduleHistory.map((item, index) => <li key={`${item.changedAt}-${index}`} className="rounded-lg bg-slate-900 p-3">{item.fromScheduledLondonDate || 'unscheduled'} to {item.toScheduledLondonDate}</li>)}
+      </ul>
+    </div> : null}
+    {!hasOutcome && !hasSchedule ? <EmptyState>No activity recorded yet.</EmptyState> : null}
+  </TaskInspectorSection>;
+}
+
+function TaskAutomationSection({ task, closed, isSaving, onSchedule }) {
+  return <TaskInspectorSection title="Automation">
+    <dl className="rounded-xl border border-slate-800 bg-slate-900/30 px-4">
+      <MetadataRow label="Agent ready" value={task.agentReady ? 'Yes' : 'No'} />
+      <MetadataRow label="Postponed" value={task.postponedCount ? `${task.postponedCount} times` : 'No'} />
+      <MetadataRow label="Last postponed" value={task.lastPostponedAt || 'None'} />
+    </dl>
+    <button type="button" onClick={onSchedule} disabled={isSaving || closed} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm font-medium text-slate-200 hover:bg-slate-900 disabled:opacity-60">Schedule tomorrow</button>
+    {!task.agentReady && !task.postponedCount ? <EmptyState>No automation configured.</EmptyState> : null}
+  </TaskInspectorSection>;
+}
+
+function TaskInspectorDrawer({ task, draft, project, open, activeSection, onClose, onSectionChange, setField, checklist, saveState, onSave, agentOpen, onToggleAgent, closed, onSchedule }) {
+  const drawerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previous = document.activeElement;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.body.classList.add('overflow-hidden');
+    window.addEventListener('keydown', closeOnEscape);
+    drawerRef.current?.focus();
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+      window.removeEventListener('keydown', closeOnEscape);
+      previous?.focus?.();
+    };
+  }, [open, onClose]);
+
+  if (!open || !task) return null;
+
+  const section = {
+    overview: <TaskOverviewSection task={task} draft={draft} project={project} setField={setField} />,
+    description: <TaskDescriptionSection draft={draft} setField={setField} />,
+    checklist: <TaskChecklistSection draft={draft} setField={setField} checklist={checklist} />,
+    notes: <TaskNotesSection draft={draft} setField={setField} />,
+    files: <TaskFilesSection draft={draft} />,
+    agent: <TaskAgentSection draft={draft} setField={setField} agentOpen={agentOpen} onToggleAgent={onToggleAgent} />,
+    activity: <TaskActivitySection task={task} />,
+    automation: <TaskAutomationSection task={task} closed={closed} isSaving={saveState === 'saving'} onSchedule={onSchedule} />,
+  }[activeSection] || null;
+
+  return <div className="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <aside
+      ref={drawerRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="task-inspector-title"
+      className="ml-auto flex h-[100dvh] w-full flex-col border-l border-slate-800 bg-slate-950 shadow-2xl outline-none md:w-[440px]"
+    >
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/95 p-4 backdrop-blur">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task Inspector</p>
+            <h2 id="task-inspector-title" className="mt-1 truncate text-lg font-semibold text-slate-50">{task.title || 'Untitled task'}</h2>
+          </div>
+          <IconButton label="Close task inspector" onClick={onClose}>x</IconButton>
+        </div>
+      </header>
+      <div className="min-h-0 flex-1 md:flex">
+        <TaskInspectorNav activeSection={activeSection} onSectionChange={onSectionChange} />
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-28">
+          {section}
+        </div>
+      </div>
+      <footer className="border-t border-slate-800 bg-slate-950/95 p-4">
+        <button type="button" onClick={onSave} disabled={saveState === 'saving'} className="min-h-11 w-full rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60">{saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save changes'}</button>
+      </footer>
+    </aside>
+  </div>;
+}
+
 export function TaskDetailPanel({ task, projects = [], actions, onEnterExecution, compact = false }) {
   const [draft, setDraft] = useState(() => taskToDraft(task));
   const [saveState, setSaveState] = useState('idle');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [agentOpen, setAgentOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [activeInspectorSection, setActiveInspectorSection] = useState('overview');
 
   useEffect(() => {
     setDraft(taskToDraft(task));
@@ -480,98 +729,26 @@ export function TaskDetailPanel({ task, projects = [], actions, onEnterExecution
       onArchive={archive}
       onDelete={remove}
       onConvert={convert}
+      onInspect={() => setInspectorOpen(true)}
     />
-    <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-24 pt-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Task detail</p>
-          <h2 className="mt-1 break-words text-2xl font-semibold tracking-tight text-slate-50">{task.title}</h2>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">
-            <span className="rounded-full bg-slate-900 px-2.5 py-1">{taskUiStatus(task)[1]}</span>
-            <span className="rounded-full bg-slate-900 px-2.5 py-1">{priorityLabel(task.priority)}</span>
-            <span className="rounded-full bg-slate-900 px-2.5 py-1">{categoryLabel(task.category)}</span>
-            {taskDate(task) ? <span className="rounded-full bg-slate-900 px-2.5 py-1">{taskDate(task)}</span> : null}
-            {project ? <span className="rounded-full bg-slate-900 px-2.5 py-1">{project.name}</span> : null}
-          </div>
-        </div>
-        <a href={`/tasks/${task._id}`} className="hidden rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 md:inline-flex">Open page</a>
-      </div>
-
-      <Section title="Overview">
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Title">
-            <input value={draft.title} onChange={(event) => setField('title')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </Field>
-          <Field label="Priority">
-            <select value={normalizePriority(draft.priority)} onChange={(event) => setField('priority')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-              {priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </Field>
-          <Field label="Category">
-            <select value={draft.category} onChange={(event) => setField('category')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-              {categoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </Field>
-          <Field label="Project ID">
-            <input value={draft.projectId} onChange={(event) => setField('projectId')(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </Field>
-        </div>
-      </Section>
-
-      <Section title="Description">
-        <textarea aria-label="Description" value={draft.description} onChange={(event) => setField('description')(event.target.value)} rows={6} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      </Section>
-
-      <Section title="Checklist">
-        <textarea aria-label="Completion checklist" value={draft.acceptanceCriteria} onChange={(event) => setField('acceptanceCriteria')(event.target.value)} rows={5} placeholder="One checklist item per line" className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        {checklist.length ? <ul className="mt-3 space-y-2 text-sm text-slate-300">
-          {checklist.map((item) => <li key={item} className="flex gap-2"><span className="mt-1 h-4 w-4 rounded border border-slate-600" aria-hidden="true" /> <span>{item}</span></li>)}
-        </ul> : null}
-      </Section>
-
-      <Section title="Notes">
-        <textarea aria-label="Notes" value={draft.notes} onChange={(event) => setField('notes')(event.target.value)} rows={6} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      </Section>
-
-      <Section title="Agent">
-        <div className="space-y-3">
-          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-3 text-sm text-slate-200">
-            <input type="checkbox" checked={draft.agentReady} onChange={(event) => setField('agentReady')(event.target.checked)} />
-            Assignable to Codex
-          </label>
-          {draft.codexPrompt?.trim() ? <button type="button" onClick={() => setAgentOpen((current) => !current)} className="min-h-11 rounded-lg border border-blue-500/50 px-4 text-sm font-medium text-blue-100 hover:bg-blue-500/10">{agentOpen ? 'Hide prompt' : 'Show prompt'}</button> : <p className="text-sm text-slate-500">No AI execution prompt has been saved for this task.</p>}
-          {agentOpen || !draft.codexPrompt?.trim() ? <textarea aria-label="Agent Instructions Prompt" value={draft.codexPrompt} onChange={(event) => setField('codexPrompt')(event.target.value)} rows={8} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" /> : null}
-        </div>
-      </Section>
-
-      <Section title="Execution">
-        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
-          <p className="text-sm text-slate-300">{draft.expectedDeliverable || 'Define the intended output before executing.'}</p>
-          <button type="button" onClick={() => onEnterExecution?.(task)} className="mt-4 min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500">Open execution mode</button>
-        </div>
-      </Section>
-
-      <Section title="Activity / History" defaultOpen={false}>
-        <div className="space-y-4 text-sm text-slate-400">
-          {(task.outcomeHistory || []).length ? <div>
-            <h3 className="font-medium text-slate-200">Outcome history</h3>
-            <ul className="mt-2 space-y-2">
-              {task.outcomeHistory.map((item, index) => <li key={`${item.timestamp}-${index}`} className="rounded-lg bg-slate-900 p-3">{item.fromStatus || 'open'} to {item.toStatus} {item.reason ? `- ${item.reason}` : ''}</li>)}
-            </ul>
-          </div> : null}
-          {(task.scheduleHistory || []).length ? <div>
-            <h3 className="font-medium text-slate-200">Schedule history</h3>
-            <ul className="mt-2 space-y-2">
-              {task.scheduleHistory.map((item, index) => <li key={`${item.changedAt}-${index}`} className="rounded-lg bg-slate-900 p-3">{item.fromScheduledLondonDate || 'unscheduled'} to {item.toScheduledLondonDate}</li>)}
-            </ul>
-          </div> : null}
-          {!(task.outcomeHistory || []).length && !(task.scheduleHistory || []).length ? <p>No activity yet.</p> : null}
-        </div>
-      </Section>
-    </div>
-    <div className="fixed inset-x-0 bottom-0 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur md:static md:p-5">
-      <button type="button" onClick={save} disabled={saveState === 'saving'} className="min-h-11 w-full rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60">{saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save changes'}</button>
-    </div>
+    <TaskOverviewPanel task={task} project={project} closed={closed} onStart={start} onComplete={() => setDialogOpen(true)} onInspect={() => setInspectorOpen(true)} saveState={saveState} />
+    <TaskInspectorDrawer
+      task={task}
+      draft={draft}
+      project={project}
+      open={inspectorOpen}
+      activeSection={activeInspectorSection}
+      onClose={() => setInspectorOpen(false)}
+      onSectionChange={setActiveInspectorSection}
+      setField={setField}
+      checklist={checklist}
+      saveState={saveState}
+      onSave={save}
+      agentOpen={agentOpen}
+      onToggleAgent={() => setAgentOpen((current) => !current)}
+      closed={closed}
+      onSchedule={scheduleTomorrow}
+    />
     <CompletionDialog task={task} open={dialogOpen} onClose={() => setDialogOpen(false)} onFinish={finish} onPostpone={postpone} onBlocked={blocked} onCancelled={cancelled} />
   </section>;
 }
@@ -725,9 +902,7 @@ export function Tasks() {
   };
 
   return <div className="min-h-[calc(100vh-5rem)]">
-    <MobileTaskHome tasks={items} selectedTask={selectedTask} counts={counts} onCapture={() => setCaptureOpen(true)} onSelect={setSelectedId} onExecution={setExecutionTask} />
-
-    <div className="hidden min-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 md:grid md:grid-cols-[minmax(360px,42%)_minmax(0,1fr)] lg:grid-cols-[420px_minmax(0,1fr)]">
+    <div className="grid min-h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 md:min-h-[calc(100vh-5rem)] md:grid-cols-[minmax(360px,42%)_minmax(0,1fr)] lg:grid-cols-[420px_minmax(0,1fr)]">
       <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]">
         <TaskSidebar selectedView={selectedView} counts={counts} onSelectView={setSelectedView} search={search} onSearch={setSearch} onNewTask={() => setCaptureOpen(true)} />
         <div className="min-h-0 overflow-y-auto p-3">
