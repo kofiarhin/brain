@@ -348,7 +348,7 @@ describe('DayPlan page', () => {
 });
 
 describe('Tasks redesigned experience', () => {
-  test('renders clean task rows with detail actions instead of per-card action clutter', async () => {
+  test('renders a Gmail-style inbox and opens a dedicated task reader', async () => {
     global.fetch = vi.fn((url) => {
       if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
       if (url.includes('/tasks')) {
@@ -363,8 +363,14 @@ describe('Tasks redesigned experience', () => {
     render(<Tasks />, { wrapper: wrapper() });
 
     expect((await screen.findAllByText('Focused task')).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: 'Start' }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('button', { name: 'Complete' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Tasks Inbox' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Start' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Focused task/ }));
+    expect(await screen.findByRole('button', { name: 'Start' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Tasks Inbox' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('heading', { name: 'Tasks Inbox' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'More task actions' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Copy task title' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Postpone Focused task/)).not.toBeInTheDocument();
@@ -438,7 +444,8 @@ describe('Tasks redesigned experience', () => {
 
     render(<Tasks />, { wrapper: wrapper() });
     expect((await screen.findAllByText('Dialog task')).length).toBeGreaterThan(0);
-    await userEvent.click(screen.getAllByRole('button', { name: 'Complete' })[0]);
+    await userEvent.click(screen.getByRole('button', { name: /Dialog task/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Complete' }));
     await userEvent.click(screen.getByRole('button', { name: 'Postponed' }));
     fireEvent.change(screen.getByLabelText('New date'), { target: { value: tomorrow } });
     await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
@@ -448,7 +455,7 @@ describe('Tasks redesigned experience', () => {
     expect(JSON.parse(patchCall[1].body)).toEqual({ targetDate: tomorrow, reason: 'postponed' });
   });
 
-  test('edits and saves task detail fields from the inspector modal', async () => {
+  test('edits and saves task detail fields from the reader', async () => {
     global.fetch = vi.fn((url, options) => {
       if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
       if (url.includes('/tasks/1') && options?.method === 'PATCH') {
@@ -460,11 +467,10 @@ describe('Tasks redesigned experience', () => {
 
     render(<Tasks />, { wrapper: wrapper() });
     expect((await screen.findAllByText('Editable task')).length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByRole('button', { name: 'Inspect' }));
-    expect(await screen.findByRole('dialog', { name: /Editable task/ })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Edited task' } });
+    await userEvent.click(screen.getByRole('button', { name: /Editable task/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Editable task' }));
+    fireEvent.change(await screen.findByLabelText('Title'), { target: { value: 'Edited task' } });
     await userEvent.selectOptions(screen.getByLabelText('Category'), 'admin');
-    await userEvent.click(screen.getAllByRole('tab', { name: 'Notes' })[0]);
     fireEvent.change(screen.getByRole('textbox', { name: 'Notes' }), { target: { value: 'Planning notes' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
@@ -473,7 +479,7 @@ describe('Tasks redesigned experience', () => {
     expect(JSON.parse(patchCall[1].body)).toEqual(expect.objectContaining({ title: 'Edited task', category: 'admin', notes: 'Planning notes' }));
   });
 
-  test('opens, switches, and closes the task inspector modal', async () => {
+  test('opens reader sections and closes back to the preserved inbox', async () => {
     global.fetch = vi.fn((url) => {
       if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
       if (url.includes('/tasks')) {
@@ -487,50 +493,16 @@ describe('Tasks redesigned experience', () => {
 
     render(<Tasks />, { wrapper: wrapper() });
     expect((await screen.findAllByText('Inspectable task')).length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByRole('button', { name: 'Inspect' }));
-    const dialog = await screen.findByRole('dialog', { name: /Inspectable task/ });
-    expect(dialog).toBeInTheDocument();
-    expect(screen.getByTestId('task-inspector-overlay')).toHaveClass('items-center', 'justify-center', 'backdrop-blur-md');
-    expect(screen.getByTestId('task-inspector-modal')).toHaveClass('md:w-[min(1100px,calc(100vw-48px))]', 'md:h-[min(820px,calc(100vh-48px))]', 'md:rounded-2xl');
-    expect(document.body).toHaveClass('overflow-hidden');
-    expect(screen.getByRole('heading', { name: 'Overview' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab', { name: 'Overview' })[0]).toHaveAttribute('aria-selected', 'true');
-
-    await userEvent.click(screen.getAllByRole('tab', { name: 'Checklist' })[0]);
+    await userEvent.click(screen.getByRole('button', { name: /Inspectable task/ }));
+    expect(await screen.findByRole('heading', { name: 'Inspectable task' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Description' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Checklist' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab', { name: 'Checklist' })[0]).toHaveAttribute('aria-selected', 'true');
     expect(screen.getAllByText('Check item').length).toBeGreaterThan(0);
-    expect(screen.queryByRole('heading', { name: 'Notes' })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Close task inspector' }));
-    expect(screen.queryByRole('dialog', { name: /Inspectable task/ })).not.toBeInTheDocument();
-    expect(document.body).not.toHaveClass('overflow-hidden');
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('heading', { name: 'Tasks Inbox' })).toBeInTheDocument();
   });
 
-  test('closes the task inspector modal from the blurred backdrop', async () => {
-    global.fetch = vi.fn((url) => {
-      if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
-      if (url.includes('/tasks')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => [{ _id: '1', title: 'Backdrop task', priority: 'must', status: 'open' }],
-        });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({}) });
-    });
-
-    render(<Tasks />, { wrapper: wrapper() });
-    expect((await screen.findAllByText('Backdrop task')).length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByRole('button', { name: 'Inspect' }));
-    expect(await screen.findByRole('dialog', { name: /Backdrop task/ })).toBeInTheDocument();
-
-    fireEvent.mouseDown(screen.getByTestId('task-inspector-overlay'));
-
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Backdrop task/ })).not.toBeInTheDocument());
-    expect(document.body).not.toHaveClass('overflow-hidden');
-  });
-
-  test('closes the task inspector modal with Escape', async () => {
+  test('reader closes with Escape', async () => {
     global.fetch = vi.fn((url) => {
       if (url.includes('/projects')) return Promise.resolve({ ok: true, json: async () => [] });
       if (url.includes('/tasks')) {
@@ -544,14 +516,12 @@ describe('Tasks redesigned experience', () => {
 
     render(<Tasks />, { wrapper: wrapper() });
     expect((await screen.findAllByText('Escape task')).length).toBeGreaterThan(0);
-    const inspectButton = screen.getByRole('button', { name: 'Inspect' });
-    await userEvent.click(inspectButton);
-    expect(await screen.findByRole('dialog', { name: /Escape task/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Escape task/ }));
+    expect(await screen.findByRole('heading', { name: 'Escape task' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Escape task/ })).not.toBeInTheDocument());
-    expect(inspectButton).toHaveFocus();
+    expect(await screen.findByRole('heading', { name: 'Tasks Inbox' })).toBeInTheDocument();
   });
 
   test('opens focused execution mode for a selected task', async () => {
@@ -568,7 +538,8 @@ describe('Tasks redesigned experience', () => {
 
     render(<Tasks />, { wrapper: wrapper() });
     expect((await screen.findAllByText('Execute task')).length).toBeGreaterThan(0);
-    await userEvent.click(screen.getAllByRole('button', { name: 'Start' })[0]);
+    await userEvent.click(screen.getByRole('button', { name: /Execute task/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Start' }));
     expect(screen.getByText('Execution mode')).toBeInTheDocument();
     expect(screen.getAllByText('Focused output').length).toBeGreaterThan(0);
     expect(screen.getAllByText('First step').length).toBeGreaterThan(0);
@@ -596,7 +567,7 @@ describe('Tasks redesigned experience', () => {
     );
 
     expect(await screen.findByText('Route task')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Inspect' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Route task' }));
     expect(await screen.findByDisplayValue('Route task')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Complete' }));
     await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
