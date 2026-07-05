@@ -124,6 +124,23 @@ CRUD endpoints are available for:
 - `/api/brain-update-reports`
 - `/api/generated-posts`
 
+Utility endpoints:
+
+- `GET /api/health`
+- `GET /api/version`
+
+`GET /api/version` returns app metadata for deployment verification:
+
+```json
+{
+  "name": "brain",
+  "version": "2.0.0",
+  "environment": "production",
+  "status": "ok",
+  "timestamp": "2026-07-05T00:00:00.000Z"
+}
+```
+
 Brain update reports support:
 
 - `GET /api/brain-update-reports`
