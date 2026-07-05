@@ -22,23 +22,27 @@ function MetricCard({ label, value, helper }) {
   </div>;
 }
 
+function findStat(stats = EMPTY_ARRAY, label) {
+  return stats.find((item) => item.label === label)?.value || 0;
+}
+
 function buildDashboardView(summary) {
   if (!summary) return null;
 
   const overview = summary.overview || {
-    todayScore: summary.todayScore || 0,
+    todayScore: summary.todayScore ?? 0,
     scoreLabel: summary.scoreLabel || 'Needs attention',
-    timeRemainingHours: summary.timeRemaining?.hours || 0,
-    remainingBlocks: summary.timeRemaining?.blocks || 0,
-    brainHealthScore: summary.brainHealth?.score || 0,
+    timeRemainingHours: summary.timeRemaining?.hours ?? 0,
+    remainingBlocks: summary.timeRemaining?.blocks ?? 0,
+    brainHealthScore: summary.brainHealth?.score ?? 0,
   };
   const counts = summary.counts || {
-    waiting: summary.kpis?.waiting || 0,
-    openTasks: summary.kpis?.openTasks || 0,
-    openTaskOutputs: summary.kpis?.openTaskOutputs || 0,
-    reviewsDue: summary.kpis?.reviewsDue || 0,
-    notes: summary.brainHealth?.stats?.find((item) => item.label === 'Notes')?.value || 0,
-    ideas: summary.brainHealth?.stats?.find((item) => item.label === 'Ideas')?.value || 0,
+    waiting: summary.kpis?.waiting ?? 0,
+    openTasks: summary.kpis?.openTasks ?? 0,
+    openTaskOutputs: summary.kpis?.openTaskOutputs ?? 0,
+    reviewsDue: summary.kpis?.reviewsDue ?? 0,
+    notes: findStat(summary.brainHealth?.stats, 'Notes'),
+    ideas: findStat(summary.brainHealth?.stats, 'Ideas'),
   };
   const charts = summary.charts || {
     focusAllocation: summary.focusAllocation || EMPTY_ARRAY,
@@ -82,9 +86,9 @@ export function Dashboard() {
     <div className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-5 shadow-2xl sm:p-7">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm font-medium uppercase tracking-[0.28em] text-cyan-300">Command Center</p>
+          <p className="text-sm font-medium uppercase tracking-[0.28em] text-cyan-300">Mission Control</p>
           <h1 className="mt-2 text-4xl font-black text-slate-50">Dashboard</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">A cleaner operating view powered by one server-side dashboard summary.</p>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">High-level overview of execution, open loops, focus, and brain health. Day Plan remains the source for the actual timeline.</p>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-400">
           Updated {new Date(dashboard.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
