@@ -12,6 +12,8 @@ import {
   TrendSparklines
 } from '../components/dashboard/DashboardCharts';
 
+const EMPTY_ARRAY = [];
+
 function MetricCard({ label, value, helper }) {
   return <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
@@ -23,20 +25,48 @@ function MetricCard({ label, value, helper }) {
 function buildDashboardView(summary) {
   if (!summary) return null;
 
+  const overview = summary.overview || {
+    todayScore: summary.todayScore || 0,
+    scoreLabel: summary.scoreLabel || 'Needs attention',
+    timeRemainingHours: summary.timeRemaining?.hours || 0,
+    remainingBlocks: summary.timeRemaining?.blocks || 0,
+    brainHealthScore: summary.brainHealth?.score || 0,
+  };
+  const counts = summary.counts || {
+    waiting: summary.kpis?.waiting || 0,
+    openTasks: summary.kpis?.openTasks || 0,
+    openTaskOutputs: summary.kpis?.openTaskOutputs || 0,
+    reviewsDue: summary.kpis?.reviewsDue || 0,
+    notes: summary.brainHealth?.stats?.find((item) => item.label === 'Notes')?.value || 0,
+    ideas: summary.brainHealth?.stats?.find((item) => item.label === 'Ideas')?.value || 0,
+  };
+  const charts = summary.charts || {
+    focusAllocation: summary.focusAllocation || EMPTY_ARRAY,
+    heatmap: summary.heatmap || EMPTY_ARRAY,
+    trends: summary.trends || EMPTY_ARRAY,
+    projectProgress: summary.projectRings || EMPTY_ARRAY,
+    lifeRadar: summary.lifeRadar || EMPTY_ARRAY,
+  };
+
   return {
     ...summary,
+    overview,
+    counts,
+    charts,
+    generatedAt: summary.generatedAt || new Date().toISOString(),
+    insights: summary.insights || EMPTY_ARRAY,
     timeRemaining: {
-      blocks: summary.overview.remainingBlocks,
-      hours: summary.overview.timeRemainingHours,
-      categories: summary.charts.focusAllocation,
+      blocks: overview.remainingBlocks,
+      hours: overview.timeRemainingHours,
+      categories: charts.focusAllocation,
     },
     brainHealth: {
-      score: summary.overview.brainHealthScore,
+      score: overview.brainHealthScore,
       stats: [
-        { label: 'Open loops', value: summary.counts.waiting },
-        { label: 'Reviews due', value: summary.counts.reviewsDue },
-        { label: 'Notes', value: summary.counts.notes },
-        { label: 'Ideas', value: summary.counts.ideas },
+        { label: 'Open loops', value: counts.waiting },
+        { label: 'Reviews due', value: counts.reviewsDue },
+        { label: 'Notes', value: counts.notes },
+        { label: 'Ideas', value: counts.ideas },
       ],
     },
   };
