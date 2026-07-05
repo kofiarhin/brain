@@ -16,6 +16,7 @@ import dayPlansRouter from './routes/dayPlans.js';
 import brainUpdateReportsRouter from './routes/brainUpdateReports.js';
 import generatedPostsRouter from './routes/generatedPosts.js';
 import inboxReportsRouter from './routes/inboxReports.js';
+import dashboardRouter from './routes/dashboard.js';
 import authRouter from './routes/auth.js';
 import { requireAuth } from './middleware/auth.js';
 import { getAuthConfig } from './services/auth.js';
@@ -116,6 +117,7 @@ export function createApp(options = {}) {
     });
   });
   app.use('/api/auth', authRouter);
+  app.use('/api/dashboard', requireAuth, dashboardRouter);
   app.use('/api/notes', requireAuth, notesRouter);
   app.use('/api/tasks', requireAuth, tasksRouter);
   app.use('/api/deliverables', requireAuth, deliverablesRouter);
