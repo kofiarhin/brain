@@ -53,26 +53,6 @@ export function TaskDetails() {
     reschedule: (_id, payload) => reschedule.mutateAsync(payload),
   };
 
-<<<<<<< HEAD
-  if (taskQuery.isLoading) return <div className="text-sm text-slate-500">Loading task...</div>;
-  if (taskQuery.isError) return <div className="space-y-4">
-    <Link to="/tasks" className="inline-flex rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-900">Back to tasks</Link>
-    <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-red-100">Task could not be loaded.</div>
-  </div>;
-
-  return <div className="min-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-    <div className="border-b border-slate-800 p-4">
-      <Link to="/tasks" className="inline-flex min-h-11 items-center rounded-lg border border-slate-700 px-3 text-sm text-slate-200 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">Back to tasks</Link>
-    </div>
-    <TaskDetailPanel task={task} projects={projectsQuery.data || []} actions={actions} onEnterExecution={setExecutionTask} onBack={() => navigate('/tasks')} compact />
-    {executionTask ? <div className="fixed inset-0 z-50 bg-slate-950 p-6">
-      <div className="mx-auto max-w-2xl">
-        <button type="button" onClick={() => setExecutionTask(null)} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm text-slate-200 hover:bg-slate-900">Exit execution mode</button>
-        <h1 className="mt-8 break-words text-3xl font-semibold">{task.title}</h1>
-        <p className="mt-4 leading-7 text-slate-300">{task.expectedDeliverable || task.description || 'Focus on the next concrete step.'}</p>
-        <pre className="mt-6 whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm leading-6 text-slate-300">{task.notes || 'No notes yet.'}</pre>
-        <button type="button" onClick={() => complete.mutateAsync().then(() => setExecutionTask(null))} className="mt-6 min-h-11 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-500">Complete</button>
-=======
   if (taskQuery.isLoading) return <div className="text-sm text-text-muted">Loading task...</div>;
   if (taskQuery.isError) return <div className="space-y-4">
     <Link to="/tasks" className="inline-flex rounded-lg border border-border px-3 py-2 text-sm text-text-secondary hover:bg-panel">Back to tasks</Link>
@@ -91,7 +71,6 @@ export function TaskDetails() {
         <p className="mt-4 leading-7 text-text-secondary">{task.expectedDeliverable || task.description || 'Focus on the next concrete step.'}</p>
         <pre className="mt-6 whitespace-pre-wrap rounded-xl border border-border-subtle bg-panel p-4 text-sm leading-6 text-text-secondary">{task.notes || 'No notes yet.'}</pre>
         <button type="button" onClick={() => complete.mutateAsync().then(() => setExecutionTask(null))} className="mt-6 min-h-11 rounded-lg bg-success px-4 text-sm font-semibold text-text-inverted hover:bg-success/80">Complete</button>
->>>>>>> vercel-dark-theme
       </div>
     </div> : null}
   </div>;

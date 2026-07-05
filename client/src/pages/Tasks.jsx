@@ -70,19 +70,11 @@ function priorityLabel(priority) {
 
 function priorityTone(priority) {
   const normalized = normalizePriority(priority);
-<<<<<<< HEAD
-  if (normalized === 'critical') return 'bg-red-500';
-  if (normalized === 'high') return 'bg-red-400';
-  if (normalized === 'medium') return 'bg-blue-400';
-  if (normalized === 'low') return 'bg-slate-400';
-  return 'bg-slate-500';
-=======
   if (normalized === 'critical') return 'bg-danger';
   if (normalized === 'high') return 'bg-danger/80';
   if (normalized === 'medium') return 'bg-accent';
   if (normalized === 'low') return 'bg-text-muted';
   return 'bg-muted';
->>>>>>> vercel-dark-theme
 }
 
 function categoryLabel(category) {
@@ -180,11 +172,7 @@ function IconButton({ label, children, className = '', ...props }) {
     type="button"
     aria-label={label}
     title={label}
-<<<<<<< HEAD
-    className={cx('inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-700 text-sm font-medium text-slate-200 transition hover:border-sky-500 hover:bg-sky-500/10 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60', className)}
-=======
     className={cx('inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border text-sm font-medium text-text-secondary transition hover:border-accent hover:bg-accent-hover/10 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app disabled:cursor-not-allowed disabled:opacity-60', className)}
->>>>>>> vercel-dark-theme
     {...props}
   >
     {children}
@@ -192,11 +180,7 @@ function IconButton({ label, children, className = '', ...props }) {
 }
 
 function EmptyState({ children }) {
-<<<<<<< HEAD
-  return <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/30 p-4 text-sm text-slate-500">{children}</div>;
-=======
   return <div className="rounded-xl border border-dashed border-border-subtle bg-panel/30 p-4 text-sm text-text-muted">{children}</div>;
->>>>>>> vercel-dark-theme
 }
 
 function CompletionDialog({ task, open, onClose, onFinish, onPostpone, onBlocked, onCancelled }) {
@@ -234,11 +218,7 @@ function CompletionDialog({ task, open, onClose, onFinish, onPostpone, onBlocked
   const needsReason = mode === 'blocked' || mode === 'cancelled';
   const needsDate = mode === 'postponed';
 
-<<<<<<< HEAD
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur sm:items-center sm:p-6" role="presentation">
-=======
   return <div className="fixed inset-0 z-50 flex items-end justify-center bg-app/70 p-0 backdrop-blur sm:items-center sm:p-6" role="presentation">
->>>>>>> vercel-dark-theme
     <form
       ref={dialogRef}
       tabIndex={-1}
@@ -246,21 +226,12 @@ function CompletionDialog({ task, open, onClose, onFinish, onPostpone, onBlocked
       aria-modal="true"
       aria-labelledby="completion-title"
       onSubmit={submit}
-<<<<<<< HEAD
-      className="w-full max-w-lg rounded-t-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl focus:outline-none sm:rounded-2xl"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Complete task</p>
-          <h2 id="completion-title" className="mt-1 text-lg font-semibold text-slate-50">{task.title}</h2>
-=======
       className="w-full max-w-lg rounded-t-2xl border border-border-subtle bg-app p-5 shadow-2xl focus:outline-none sm:rounded-2xl"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Complete task</p>
           <h2 id="completion-title" className="mt-1 text-lg font-semibold text-text-primary">{task.title}</h2>
->>>>>>> vercel-dark-theme
         </div>
         <IconButton label="Close completion dialog" onClick={onClose}>x</IconButton>
       </div>
@@ -274,26 +245,13 @@ function CompletionDialog({ task, open, onClose, onFinish, onPostpone, onBlocked
         ].map(([value, label]) => <button
           key={value}
           type="button"
-<<<<<<< HEAD
-          className={cx('min-h-11 rounded-lg border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500', mode === value ? 'border-sky-500 bg-sky-500/15 text-sky-100' : 'border-slate-700 text-slate-300 hover:bg-slate-900')}
-=======
           className={cx('min-h-11 rounded-lg border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-accent', mode === value ? 'border-accent bg-accent-soft/70 text-text-primary' : 'border-border text-text-secondary hover:bg-panel')}
->>>>>>> vercel-dark-theme
           onClick={() => setMode(value)}
         >
           {label}
         </button>)}
       </div>
 
-<<<<<<< HEAD
-      {needsDate ? <label className="mt-4 block text-sm text-slate-300">
-        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">New date</span>
-        <input required type="date" value={date} onChange={(event) => setDate(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500" />
-      </label> : null}
-
-      {needsReason ? <label className="mt-4 block text-sm text-slate-300">
-        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">{mode === 'blocked' ? 'Blocker reason' : 'Optional reason'}</span>
-=======
       {needsDate ? <label className="mt-4 block text-sm text-text-secondary">
         <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-muted">New date</span>
         <input required type="date" value={date} onChange={(event) => setDate(event.target.value)} className="min-h-11 w-full rounded-lg border border-border bg-panel px-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent" />
@@ -301,28 +259,18 @@ function CompletionDialog({ task, open, onClose, onFinish, onPostpone, onBlocked
 
       {needsReason ? <label className="mt-4 block text-sm text-text-secondary">
         <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-muted">{mode === 'blocked' ? 'Blocker reason' : 'Optional reason'}</span>
->>>>>>> vercel-dark-theme
         <textarea
           required={mode === 'blocked'}
           rows={4}
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-<<<<<<< HEAD
-          className="w-full rounded-lg border border-slate-700 bg-slate-900 p-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
-=======
           className="w-full rounded-lg border border-border bg-panel p-3 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
->>>>>>> vercel-dark-theme
         />
       </label> : null}
 
       <div className="mt-5 flex justify-end gap-3">
-<<<<<<< HEAD
-        <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm font-medium text-slate-200 hover:bg-slate-900">Cancel</button>
-        <button type="submit" className="min-h-11 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500">Apply</button>
-=======
         <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-border px-4 text-sm font-medium text-text-secondary hover:bg-panel">Cancel</button>
         <button type="submit" className="min-h-11 rounded-lg bg-success px-4 text-sm font-semibold text-text-inverted hover:bg-success/80">Apply</button>
->>>>>>> vercel-dark-theme
       </div>
     </form>
   </div>;
@@ -335,11 +283,7 @@ function TaskSearchBar({ search, onSearch }) {
       value={search}
       onChange={(event) => onSearch(event.target.value)}
       placeholder="Search tasks"
-<<<<<<< HEAD
-      className="min-h-11 w-full rounded-xl border border-slate-800 bg-slate-900 px-4 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
-=======
       className="min-h-11 w-full rounded-xl border border-border-subtle bg-panel px-4 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent"
->>>>>>> vercel-dark-theme
     />
   </label>;
 }
@@ -349,20 +293,12 @@ function TaskFolderList({ selectedView, counts, onSelectView }) {
     {views.map(([value, label]) => <button
       key={value}
       type="button"
-<<<<<<< HEAD
-      className={cx('flex min-h-11 items-center justify-between rounded-lg px-3 text-left text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-sky-500', selectedView === value ? 'bg-slate-100 text-slate-950' : 'text-slate-300 hover:bg-slate-900')}
-=======
       className={cx('flex min-h-11 items-center justify-between rounded-lg px-3 text-left text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-accent', selectedView === value ? 'bg-accent text-text-inverted' : 'text-text-secondary hover:bg-panel')}
->>>>>>> vercel-dark-theme
       onClick={() => onSelectView(value)}
       aria-label={`${label} ${counts[value] || 0}`}
     >
       <span>{label}</span>
-<<<<<<< HEAD
-      <span className={cx('text-xs', selectedView === value ? 'text-slate-600' : 'text-slate-500')}>{counts[value] || 0}</span>
-=======
       <span className={cx('text-xs', selectedView === value ? 'text-text-muted' : 'text-text-muted')}>{counts[value] || 0}</span>
->>>>>>> vercel-dark-theme
     </button>)}
   </nav>;
 }
@@ -386,11 +322,7 @@ function TaskRow({ task, selected, index, onOpen, onComplete, onSnooze, onMore }
   };
 
   return <li
-<<<<<<< HEAD
-    className={cx('group relative border-b border-slate-800/80 transition hover:bg-slate-900/70', selected ? 'bg-slate-900' : 'bg-transparent')}
-=======
     className={cx('group relative border-b border-border-subtle/80 transition hover:bg-panel/70', selected ? 'bg-panel' : 'bg-transparent')}
->>>>>>> vercel-dark-theme
     style={{ animationDelay: `${Math.min(index, 10) * 18}ms` }}
     onTouchStart={(event) => { touchStart.current = event.touches[0].clientX; }}
     onTouchEnd={onTouchEnd}
@@ -400,27 +332,6 @@ function TaskRow({ task, selected, index, onOpen, onComplete, onSnooze, onMore }
       aria-current={selected ? 'true' : undefined}
       onClick={() => onOpen(task._id)}
       onKeyDown={onKeyDown}
-<<<<<<< HEAD
-      className="grid min-h-[72px] w-full grid-cols-[auto_minmax(0,1fr)] gap-3 px-4 py-3 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-500 md:grid-cols-[auto_minmax(10rem,1.3fr)_minmax(8rem,1fr)_8rem_7rem_auto]"
-    >
-      <span className={cx('mt-2 h-3 w-3 rounded-full ring-2 ring-slate-700', statusKey === 'completed' ? 'bg-emerald-500' : priorityTone(task.priority))} aria-label={`${priorityLabel(task.priority)} priority`} />
-      <span className="min-w-0">
-        <span className={cx('block truncate text-sm font-semibold leading-6', isCompleted(task) ? 'text-slate-500 line-through' : 'text-slate-100')}>{task.title || 'Untitled task'}</span>
-        <span className="block truncate text-sm text-slate-500 md:hidden">{preview || categoryLabel(task.category)}</span>
-      </span>
-      <span className="hidden min-w-0 truncate text-sm leading-6 text-slate-500 md:block">{preview || 'No preview yet.'}</span>
-      <span className="hidden truncate text-sm leading-6 text-slate-400 md:block">{categoryLabel(task.category)}</span>
-      <span className="hidden truncate text-sm leading-6 text-slate-400 md:block">{dateLabel(date)}</span>
-      <span className="hidden items-center justify-end gap-2 md:flex">
-        {task.agentReady ? <span className="rounded-full border border-sky-500/30 px-2 py-0.5 text-xs text-sky-200" aria-label="Agent ready">AI</span> : null}
-      </span>
-    </button>
-    <div className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 gap-1 rounded-lg bg-slate-950/95 p-1 shadow-xl shadow-slate-950/40 group-hover:flex group-focus-within:flex md:flex md:opacity-0 md:transition md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100">
-      <IconButton label="Complete" className="pointer-events-auto border-transparent bg-slate-900" onClick={() => onComplete(task._id)}>Done</IconButton>
-      <IconButton label="Snooze" className="pointer-events-auto border-transparent bg-slate-900" onClick={() => onSnooze(task._id)}>Later</IconButton>
-      <IconButton label="Star" className="pointer-events-auto border-transparent bg-slate-900" onClick={() => onMore(task._id, 'star')}>Star</IconButton>
-      <IconButton label="More task actions" className="pointer-events-auto border-transparent bg-slate-900" onClick={() => onMore(task._id, 'more')}>More</IconButton>
-=======
       className="grid min-h-[72px] w-full grid-cols-[auto_minmax(0,1fr)] gap-3 px-4 py-3 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent md:grid-cols-[auto_minmax(10rem,1.3fr)_minmax(8rem,1fr)_8rem_7rem_auto]"
     >
       <span className={cx('mt-2 h-3 w-3 rounded-full ring-2 ring-border', statusKey === 'completed' ? 'bg-success' : priorityTone(task.priority))} aria-label={`${priorityLabel(task.priority)} priority`} />
@@ -440,22 +351,11 @@ function TaskRow({ task, selected, index, onOpen, onComplete, onSnooze, onMore }
       <IconButton label="Snooze" className="pointer-events-auto border-transparent bg-panel" onClick={() => onSnooze(task._id)}>Later</IconButton>
       <IconButton label="Star" className="pointer-events-auto border-transparent bg-panel" onClick={() => onMore(task._id, 'star')}>Star</IconButton>
       <IconButton label="More task actions" className="pointer-events-auto border-transparent bg-panel" onClick={() => onMore(task._id, 'more')}>More</IconButton>
->>>>>>> vercel-dark-theme
     </div>
   </li>;
 }
 
 function TaskInbox({ tasks, selectedId, selectedView, counts, search, onSearch, onSelectView, onOpenTask, onCapture, onComplete, onSnooze, onMore, inboxRef }) {
-<<<<<<< HEAD
-  return <section className="flex min-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 md:min-h-[calc(100vh-5rem)]">
-    <header className="border-b border-slate-800 px-4 py-4 md:px-5">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-50">Tasks Inbox</h1>
-          <p className="mt-1 text-sm text-slate-500">Scan, choose, execute.</p>
-        </div>
-        <button type="button" onClick={onCapture} className="hidden min-h-11 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-950 hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 md:inline-flex md:items-center">Capture</button>
-=======
   return <section className="flex min-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-2xl border border-border-subtle bg-app md:min-h-[calc(100vh-5rem)]">
     <header className="border-b border-border-subtle px-4 py-4 md:px-5">
       <div className="flex items-center justify-between gap-4">
@@ -464,7 +364,6 @@ function TaskInbox({ tasks, selectedId, selectedView, counts, search, onSearch, 
           <p className="mt-1 text-sm text-text-muted">Scan, choose, execute.</p>
         </div>
         <button type="button" onClick={onCapture} className="hidden min-h-11 rounded-lg bg-accent px-4 text-sm font-semibold text-text-inverted hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent md:inline-flex md:items-center">Capture</button>
->>>>>>> vercel-dark-theme
       </div>
       <div className="mt-4">
         <TaskSearchBar search={search} onSearch={onSearch} />
@@ -477,11 +376,7 @@ function TaskInbox({ tasks, selectedId, selectedView, counts, search, onSearch, 
             role="tab"
             aria-selected={selectedView === value}
             onClick={() => onSelectView(value)}
-<<<<<<< HEAD
-            className={cx('min-h-11 shrink-0 rounded-lg border px-3 text-sm font-medium', selectedView === value ? 'border-slate-100 bg-slate-100 text-slate-950' : 'border-slate-800 text-slate-300')}
-=======
             className={cx('min-h-11 shrink-0 rounded-lg border px-3 text-sm font-medium', selectedView === value ? 'border-accent bg-accent text-text-inverted' : 'border-border-subtle text-text-secondary')}
->>>>>>> vercel-dark-theme
             aria-label={`${label} ${counts[value] || 0}`}
           >
             {label}
@@ -490,11 +385,7 @@ function TaskInbox({ tasks, selectedId, selectedView, counts, search, onSearch, 
       </div>
     </header>
     <div className="grid min-h-0 flex-1 md:grid-cols-[15rem_minmax(0,1fr)]">
-<<<<<<< HEAD
-      <aside className="hidden border-r border-slate-800 p-4 md:block">
-=======
       <aside className="hidden border-r border-border-subtle p-4 md:block">
->>>>>>> vercel-dark-theme
         <TaskFolderList selectedView={selectedView} counts={counts} onSelectView={onSelectView} />
       </aside>
       <div ref={inboxRef} className="min-h-0 overflow-y-auto pb-24 md:pb-0">
@@ -511,13 +402,8 @@ function TaskInbox({ tasks, selectedId, selectedView, counts, search, onSearch, 
           />)}
         </ul> : <div className="flex min-h-[18rem] items-center justify-center px-6 text-center">
           <div>
-<<<<<<< HEAD
-            <p className="text-lg font-semibold text-slate-100">You're all caught up.</p>
-            <p className="mt-2 text-sm text-slate-500">No tasks match this folder and search.</p>
-=======
             <p className="text-lg font-semibold text-text-primary">You're all caught up.</p>
             <p className="mt-2 text-sm text-text-muted">No tasks match this folder and search.</p>
->>>>>>> vercel-dark-theme
           </div>
         </div>}
       </div>
@@ -526,13 +412,8 @@ function TaskInbox({ tasks, selectedId, selectedView, counts, search, onSearch, 
 }
 
 function ReaderSection({ title, children }) {
-<<<<<<< HEAD
-  return <section className="border-t border-slate-800 py-8">
-    <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
-=======
   return <section className="border-t border-border-subtle py-8">
     <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">{title}</h2>
->>>>>>> vercel-dark-theme
     <div className="mt-4">{children}</div>
   </section>;
 }
@@ -548,21 +429,6 @@ function TaskMetadata({ task, draft, project, onChange }) {
   ];
 
   return <div className="flex flex-wrap gap-2">
-<<<<<<< HEAD
-    {items.map(([label, value]) => <span key={label} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-medium text-slate-100">{value}</span>
-    </span>)}
-    <label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 text-sm">
-      <span className="text-slate-500">Category</span>
-      <select aria-label="Category" value={draft.category} onChange={(event) => onChange('category', event.target.value)} className="bg-transparent font-medium text-slate-100 focus:outline-none">
-        {categoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select>
-    </label>
-    <label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 text-sm">
-      <span className="text-slate-500">Priority</span>
-      <select aria-label="Priority" value={normalizePriority(draft.priority)} onChange={(event) => onChange('priority', event.target.value)} className="bg-transparent font-medium text-slate-100 focus:outline-none">
-=======
     {items.map(([label, value]) => <span key={label} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border-subtle bg-panel/40 px-3 text-sm">
       <span className="text-text-muted">{label}</span>
       <span className="font-medium text-text-primary">{value}</span>
@@ -576,7 +442,6 @@ function TaskMetadata({ task, draft, project, onChange }) {
     <label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border-subtle bg-panel/40 px-3 text-sm">
       <span className="text-text-muted">Priority</span>
       <select aria-label="Priority" value={normalizePriority(draft.priority)} onChange={(event) => onChange('priority', event.target.value)} className="bg-transparent font-medium text-text-primary focus:outline-none">
->>>>>>> vercel-dark-theme
         {priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>
     </label>
@@ -587,23 +452,14 @@ function TaskChecklist({ draft, onChange }) {
   const checklist = lines(draft.acceptanceCriteria);
   return <div className="space-y-4">
     {checklist.length ? <ul className="space-y-3">
-<<<<<<< HEAD
-      {checklist.map((item) => <li key={item} className="flex min-h-11 items-start gap-3 text-slate-300">
-        <input type="checkbox" className="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-sky-500 focus:ring-sky-500" aria-label={item} />
-=======
       {checklist.map((item) => <li key={item} className="flex min-h-11 items-start gap-3 text-text-secondary">
         <input type="checkbox" className="mt-1 h-5 w-5 rounded border-border bg-app text-accent focus:ring-accent" aria-label={item} />
->>>>>>> vercel-dark-theme
         <span className="leading-7">{item}</span>
       </li>)}
     </ul> : <EmptyState>No checklist yet.</EmptyState>}
     <label className="block">
       <span className="sr-only">Completion checklist</span>
-<<<<<<< HEAD
-      <textarea aria-label="Completion checklist" value={draft.acceptanceCriteria} onChange={(event) => onChange('acceptanceCriteria', event.target.value)} rows={4} placeholder="One checklist item per line" className="w-full rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-sm leading-6 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500" />
-=======
       <textarea aria-label="Completion checklist" value={draft.acceptanceCriteria} onChange={(event) => onChange('acceptanceCriteria', event.target.value)} rows={4} placeholder="One checklist item per line" className="w-full rounded-xl border border-border-subtle bg-panel/40 p-4 text-sm leading-6 text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent" />
->>>>>>> vercel-dark-theme
     </label>
   </div>;
 }
@@ -611,11 +467,7 @@ function TaskChecklist({ draft, onChange }) {
 function TaskNotes({ draft, onChange }) {
   return <div>
     {!draft.notes?.trim() ? <div className="mb-4"><EmptyState>No notes.</EmptyState></div> : null}
-<<<<<<< HEAD
-    <textarea aria-label="Notes" value={draft.notes} onChange={(event) => onChange('notes', event.target.value)} rows={10} placeholder="Write notes..." className="w-full rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-base leading-7 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500" />
-=======
     <textarea aria-label="Notes" value={draft.notes} onChange={(event) => onChange('notes', event.target.value)} rows={10} placeholder="Write notes..." className="w-full rounded-xl border border-border-subtle bg-panel/30 p-4 text-base leading-7 text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent" />
->>>>>>> vercel-dark-theme
   </div>;
 }
 
@@ -628,17 +480,10 @@ function TaskFiles({ draft }) {
   if (!files.length) return <EmptyState>No attachments.</EmptyState>;
 
   return <div className="grid gap-3 sm:grid-cols-2">
-<<<<<<< HEAD
-    {files.map((file) => <div key={`${file.detail}-${file.name}`} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-      <div className="flex h-20 items-center justify-center rounded-lg bg-slate-950 text-xs uppercase tracking-wide text-slate-500">{file.detail}</div>
-      <p className="mt-3 break-words text-sm font-medium text-slate-100">{file.name}</p>
-      <a href={file.name} className="mt-2 inline-flex text-sm text-sky-300 hover:text-sky-200">Open</a>
-=======
     {files.map((file) => <div key={`${file.detail}-${file.name}`} className="rounded-xl border border-border-subtle bg-panel/40 p-4">
       <div className="flex h-20 items-center justify-center rounded-lg bg-app text-xs uppercase tracking-wide text-text-muted">{file.detail}</div>
       <p className="mt-3 break-words text-sm font-medium text-text-primary">{file.name}</p>
       <a href={file.name} className="mt-2 inline-flex text-sm text-text-secondary hover:text-text-primary">Open</a>
->>>>>>> vercel-dark-theme
     </div>)}
   </div>;
 }
@@ -646,17 +491,6 @@ function TaskFiles({ draft }) {
 function TaskAgentPanel({ draft, onChange, agentOpen, onToggleAgent }) {
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center gap-2">
-<<<<<<< HEAD
-      <span className="inline-flex min-h-10 items-center rounded-lg border border-slate-800 bg-slate-900/40 px-3 text-sm text-slate-300">{draft.agentReady ? 'Ready' : 'Not delegated'}</span>
-      <label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 text-sm text-slate-200">
-        <input type="checkbox" checked={draft.agentReady} onChange={(event) => onChange('agentReady', event.target.checked)} />
-        Assignable to Codex
-      </label>
-      {draft.codexPrompt?.trim() ? <button type="button" onClick={onToggleAgent} className="min-h-10 rounded-lg border border-slate-700 px-3 text-sm text-slate-200 hover:bg-slate-900">{agentOpen ? 'Hide output' : 'Show output'}</button> : null}
-    </div>
-    {!draft.codexPrompt?.trim() ? <EmptyState>No agent activity.</EmptyState> : null}
-    {agentOpen || !draft.codexPrompt?.trim() ? <textarea aria-label="Agent Instructions Prompt" value={draft.codexPrompt} onChange={(event) => onChange('codexPrompt', event.target.value)} rows={8} className="w-full rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-sm leading-6 text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500" /> : null}
-=======
       <span className="inline-flex min-h-10 items-center rounded-lg border border-border-subtle bg-panel/40 px-3 text-sm text-text-secondary">{draft.agentReady ? 'Ready' : 'Not delegated'}</span>
       <label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border-subtle bg-panel/40 px-3 text-sm text-text-secondary">
         <input type="checkbox" checked={draft.agentReady} onChange={(event) => onChange('agentReady', event.target.checked)} />
@@ -666,7 +500,6 @@ function TaskAgentPanel({ draft, onChange, agentOpen, onToggleAgent }) {
     </div>
     {!draft.codexPrompt?.trim() ? <EmptyState>No agent activity.</EmptyState> : null}
     {agentOpen || !draft.codexPrompt?.trim() ? <textarea aria-label="Agent Instructions Prompt" value={draft.codexPrompt} onChange={(event) => onChange('codexPrompt', event.target.value)} rows={8} className="w-full rounded-xl border border-border-subtle bg-panel/40 p-4 text-sm leading-6 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent" /> : null}
->>>>>>> vercel-dark-theme
   </div>;
 }
 
@@ -687,26 +520,16 @@ function TaskActivity({ task }) {
   if (!history.length) return <EmptyState>No activity recorded yet.</EmptyState>;
 
   return <ol className="space-y-4">
-<<<<<<< HEAD
-    {history.map((item, index) => <li key={`${item.at}-${item.text}-${index}`} className="grid grid-cols-[6rem_minmax(0,1fr)] gap-4 border-b border-slate-800 pb-4 last:border-b-0">
-      <time className="text-sm text-slate-500">{formatActivityDate(item.at)}</time>
-      <p className="text-sm leading-6 text-slate-300">{item.text}</p>
-=======
     {history.map((item, index) => <li key={`${item.at}-${item.text}-${index}`} className="grid grid-cols-[6rem_minmax(0,1fr)] gap-4 border-b border-border-subtle pb-4 last:border-b-0">
       <time className="text-sm text-text-muted">{formatActivityDate(item.at)}</time>
       <p className="text-sm leading-6 text-text-secondary">{item.text}</p>
->>>>>>> vercel-dark-theme
     </li>)}
   </ol>;
 }
 
 function TaskToolbar({ task, closed, isSaving, onBack, onStart, onComplete, onSnooze, onArchive, onDelete, onConvert, onDuplicate }) {
   const [moreOpen, setMoreOpen] = useState(false);
-<<<<<<< HEAD
-  return <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 px-3 py-3 backdrop-blur">
-=======
   return <header className="sticky top-0 z-20 border-b border-border-subtle bg-app/95 px-3 py-3 backdrop-blur">
->>>>>>> vercel-dark-theme
     <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2">
         <IconButton label="Back" onClick={onBack}>Back</IconButton>
@@ -716,16 +539,6 @@ function TaskToolbar({ task, closed, isSaving, onBack, onStart, onComplete, onSn
         <IconButton label="Delegate" onClick={onDuplicate}>Delegate</IconButton>
       </div>
       <div className="flex items-center gap-2">
-<<<<<<< HEAD
-        {!closed ? <button type="button" onClick={onStart} disabled={isSaving} className="min-h-11 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-950 hover:bg-white disabled:opacity-60">{task?.startedAt ? 'Continue' : 'Start'}</button> : null}
-        <div className="relative">
-          <IconButton label="More task actions" onClick={() => setMoreOpen((current) => !current)}>More</IconButton>
-          {moreOpen ? <div className="absolute right-0 z-30 mt-2 w-56 rounded-lg border border-slate-800 bg-slate-950 p-2 shadow-xl" role="menu">
-            <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900 disabled:opacity-60" disabled={isSaving || closed} onClick={() => { setMoreOpen(false); onSnooze(); }}>Snooze tomorrow</button>
-            <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900" onClick={() => { setMoreOpen(false); onDuplicate(); }}>Duplicate</button>
-            <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900" onClick={() => { setMoreOpen(false); onConvert(); }}>Split or convert</button>
-            <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-red-200 hover:bg-red-500/10" onClick={() => { setMoreOpen(false); onDelete(); }}>Delete</button>
-=======
         {!closed ? <button type="button" onClick={onStart} disabled={isSaving} className="min-h-11 rounded-lg bg-accent px-4 text-sm font-semibold text-text-inverted hover:bg-accent-hover disabled:opacity-60">{task?.startedAt ? 'Continue' : 'Start'}</button> : null}
         <div className="relative">
           <IconButton label="More task actions" onClick={() => setMoreOpen((current) => !current)}>More</IconButton>
@@ -734,7 +547,6 @@ function TaskToolbar({ task, closed, isSaving, onBack, onStart, onComplete, onSn
             <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-text-secondary hover:bg-panel" onClick={() => { setMoreOpen(false); onDuplicate(); }}>Duplicate</button>
             <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-text-secondary hover:bg-panel" onClick={() => { setMoreOpen(false); onConvert(); }}>Split or convert</button>
             <button type="button" className="block w-full rounded-md px-3 py-2 text-left text-sm text-danger hover:bg-danger-soft/45" onClick={() => { setMoreOpen(false); onDelete(); }}>Delete</button>
->>>>>>> vercel-dark-theme
           </div> : null}
         </div>
       </div>
@@ -755,11 +567,7 @@ export function TaskDetailPanel({ task, projects = [], actions, onEnterExecution
   }, [task]);
 
   if (!task) {
-<<<<<<< HEAD
-    return <section className="flex min-h-[calc(100vh-8rem)] items-center justify-center rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center text-sm text-slate-500">
-=======
     return <section className="flex min-h-[calc(100vh-8rem)] items-center justify-center rounded-2xl border border-border-subtle bg-app p-8 text-center text-sm text-text-muted">
->>>>>>> vercel-dark-theme
       Select a task to view details.
     </section>;
   }
@@ -809,11 +617,7 @@ export function TaskDetailPanel({ task, projects = [], actions, onEnterExecution
     setDialogOpen(false);
   };
 
-<<<<<<< HEAD
-  return <section className={cx('min-h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 md:min-h-[calc(100vh-5rem)]', compact && 'rounded-none border-0')}>
-=======
   return <section className={cx('min-h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-border-subtle bg-app text-text-primary md:min-h-[calc(100vh-5rem)]', compact && 'rounded-none border-0')}>
->>>>>>> vercel-dark-theme
     <TaskToolbar
       task={task}
       closed={closed}
@@ -836,19 +640,6 @@ export function TaskDetailPanel({ task, projects = [], actions, onEnterExecution
             value={draft.title}
             onChange={(event) => setField('title', event.target.value)}
             onBlur={() => save().then(() => setEditTitle(false))}
-<<<<<<< HEAD
-            className="w-full rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-3xl font-semibold tracking-tight text-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500"
-          />
-        </label> : <button type="button" onClick={() => setEditTitle(true)} className="block w-full rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-sky-500">
-          <h1 className="break-words text-3xl font-semibold tracking-tight text-slate-50 md:text-4xl">{draft.title || 'Untitled task'}</h1>
-        </button>}
-        <TaskMetadata task={task} draft={draft} project={project} onChange={setField} />
-        {saveState !== 'idle' ? <p className="text-sm text-slate-500">{saveState === 'saving' ? 'Saving...' : 'Saved'}</p> : null}
-      </div>
-
-      <ReaderSection title="Description">
-        <textarea aria-label="Description" value={draft.description} onChange={(event) => setField('description', event.target.value)} onBlur={() => save()} rows={6} placeholder="No description yet." className="w-full rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-base leading-7 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500" />
-=======
             className="w-full rounded-xl border border-border-subtle bg-panel/40 px-4 py-3 text-3xl font-semibold tracking-tight text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </label> : <button type="button" onClick={() => setEditTitle(true)} className="block w-full rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-accent">
@@ -860,7 +651,6 @@ export function TaskDetailPanel({ task, projects = [], actions, onEnterExecution
 
       <ReaderSection title="Description">
         <textarea aria-label="Description" value={draft.description} onChange={(event) => setField('description', event.target.value)} onBlur={() => save()} rows={6} placeholder="No description yet." className="w-full rounded-xl border border-border-subtle bg-panel/30 p-4 text-base leading-7 text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent" />
->>>>>>> vercel-dark-theme
       </ReaderSection>
 
       <ReaderSection title="Checklist">
@@ -884,11 +674,7 @@ export function TaskDetailPanel({ task, projects = [], actions, onEnterExecution
       </ReaderSection>
 
       <div className="sticky bottom-4 mt-8 flex justify-end">
-<<<<<<< HEAD
-        <button type="button" onClick={() => save()} disabled={saveState === 'saving'} className="min-h-11 rounded-lg bg-slate-100 px-5 text-sm font-semibold text-slate-950 shadow-xl shadow-slate-950/30 hover:bg-white disabled:opacity-60">{saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save changes'}</button>
-=======
         <button type="button" onClick={() => save()} disabled={saveState === 'saving'} className="min-h-11 rounded-lg bg-accent px-5 text-sm font-semibold text-text-inverted shadow-xl shadow-app/30 hover:bg-accent-hover disabled:opacity-60">{saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved' : 'Save changes'}</button>
->>>>>>> vercel-dark-theme
       </div>
     </main>
     <CompletionDialog task={task} open={dialogOpen} onClose={() => setDialogOpen(false)} onFinish={finish} onPostpone={postpone} onBlocked={blocked} onCancelled={cancelled} />
@@ -917,29 +703,6 @@ function QuickCaptureSheet({ open, onClose, onCreate, isSaving }) {
     onClose();
   };
 
-<<<<<<< HEAD
-  return <div className="fixed inset-0 z-40 flex items-end bg-slate-950/70 p-0 backdrop-blur sm:items-center sm:justify-center sm:p-6">
-    <form onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="capture-title" className="w-full rounded-t-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Capture</p>
-          <h2 id="capture-title" className="mt-1 text-lg font-semibold text-slate-50">New task</h2>
-        </div>
-        <IconButton label="Close capture" onClick={onClose}>x</IconButton>
-      </div>
-      <label className="mt-5 block text-sm text-slate-300">
-        <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Title</span>
-        <input ref={inputRef} aria-label="Task title" value={title} onChange={(event) => setTitle(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500" />
-      </label>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="block text-sm text-slate-300">
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Priority</span>
-          <select aria-label="Task priority" value={priority} onChange={(event) => setPriority(event.target.value)} className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500">
-            {priorityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200">
-=======
   return <div className="fixed inset-0 z-40 flex items-end bg-app/70 p-0 backdrop-blur sm:items-center sm:justify-center sm:p-6">
     <form onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="capture-title" className="w-full rounded-t-2xl border border-border-subtle bg-app p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl">
       <div className="flex items-start justify-between gap-4">
@@ -961,16 +724,11 @@ function QuickCaptureSheet({ open, onClose, onCreate, isSaving }) {
           </select>
         </label>
         <label className="flex min-h-11 items-center gap-3 rounded-lg border border-border bg-panel px-3 text-sm text-text-secondary">
->>>>>>> vercel-dark-theme
           <input aria-label="Assignable to Codex" type="checkbox" checked={agentReady} onChange={(event) => setAgentReady(event.target.checked)} />
           Assignable to Codex
         </label>
       </div>
-<<<<<<< HEAD
-      <button disabled={isSaving} className="mt-5 min-h-11 w-full rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">Save task</button>
-=======
       <button disabled={isSaving} className="mt-5 min-h-11 w-full rounded-lg bg-accent px-4 text-sm font-semibold text-text-inverted hover:bg-accent-hover disabled:opacity-60">Save task</button>
->>>>>>> vercel-dark-theme
     </form>
   </div>;
 }
@@ -982,41 +740,6 @@ function TaskExecutionMode({ task, actions, onExit }) {
 
   if (!task) return null;
 
-<<<<<<< HEAD
-  return <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950 text-slate-100">
-    <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-5 py-5">
-      <div className="flex items-center justify-between gap-4">
-        <button type="button" onClick={onExit} className="min-h-11 rounded-lg border border-slate-700 px-4 text-sm text-slate-200 hover:bg-slate-900">Exit</button>
-        <button type="button" onClick={() => setDialogOpen(true)} className="min-h-11 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500">Complete</button>
-      </div>
-      <main className="flex-1 py-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Execution mode</p>
-        <h1 className="mt-2 break-words text-3xl font-semibold tracking-tight">{task.title}</h1>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs">
-          <span className={cx('rounded-full px-2.5 py-1', statusKey === 'blocked' ? 'bg-red-500/10 text-red-200' : statusKey === 'waiting' ? 'bg-amber-500/10 text-amber-200' : 'bg-sky-500/10 text-sky-200')}>{status}</span>
-          <span className="rounded-full bg-slate-900 px-2.5 py-1 text-slate-300">{priorityLabel(task.priority)}</span>
-        </div>
-        <section className="mt-8 space-y-6">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-200">Goal</h2>
-            <p className="mt-2 leading-7 text-slate-300">{task.expectedDeliverable || task.description || 'Clarify the intended output, then complete the next step.'}</p>
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-slate-200">Next step</h2>
-            <p className="mt-2 rounded-xl border border-slate-800 bg-slate-900 p-4 text-slate-300">{checklist[0] || 'Work the smallest concrete step and update notes before completion.'}</p>
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-slate-200">Checklist</h2>
-            {checklist.length ? <ul className="mt-3 space-y-2">{checklist.map((item) => <li key={item} className="flex gap-3 rounded-lg border border-slate-800 p-3 text-slate-300"><span className="mt-1 h-4 w-4 rounded border border-slate-600" />{item}</li>)}</ul> : <p className="mt-2 text-slate-500">No checklist yet.</p>}
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-slate-200">Notes</h2>
-            <p className="mt-2 whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900 p-4 leading-7 text-slate-300">{task.notes || 'No notes yet.'}</p>
-          </div>
-          {task.codexPrompt ? <div>
-            <h2 className="text-sm font-semibold text-slate-200">Agent output</h2>
-            <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 text-sm leading-6 text-sky-100">{task.codexPrompt}</pre>
-=======
   return <div className="fixed inset-0 z-50 overflow-y-auto bg-app text-text-primary">
     <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-5 py-5">
       <div className="flex items-center justify-between gap-4">
@@ -1050,7 +773,6 @@ function TaskExecutionMode({ task, actions, onExit }) {
           {task.codexPrompt ? <div>
             <h2 className="text-sm font-semibold text-text-secondary">Agent output</h2>
             <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-accent/20 bg-accent-soft/40 p-4 text-sm leading-6 text-text-primary">{task.codexPrompt}</pre>
->>>>>>> vercel-dark-theme
           </div> : null}
         </section>
       </main>
@@ -1189,11 +911,7 @@ export function Tasks() {
       />}
     </div>
 
-<<<<<<< HEAD
-    {!readerOpen ? <button type="button" onClick={() => setCaptureOpen(true)} aria-label="Create task" className="fixed bottom-5 right-5 z-30 inline-flex min-h-14 min-w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl font-semibold text-slate-950 shadow-xl shadow-slate-950/30 hover:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 md:bottom-8 md:right-8">+</button> : null}
-=======
     {!readerOpen ? <button type="button" onClick={() => setCaptureOpen(true)} aria-label="Create task" className="fixed bottom-5 right-5 z-30 inline-flex min-h-14 min-w-14 items-center justify-center rounded-2xl bg-accent text-2xl font-semibold text-text-inverted shadow-xl shadow-app/30 hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent md:bottom-8 md:right-8">+</button> : null}
->>>>>>> vercel-dark-theme
 
     <QuickCaptureSheet open={captureOpen} onClose={() => setCaptureOpen(false)} onCreate={(payload) => tasks.create.mutateAsync(payload)} isSaving={tasks.create.isPending} />
     {executionTask ? <TaskExecutionMode task={items.find((task) => task._id === executionTask._id) || executionTask} actions={actions} onExit={() => setExecutionTask(null)} /> : null}
