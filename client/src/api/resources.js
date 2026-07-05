@@ -30,6 +30,9 @@ export const api = {
   auth: {
     login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   },
+  dashboard: {
+    summary: () => request('/dashboard/summary'),
+  },
   notes: createResourceApi('/notes'),
   tasks: createResourceApi('/tasks'),
   deliverables: createResourceApi('/deliverables'),
