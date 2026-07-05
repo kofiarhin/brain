@@ -23,6 +23,8 @@ import { notFound, errorHandler } from './middleware/error.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const packageJsonPath = path.resolve(__dirname, '../package.json');
+const packageInfo = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
 const staticAllowedOrigins = new Set([
   'http://localhost:5173',
@@ -98,6 +100,13 @@ export function createApp(options = {}) {
   app.use(express.json());
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/api/version', (_req, res) => res.json({
+    name: packageInfo.name,
+    version: packageInfo.version,
+    environment: process.env.NODE_ENV || 'development',
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+  }));
   app.get('/api/cors-debug', (req, res) => {
     const origin = req.get('origin') || null;
     res.json({
