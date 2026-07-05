@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const gmailConnectionSchema = new mongoose.Schema({
-  provider: { type: String, enum: ['gmail'], default: 'gmail', unique: true },
+  provider: { type: String, enum: ['gmail'], default: 'gmail' },
   emailAddress: { type: String, trim: true, default: '' },
   refreshToken: { type: String, required: true },
   scope: { type: String, default: '' },

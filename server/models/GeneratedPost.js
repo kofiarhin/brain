@@ -30,7 +30,7 @@ const generatedPostSchema = new mongoose.Schema({
   warnings: [{ type: String }],
   errors: [{ type: String }],
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
-}, { timestamps: true });
+}, { timestamps: true, suppressReservedKeysWarning: true });
 
 generatedPostSchema.index({ runDate: -1 });
 generatedPostSchema.index({ status: 1 });
