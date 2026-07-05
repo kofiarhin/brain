@@ -28,7 +28,7 @@ const inboxBriefingSchema = new mongoose.Schema({
   briefedCount: { type: Number, default: 0 },
   warnings: [{ type: String }],
   errors: [{ type: String }]
-}, { timestamps: true });
+}, { timestamps: true, suppressReservedKeysWarning: true });
 
 inboxBriefingSchema.pre('validate', function setLondonDate(next) {
   if (this.runDate) {

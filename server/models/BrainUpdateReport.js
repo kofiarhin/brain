@@ -19,7 +19,7 @@ const brainUpdateReportSchema = new mongoose.Schema({
   errors: [{ type: String }],
   nextRecommendedActions: [{ type: String }],
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
-}, { timestamps: true });
+}, { timestamps: true, suppressReservedKeysWarning: true });
 
 brainUpdateReportSchema.index({ runDate: -1 });
 brainUpdateReportSchema.index({ status: 1 });
