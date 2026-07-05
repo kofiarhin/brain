@@ -2,4 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
-body { @apply bg-slate-950 text-slate-100; }
+:root {
+  color-scheme: dark;
+  --color-app: 0 0 0;
+  --color-surface: 10 10 10;
+  --color-panel: 17 17 17;
+  --color-elevated: 26 26 26;
+  --color-muted: 38 38 38;
+  --color-border: 64 64 64;
+  --color-border-subtle: 38 38 38;
+  --color-text-primary: 250 250 250;
+  --color-text-secondary: 212 212 212;
+  --color-text-muted: 115 115 115;
+  --color-text-inverted: 0 0 0;
+  --color-accent: 250 250 250;
+  --color-accent-hover: 229 229 229;
+  --color-accent-soft: 38 38 38;
+  --color-success: 52 211 153;
+  --color-success-soft: 6 78 59;
+  --color-danger: 248 113 113;
+  --color-danger-soft: 69 10 10;
+  --color-warning: 251 191 36;
+  --color-warning-soft: 69 26 3;
+}
+
+html {
+  min-height: 100%;
+  background: rgb(var(--color-app));
+}
+
+body {
+  min-height: 100%;
+  background: rgb(var(--color-app));
+  color: rgb(var(--color-text-primary));
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgb(var(--color-accent) / 0.22);
+  color: rgb(var(--color-text-primary));
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 2px;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
