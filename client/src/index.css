@@ -48,6 +48,15 @@ body {
   outline-offset: 2px;
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 input,
 textarea,
 select,
