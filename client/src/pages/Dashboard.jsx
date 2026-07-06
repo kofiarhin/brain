@@ -2,25 +2,15 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/resources';
 import {
-  BrainHealth,
-  Heatmap,
-  InsightsList,
-  ProjectRings,
-  RadarChart,
-  ScoreCard,
-  StackedFocusBar,
-  TrendSparklines
+  BrainRadar,
+  FocusDonut,
+  MissionHero,
+  ProductivityPulse,
+  ProjectBubbleChart,
+  WeeklyMomentum,
 } from '../components/dashboard/DashboardCharts';
 
 const EMPTY_ARRAY = [];
-
-function MetricCard({ label, value, helper }) {
-  return <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-    <p className="mt-3 text-3xl font-black text-slate-50">{value}</p>
-    {helper && <p className="mt-1 text-sm text-slate-400">{helper}</p>}
-  </div>;
-}
 
 function findStat(stats = EMPTY_ARRAY, label) {
   return stats.find((item) => item.label === label)?.value || 0;
@@ -58,12 +48,6 @@ function buildDashboardView(summary) {
     counts,
     charts,
     generatedAt: summary.generatedAt || new Date().toISOString(),
-    insights: summary.insights || EMPTY_ARRAY,
-    timeRemaining: {
-      blocks: overview.remainingBlocks,
-      hours: overview.timeRemainingHours,
-      categories: charts.focusAllocation,
-    },
     brainHealth: {
       score: overview.brainHealthScore,
       stats: [
@@ -82,42 +66,29 @@ export function Dashboard() {
 
   if (isLoading || !dashboard) return null;
 
-  return <div className="space-y-6">
-    <div className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950 p-5 shadow-2xl sm:p-7">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  return <div className="relative -m-3 min-h-screen overflow-hidden rounded-[2rem] bg-slate-950 p-3 sm:-m-6 sm:p-6">
+    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(34,211,238,0.16),transparent_30%),radial-gradient(circle_at_82%_38%,rgba(139,92,246,0.14),transparent_28%)]" />
+    <div className="relative space-y-5">
+      <header className="flex flex-col gap-4 rounded-[1.75rem] border border-slate-800/80 bg-black/30 p-5 backdrop-blur md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm font-medium uppercase tracking-[0.28em] text-cyan-300">Mission Control</p>
-          <h1 className="mt-2 text-4xl font-black text-slate-50">Dashboard</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">High-level overview of execution, open loops, focus, and brain health. Day Plan remains the source for the actual timeline.</p>
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Mission Control</p>
+          <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-50">Dashboard</h1>
+          <p className="mt-2 max-w-2xl text-sm text-slate-400">A graph-first overview of today, project health, focus load, and system balance.</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-400">
+        <div className="w-fit rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm font-semibold text-slate-300">
           Updated {new Date(dashboard.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </div>
-      </div>
-      {dashboard.plan?.focus && <p className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">{dashboard.plan.focus}</p>}
+      </header>
+
+      <main className="grid gap-5 xl:grid-cols-[1.24fr_0.76fr]">
+        <MissionHero dashboard={dashboard} />
+        <WeeklyMomentum trends={dashboard.charts.trends} />
+
+        <FocusDonut data={dashboard.charts.focusAllocation} />
+        <ProjectBubbleChart projects={dashboard.charts.projectProgress} />
+        <BrainRadar data={dashboard.charts.lifeRadar} brainHealth={dashboard.brainHealth} />
+        <ProductivityPulse data={dashboard.charts.heatmap} />
+      </main>
     </div>
-
-    <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr_0.9fr]">
-      <ScoreCard score={dashboard.overview.todayScore} label={dashboard.overview.scoreLabel} />
-      <MetricCard label="Open Loops" value={dashboard.counts.waiting} helper={`${dashboard.counts.openTasks} open tasks · ${dashboard.counts.openTaskOutputs} outputs`} />
-      <MetricCard label="Time Remaining" value={`${dashboard.overview.timeRemainingHours}h`} helper={`${dashboard.overview.remainingBlocks} planned blocks left`} />
-    </section>
-
-    <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-      <StackedFocusBar data={dashboard.charts.focusAllocation} />
-      <TrendSparklines trends={dashboard.charts.trends} />
-    </section>
-
-    <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-      <Heatmap data={dashboard.charts.heatmap} />
-      <InsightsList insights={dashboard.insights} />
-    </section>
-
-    <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-      <ProjectRings projects={dashboard.charts.projectProgress} />
-      <BrainHealth brainHealth={dashboard.brainHealth} />
-    </section>
-
-    <RadarChart data={dashboard.charts.lifeRadar} />
   </div>;
 }
