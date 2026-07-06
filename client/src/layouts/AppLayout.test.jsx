@@ -1,6 +1,6 @@
 import React from 'react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './AppLayout';
@@ -33,6 +33,10 @@ function getDesktopSidebar() {
 describe('AppLayout collapsible sidebar', () => {
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('collapses the desktop sidebar into icon-only mode and persists preference', async () => {
