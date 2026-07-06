@@ -97,6 +97,7 @@ test('POST /api/chat creates conversation and saves user/assistant messages with
   expect(response.body.conversationId).toBe('conversation-1');
   expect(response.body.message.content).toBe('Mock assistant response');
   expect(response.body.contextUsed.context).toBe(1);
+  expect(generateChatCompletion).toHaveBeenCalledWith(expect.objectContaining({ messages: expect.any(Array) }));
   expect(ChatConversation.all()).toHaveLength(1);
   expect(ChatMessage.all()).toEqual(expect.arrayContaining([
     expect.objectContaining({ role: 'user', content: 'What should I focus on?' }),
@@ -104,9 +105,21 @@ test('POST /api/chat creates conversation and saves user/assistant messages with
   ]));
 });
 
+test('POST /api/chat passes explicit length constraints to the provider', async () => {
+  await authed().send({ message: 'i want it in 250 characters' }).expect(200);
+  const [{ messages }] = generateChatCompletion.mock.calls.at(-1);
+  expect(messages.at(-1)).toMatchObject({ role: 'user', content: 'i want it in 250 characters' });
+});
+
+test('POST /api/chat passes casual messages without forcing local task summaries', async () => {
+  await authed().send({ message: 'how are you' }).expect(200);
+  const [{ messages }] = generateChatCompletion.mock.calls.at(-1);
+  expect(messages.at(-1)).toMatchObject({ role: 'user', content: 'how are you' });
+});
+
 test('POST /api/chat returns 502 when Hugging Face fails', async () => {
   generateChatCompletion.mockRejectedValueOnce(new HuggingFaceProviderError('fail'));
-  await authed().send({ message: 'hello' }).expect(502, { message: 'Brain chat is temporarily unavailable' });
+  await authed().send({ message: 'hello' }).expect(502, { message: 'Brain chat is unavailable because the AI provider failed. Check HUGGINGFACE_API_KEY and HUGGINGFACE_MODEL.' });
 });
 
 test('POST /api/chat returns 404 for invalid conversationId', async () => {
