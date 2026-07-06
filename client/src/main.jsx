@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import { Landing } from './pages/Landing';
 import { Dashboard } from './pages/Dashboard';
 import { Notes } from './pages/Notes';
 import { DayPlan } from './pages/DayPlan';
@@ -22,10 +23,11 @@ import { Login } from './pages/Login';
 import './index.css';
 
 const router = createBrowserRouter([
+  { path: '/', element: <Landing /> },
   { path: '/login', element: <Login /> },
   { element: <ProtectedRoute />, children: [
     { path: '/', element: <AppLayout />, children: [
-      { index: true, element: <Dashboard /> },
+      { path: 'dashboard', element: <Dashboard /> },
       { path: 'notes', element: <Notes /> },
       { path: 'day-plan', element: <DayPlan /> },
       { path: 'tasks', element: <Tasks /> },
