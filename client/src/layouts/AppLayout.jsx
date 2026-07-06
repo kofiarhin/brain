@@ -121,7 +121,7 @@ export function AppLayout() {
       </button>
     </header>
 
-    <aside aria-label="Desktop sidebar" className={`fixed inset-y-0 left-0 z-30 hidden overflow-y-auto border-r border-border-subtle bg-panel/80 p-4 transition-[width] duration-300 ease-in-out md:block ${isSidebarCollapsed ? 'md:w-[72px]' : 'md:w-64'}`}>
+    <aside aria-label="Desktop sidebar" className={`no-scrollbar fixed inset-y-0 left-0 z-30 hidden overflow-y-auto border-r border-border-subtle bg-panel/80 p-4 transition-[width] duration-300 ease-in-out md:block ${isSidebarCollapsed ? 'md:w-[72px]' : 'md:w-64'}`}>
       <div className={`flex items-start ${isSidebarCollapsed ? 'flex-col gap-3' : 'justify-between gap-4'}`}>
         <Brand collapsed={isSidebarCollapsed} />
         <button
