@@ -47,7 +47,7 @@ function normalizeProject(project = {}) {
 }
 
 function Field({ label, children }) {
-  return <label className="block min-w-0 text-sm font-medium text-slate-300">
+  return <label className="block min-w-0 text-sm font-medium text-text-secondary">
     <span>{label}</span>
     <div className="mt-1">{children}</div>
   </label>;
@@ -55,21 +55,21 @@ function Field({ label, children }) {
 
 function inputClass(isEditing, extra = '') {
   const modeClass = isEditing
-    ? 'border-slate-700 bg-slate-950 text-slate-100 focus:border-cyan-400'
-    : 'cursor-default border-slate-800 bg-slate-900/50 text-slate-300 opacity-100';
+    ? 'border-border bg-surface text-text-primary focus:border-accent'
+    : 'cursor-default border-border-subtle bg-panel/50 text-text-secondary opacity-100';
 
   return `w-full rounded-lg border px-3 py-2 text-sm outline-none transition disabled:opacity-100 ${modeClass} ${extra}`;
 }
 
 function Section({ title, children }) {
-  return <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-    <h2 className="mb-3 text-base font-semibold text-slate-100">{title}</h2>
+  return <section className="rounded-lg border border-border-subtle bg-panel p-4">
+    <h2 className="mb-3 text-base font-semibold text-text-primary">{title}</h2>
     {children}
   </section>;
 }
 
 function Spinner() {
-  return <span aria-hidden="true" className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-950 border-t-transparent" />;
+  return <span aria-hidden="true" className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-text-inverted border-t-transparent" />;
 }
 
 function toLines(value) {
@@ -198,43 +198,43 @@ export function Projects() {
   };
 
   return <div className="space-y-5">
-    <div className="flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Execution loop</p>
-        <h1 className="text-2xl font-semibold text-slate-50">Projects</h1>
+        <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Execution loop</p>
+        <h1 className="text-2xl font-semibold text-text-primary">Projects</h1>
       </div>
-      <button className="rounded-lg border border-cyan-500 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/10" type="button" onClick={startNewProject}>
+      <button className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-text-primary hover:bg-accent-soft/60" type="button" onClick={startNewProject}>
         New Project
       </button>
     </div>
 
     <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-3">
-        <h2 className="text-sm font-semibold text-slate-300">Saved Projects</h2>
-        {!isLoading && !projects.length && <p className="text-sm text-slate-500">No projects saved yet.</p>}
+      <aside className="space-y-2 rounded-lg border border-border-subtle bg-panel p-3">
+        <h2 className="text-sm font-semibold text-text-secondary">Saved Projects</h2>
+        {!isLoading && !projects.length && <p className="text-sm text-text-muted">No projects saved yet.</p>}
         {projects.map((project) => <button
-          className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${project._id === selectedId ? 'border-cyan-400 bg-cyan-400/10' : 'border-slate-800 bg-slate-950 hover:border-slate-600'}`}
+          className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${project._id === selectedId ? 'border-border bg-accent-soft' : 'border-border-subtle bg-surface hover:border-border'}`}
           key={project._id}
           type="button"
           onClick={() => selectProject(project._id)}
         >
-          <span className="block font-medium text-slate-100">{project.name}</span>
-          <span className="mt-1 block text-xs text-slate-400">{project.executionState ?? 'planning'} | {project.priority ?? 'medium'}</span>
+          <span className="block font-medium text-text-primary">{project.name}</span>
+          <span className="mt-1 block text-xs text-text-muted">{project.executionState ?? 'planning'} | {project.priority ?? 'medium'}</span>
         </button>)}
       </aside>
 
       <form className="space-y-4" onSubmit={saveProject}>
-        <div className={`flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${isEditing ? 'border-cyan-400/60 bg-cyan-400/10' : 'border-slate-800 bg-slate-900'}`}>
+        <div className={`flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${isEditing ? 'border-border bg-accent-soft' : 'border-border-subtle bg-panel'}`}>
           <div>
-            <p className="text-sm font-semibold text-slate-100">{isEditing ? 'Editing project' : 'Viewing project'}</p>
-            <p className="text-xs text-slate-400">{isEditing ? 'Fields are active. Save or cancel when finished.' : 'Fields are locked. Click edit to make changes.'}</p>
+            <p className="text-sm font-semibold text-text-primary">{isEditing ? 'Editing project' : 'Viewing project'}</p>
+            <p className="text-xs text-text-muted">{isEditing ? 'Fields are active. Save or cancel when finished.' : 'Fields are locked. Click edit to make changes.'}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {feedback && <span className="text-sm text-slate-300">{feedback}</span>}
-            {!isEditing && <button className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300" type="button" onClick={() => setIsEditing(true)}>
+            {feedback && <span className="text-sm text-text-secondary">{feedback}</span>}
+            {!isEditing && <button className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-text-inverted hover:bg-accent-hover" type="button" onClick={() => setIsEditing(true)}>
               Edit project
             </button>}
-            {isEditing && <button className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-slate-500 disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={cancelEditing}>
+            {isEditing && <button className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-text-secondary hover:border-border disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={cancelEditing}>
               Cancel
             </button>}
           </div>
@@ -261,7 +261,7 @@ export function Projects() {
             <Field label="Progress percent">
               <input className={inputClass(isEditing)} disabled={controlsDisabled} max="100" min="0" type="number" value={form.progressPercent} onChange={(event) => setValue('progressPercent', event.target.value)} />
             </Field>
-            <label className={`flex items-center gap-2 self-end rounded-lg border px-3 py-2 text-sm ${isEditing ? 'border-slate-800 bg-slate-950 text-slate-200' : 'border-slate-800 bg-slate-900/50 text-slate-300'}`}>
+            <label className={`flex items-center gap-2 self-end rounded-lg border px-3 py-2 text-sm ${isEditing ? 'border-border-subtle bg-surface text-text-secondary' : 'border-border-subtle bg-panel/50 text-text-secondary'}`}>
               <input checked={form.focusToday} disabled={controlsDisabled} type="checkbox" onChange={(event) => setValue('focusToday', event.target.checked)} />
               Focus today
             </label>
@@ -304,12 +304,12 @@ export function Projects() {
 
         <Section title="Production Checklist">
           <div className="space-y-2">
-            {form.productionChecklist.map((item, index) => <div className="grid gap-2 rounded-lg border border-slate-800 bg-slate-950 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]" key={item._id ?? index}>
+            {form.productionChecklist.map((item, index) => <div className="grid gap-2 rounded-lg border border-border-subtle bg-surface p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]" key={item._id ?? index}>
               <input aria-label={`Checklist done ${index + 1}`} checked={Boolean(item.done)} disabled={controlsDisabled} type="checkbox" onChange={(event) => setChecklistItem(index, { done: event.target.checked })} />
               <input aria-label={`Checklist title ${index + 1}`} className={inputClass(isEditing)} disabled={controlsDisabled} value={item.title ?? ''} onChange={(event) => setChecklistItem(index, { title: event.target.value })} />
-              {isEditing && <button className="rounded-lg border border-red-500/60 px-3 py-2 text-sm text-red-200 disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={() => removeFromArray('productionChecklist', index)}>Delete</button>}
+              {isEditing && <button className="rounded-lg border border-danger/60 px-3 py-2 text-sm text-danger disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={() => removeFromArray('productionChecklist', index)}>Delete</button>}
             </div>)}
-            {isEditing && <button className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:border-cyan-400 disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={() => setValue('productionChecklist', [...form.productionChecklist, { title: '', done: false }])}>
+            {isEditing && <button className="rounded-lg border border-border px-3 py-2 text-sm text-text-secondary hover:border-border disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={() => setValue('productionChecklist', [...form.productionChecklist, { title: '', done: false }])}>
               Add checklist item
             </button>}
           </div>
@@ -317,56 +317,56 @@ export function Projects() {
 
         <Section title="Next Actionable Steps">
           <div className="space-y-3">
-            {form.nextActionableSteps.map((step, index) => <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950 p-3" key={step._id ?? index}>
+            {form.nextActionableSteps.map((step, index) => <div className="space-y-2 rounded-lg border border-border-subtle bg-surface p-3" key={step._id ?? index}>
               <div className={`grid gap-2 ${isEditing ? 'sm:grid-cols-[auto_minmax(0,1fr)_140px_auto]' : 'sm:grid-cols-[auto_minmax(0,1fr)_140px]'}`}>
                 <input aria-label={`Step done ${index + 1}`} checked={Boolean(step.done)} disabled={controlsDisabled} type="checkbox" onChange={(event) => setStep(index, { done: event.target.checked })} />
                 <input aria-label={`Step title ${index + 1}`} className={inputClass(isEditing)} disabled={controlsDisabled} value={step.title ?? ''} onChange={(event) => setStep(index, { title: event.target.value })} />
                 <select aria-label={`Step priority ${index + 1}`} className={inputClass(isEditing)} disabled={controlsDisabled} value={step.priority ?? 'medium'} onChange={(event) => setStep(index, { priority: event.target.value })}>
                   {priorities.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
                 </select>
-                {isEditing && <button className="rounded-lg border border-red-500/60 px-3 py-2 text-sm text-red-200 disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={() => removeFromArray('nextActionableSteps', index)}>Delete</button>}
+                {isEditing && <button className="rounded-lg border border-danger/60 px-3 py-2 text-sm text-danger disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={() => removeFromArray('nextActionableSteps', index)}>Delete</button>}
               </div>
               <Field label={`Codex prompt ${index + 1}`}>
                 <textarea className={inputClass(isEditing, 'min-h-20')} disabled={controlsDisabled} value={step.codexPrompt ?? ''} onChange={(event) => setStep(index, { codexPrompt: event.target.value })} />
               </Field>
-              <label className="flex items-center gap-2 text-sm text-slate-300">
+              <label className="flex items-center gap-2 text-sm text-text-secondary">
                 <input checked={Boolean(step.reviewRequired)} disabled={controlsDisabled} type="checkbox" onChange={(event) => setStep(index, { reviewRequired: event.target.checked })} />
                 Review required
               </label>
             </div>)}
-            {isEditing && <button className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:border-cyan-400 disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={() => setValue('nextActionableSteps', [...form.nextActionableSteps, { title: '', done: false, priority: 'medium', codexPrompt: '', reviewRequired: false }])}>
+            {isEditing && <button className="rounded-lg border border-border px-3 py-2 text-sm text-text-secondary hover:border-border disabled:opacity-50" disabled={isSaving || isDeleting} type="button" onClick={() => setValue('nextActionableSteps', [...form.nextActionableSteps, { title: '', done: false, priority: 'medium', codexPrompt: '', reviewRequired: false }])}>
               Add actionable step
             </button>}
           </div>
         </Section>
 
         <Section title="Progress Updates / History">
-          {!form.progressUpdates.length && <p className="text-sm text-slate-500">No progress updates saved yet.</p>}
+          {!form.progressUpdates.length && <p className="text-sm text-text-muted">No progress updates saved yet.</p>}
           <div className="space-y-2">
-            {form.progressUpdates.map((updateItem, index) => <article className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm" key={updateItem._id ?? index}>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+            {form.progressUpdates.map((updateItem, index) => <article className="rounded-lg border border-border-subtle bg-surface p-3 text-sm" key={updateItem._id ?? index}>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-muted">
                 <span>{updateItem.date ? new Date(updateItem.date).toLocaleDateString() : 'No date'}</span>
                 <span>{updateItem.progressPercent ?? 0}%</span>
               </div>
-              <p className="mt-2 text-slate-200">{updateItem.summary}</p>
-              {!!updateItem.nextActionableSteps?.length && <p className="mt-2 text-slate-400">Next: {updateItem.nextActionableSteps.join(', ')}</p>}
-              {!!updateItem.blockers?.length && <p className="mt-1 text-red-200">Blockers: {updateItem.blockers.join(', ')}</p>}
+              <p className="mt-2 text-text-secondary">{updateItem.summary}</p>
+              {!!updateItem.nextActionableSteps?.length && <p className="mt-2 text-text-muted">Next: {updateItem.nextActionableSteps.join(', ')}</p>}
+              {!!updateItem.blockers?.length && <p className="mt-1 text-danger">Blockers: {updateItem.blockers.join(', ')}</p>}
             </article>)}
           </div>
         </Section>
 
         {isEditing && <div className="flex flex-wrap items-center gap-3">
-          <button className="inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-70" disabled={isSaving || isDeleting} type="submit">
+          <button className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-text-inverted hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-70" disabled={isSaving || isDeleting} type="submit">
             {isSaving && <Spinner />}
             {isSaving ? 'Saving...' : selectedProject ? 'Save changes' : 'Save project'}
           </button>
         </div>}
 
-        {selectedProject && !isCreatingNew && <section className="rounded-lg border border-red-500/40 bg-red-950/20 p-4">
-          <h2 className="mb-2 text-base font-semibold text-red-100">Danger Zone</h2>
-          <p className="mb-3 text-sm text-red-200/80">Delete this project permanently. Other projects are not affected.</p>
+        {selectedProject && !isCreatingNew && <section className="rounded-lg border border-danger/40 bg-danger-soft/20 p-4">
+          <h2 className="mb-2 text-base font-semibold text-danger">Danger Zone</h2>
+          <p className="mb-3 text-sm text-danger/80">Delete this project permanently. Other projects are not affected.</p>
           <button
-            className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-text-inverted hover:bg-danger/80 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isSaving || isDeleting}
             type="button"
             onClick={deleteProject}
