@@ -794,7 +794,7 @@ describe('Dashboard', () => {
     expect(await screen.findByText('Mission Control')).toBeInTheDocument();
     expect(await screen.findByText('Today Score')).toBeInTheDocument();
     expect(screen.getByText('Project Rings')).toBeInTheDocument();
-    expect(screen.getByText('Brain Health')).toBeInTheDocument();
+    expect(screen.getAllByText('Brain Health').length).toBeGreaterThan(0);
     expect(screen.getByText('Brain Globe')).toBeInTheDocument();
     expect(screen.queryByText('Operational Timeline')).not.toBeInTheDocument();
   });
