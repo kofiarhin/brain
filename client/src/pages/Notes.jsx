@@ -1,6 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useResource } from '../hooks/useResource';
 import { Card } from '../components/Card';
+
+function AutoResizeTextarea({ value, onChange, className = '', ...props }) {
+  const textareaRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [value]);
+
+  return <textarea ref={textareaRef} className={`resize-none overflow-hidden ${className}`} value={value} onChange={onChange} {...props} />;
+}
 
 export function Notes() {
   const [content, setContent] = useState('');
@@ -81,7 +95,7 @@ export function Notes() {
     <h1 className="text-2xl font-bold sm:text-3xl">Notes</h1>
     <Card title="Capture">
       <form onSubmit={save} className="space-y-3">
-        <textarea aria-label="Note content" className="min-h-32 w-full rounded-xl border border-border bg-surface p-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-accent sm:text-base" value={content} onChange={(e) => setContent(e.target.value)} />
+        <AutoResizeTextarea aria-label="Note content" className="min-h-32 w-full rounded-xl border border-border bg-surface p-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-accent sm:text-base" value={content} onChange={(e) => setContent(e.target.value)} />
         <button className="w-full rounded-lg bg-accent px-4 py-2 font-medium text-text-inverted hover:bg-accent-hover sm:w-auto">Save note</button>
       </form>
     </Card>
@@ -95,7 +109,7 @@ export function Notes() {
       </div>
     </Card>
 
-    {selectedNote && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
+    {selectedNote && <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
       <div className="w-full max-w-3xl rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-2xl sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -111,7 +125,7 @@ export function Notes() {
           <button type="button" className="rounded-lg px-3 py-1 text-slate-300 hover:bg-slate-800" onClick={closeNote} aria-label="Close note modal">&times;</button>
         </div>
 
-        <textarea aria-label="Edit selected note" className="min-h-80 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm leading-relaxed sm:text-base" value={modalContent} onChange={(e) => setModalContent(e.target.value)} autoFocus />
+        <AutoResizeTextarea aria-label="Edit selected note" className="min-h-80 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm leading-relaxed sm:text-base" value={modalContent} onChange={(e) => setModalContent(e.target.value)} autoFocus />
 
         <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button type="button" className="rounded-lg px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-950/40" onClick={deleteNote} disabled={notes.remove.isPending}>Delete</button>
