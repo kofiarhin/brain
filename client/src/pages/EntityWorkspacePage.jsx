@@ -43,6 +43,6 @@ export function EntityWorkspacePage({ name, title, fields }) {
         </article>)}
       </div>
     </Card>
-    {selectedItem && <EntityDetailsModal item={selectedItem} title={title} onClose={() => setSelectedItem(null)} />}
+    {selectedItem && <EntityDetailsModal item={selectedItem} title={title} fields={fields} resource={resource} onClose={() => setSelectedItem(null)} />}
   </div>;
 }
