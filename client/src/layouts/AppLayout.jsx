@@ -21,7 +21,7 @@ const icons = {
 };
 
 const nav = [
-  { to: '/', label: 'Dashboard', icon: 'dashboard' },
+  { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { to: '/chat', label: 'Chat', icon: 'chat' },
   { to: '/notes', label: 'Notes', icon: 'notes' },
   { to: '/day-plan', label: 'Day Plan', icon: 'calendar' },
@@ -48,7 +48,7 @@ function Navigation({ collapsed = false, onNavigate }) {
     {nav.map(({ to, label, icon }) => <NavLink
       key={to}
       to={to}
-      end={to === '/'}
+      end={to === '/dashboard'}
       onClick={onNavigate}
       title={collapsed ? label : undefined}
       aria-label={collapsed ? label : undefined}
@@ -63,10 +63,10 @@ function Navigation({ collapsed = false, onNavigate }) {
 
 function Brand({ collapsed = false, onNavigate }) {
   if (collapsed) {
-    return <Link to="/" onClick={onNavigate} aria-label="Brain OS home" title="Brain OS" className="flex h-10 w-10 items-center justify-center rounded-lg border border-border-subtle bg-elevated text-sm font-bold text-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app">B</Link>;
+    return <Link to="/dashboard" onClick={onNavigate} aria-label="Brain OS dashboard" title="Brain OS" className="flex h-10 w-10 items-center justify-center rounded-lg border border-border-subtle bg-elevated text-sm font-bold text-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app">B</Link>;
   }
 
-  return <Link to="/" onClick={onNavigate} className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app">
+  return <Link to="/dashboard" onClick={onNavigate} className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-app">
     <h1 className="text-xl font-bold">Brain OS</h1>
     <p className="mt-1 text-sm text-text-muted">MongoDB = Memory / Codex = Brain</p>
   </Link>;
