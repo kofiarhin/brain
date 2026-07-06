@@ -123,7 +123,7 @@ export function Notes() {
             </button>
             {copyStatus === 'failed' && <span className="text-xs text-danger">Copy failed</span>}
           </div>
-          <button type="button" className="rounded-lg px-3 py-1 text-text-muted hover:bg-surface" onClick={closeNote} aria-label="Close note modal">x</button>
+          <button type="button" className="rounded-lg px-3 py-1 text-text-muted hover:bg-surface" onClick={closeNote} aria-label="Close note modal">&times;</button>
         </div>
 
         <AutoResizeTextarea aria-label="Edit selected note" className="min-h-80 w-full rounded-xl border border-border bg-surface p-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-accent sm:text-base" value={modalContent} onChange={(e) => setModalContent(e.target.value)} autoFocus />
