@@ -42,7 +42,7 @@ export function MissionHero({ dashboard }) {
   const innerRadius = 76;
   const circumference = 2 * Math.PI * radius;
   const innerCircumference = 2 * Math.PI * innerRadius;
-  const focusText = dashboard.plan?.focus || 'Today\'s mission is ready.';
+  const focusText = dashboard.plan?.focus || dashboard.focus || 'Today\'s mission is ready.';
 
   return <section className="relative overflow-hidden rounded-[2rem] border border-cyan-300/20 bg-[radial-gradient(circle_at_20%_10%,rgba(34,211,238,0.20),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))] p-5 shadow-2xl shadow-cyan-950/30 sm:p-7 xl:col-span-2">
     <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
@@ -73,10 +73,10 @@ export function MissionHero({ dashboard }) {
         <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Today's Mission</p>
         <h1 className="mt-3 max-w-3xl text-3xl font-black leading-tight text-slate-50 sm:text-4xl">{focusText}</h1>
         <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MiniMetric label="Focus" value={formatPercent(score)} progress={score} />
+          <MiniMetric label="Today Score" value={formatPercent(score)} progress={score} />
           <MiniMetric label="Open loops" value={dashboard.counts.waiting} progress={Math.max(12, 100 - dashboard.counts.waiting * 4)} />
           <MiniMetric label="Time left" value={`${dashboard.overview.timeRemainingHours}h`} progress={Math.min(100, dashboard.overview.timeRemainingHours * 12)} />
-          <MiniMetric label="Brain health" value={formatPercent(health)} progress={health} />
+          <MiniMetric label="Brain Health" value={formatPercent(health)} progress={health} />
         </div>
       </div>
     </div>
@@ -149,7 +149,7 @@ export function ProjectBubbleChart({ projects = EMPTY_ARRAY }) {
     { x: 24, y: 33, r: 11 },
   ];
 
-  return <ChartPanel eyebrow="Project health" title="Active project map" className="bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.12),transparent_42%),rgba(2,6,23,0.82)]">
+  return <ChartPanel eyebrow="Project health" title="Project Rings" className="bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.12),transparent_42%),rgba(2,6,23,0.82)]">
     {safeProjects.length ? <div className="relative h-72">
       <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full">
         <line x1="46" y1="48" x2="69" y2="31" stroke="rgba(148,163,184,0.18)" />
@@ -193,7 +193,7 @@ export function BrainRadar({ data = EMPTY_ARRAY, brainHealth }) {
     };
   });
 
-  return <ChartPanel eyebrow="Brain health" title="System balance">
+  return <ChartPanel eyebrow="Brain Health" title="Brain Globe">
     {radarData.length ? <div className="grid gap-5 lg:grid-cols-[260px_1fr] lg:items-center">
       <svg viewBox={`0 0 ${size} ${size}`} className="mx-auto h-64 w-64 max-w-full">
         {[0.34, 0.67, 1].map((level) => <polygon key={level} points={radarData.map((_, index) => {
