@@ -4,6 +4,7 @@ import { ChatMessage } from '../models/ChatMessage.js';
 import { buildBrainContext } from '../services/brainContextBuilder.js';
 import { buildChatPrompt } from '../services/chatPrompt.js';
 import { generateChatCompletion, HuggingFaceProviderError } from '../services/huggingFaceClient.js';
+import { buildLocalChatFallback } from '../services/localChatFallback.js';
 
 function titleFrom(message) { return (message || '').slice(0, 60).trim() || 'New Chat'; }
 function isValidId(id) { return !id || mongoose.Types.ObjectId.isValid(id) || typeof id === 'string'; }
@@ -22,14 +23,27 @@ export async function sendChatMessage(req, res, next) {
     await ChatMessage.create({ conversationId: conversation._id, role: 'user', content: message, provider: '' });
     const contextBundle = await buildBrainContext({ message, conversationId: conversation._id });
     const prompt = buildChatPrompt({ message, contextBundle });
-    const content = await generateChatCompletion({ prompt });
+    let content;
+    let provider = 'huggingface';
+    let model = process.env.HUGGINGFACE_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3';
+
+    try {
+      content = await generateChatCompletion({ prompt });
+    } catch (error) {
+      if (!(error instanceof HuggingFaceProviderError)) throw error;
+      console.warn(`Brain chat provider unavailable: ${error.message}`);
+      content = buildLocalChatFallback({ message, contextBundle });
+      provider = 'local-fallback';
+      model = 'local-context-summary';
+    }
+
     const assistantMessage = await ChatMessage.create({
       conversationId: conversation._id,
       role: 'assistant',
       content,
       contextUsed: contextBundle.contextUsed,
-      model: process.env.HUGGINGFACE_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3',
-      provider: 'huggingface',
+      model,
+      provider,
     });
     await ChatConversation.findByIdAndUpdate(conversation._id, { lastMessageAt: new Date(), contextSnapshotSummary: JSON.stringify(contextBundle.contextUsed) });
     return res.json({
@@ -37,10 +51,7 @@ export async function sendChatMessage(req, res, next) {
       message: { role: assistantMessage.role, content: assistantMessage.content, createdAt: assistantMessage.createdAt },
       contextUsed: contextBundle.contextUsed,
     });
-  } catch (error) {
-    if (error instanceof HuggingFaceProviderError) return res.status(502).json({ message: 'Brain chat is temporarily unavailable' });
-    return next(error);
-  }
+  } catch (error) { return next(error); }
 }
 
 export async function listChatConversations(_req, res, next) {

@@ -104,9 +104,18 @@ test('POST /api/chat creates conversation and saves user/assistant messages with
   ]));
 });
 
-test('POST /api/chat returns 502 when Hugging Face fails', async () => {
+test('POST /api/chat falls back to local context when Hugging Face fails', async () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   generateChatCompletion.mockRejectedValueOnce(new HuggingFaceProviderError('fail'));
-  await authed().send({ message: 'hello' }).expect(502, { message: 'Brain chat is temporarily unavailable' });
+  await Task.create({ title: 'Ship chat fallback', priority: 'high', status: 'open' });
+  const response = await authed().send({ message: 'hello' }).expect(200);
+  expect(response.body.message.content).toContain('hosted AI provider is unavailable');
+  expect(response.body.message.content).toContain('Ship chat fallback');
+  expect(ChatMessage.all()).toEqual(expect.arrayContaining([
+    expect.objectContaining({ role: 'assistant', provider: 'local-fallback', model: 'local-context-summary' }),
+  ]));
+  expect(warn).toHaveBeenCalledWith('Brain chat provider unavailable: fail');
+  warn.mockRestore();
 });
 
 test('POST /api/chat returns 404 for invalid conversationId', async () => {
