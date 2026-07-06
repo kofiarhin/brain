@@ -26,6 +26,10 @@ function renderLayout(initialPath = '/') {
   );
 }
 
+function getDesktopSidebar() {
+  return screen.getByRole('complementary', { name: 'Desktop sidebar' });
+}
+
 describe('AppLayout collapsible sidebar', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -35,7 +39,7 @@ describe('AppLayout collapsible sidebar', () => {
     const user = userEvent.setup();
     renderLayout('/notes');
 
-    const sidebar = screen.getByLabelText('Desktop sidebar');
+    const sidebar = getDesktopSidebar();
     expect(sidebar).toHaveClass('md:w-64');
 
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
@@ -49,7 +53,7 @@ describe('AppLayout collapsible sidebar', () => {
     localStorage.setItem('brain.sidebarCollapsed', 'true');
     renderLayout('/notes');
 
-    expect(screen.getByLabelText('Desktop sidebar')).toHaveClass('md:w-[72px]');
+    expect(getDesktopSidebar()).toHaveClass('md:w-[72px]');
     expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
   });
 });
