@@ -63,3 +63,27 @@ select,
 button {
   font: inherit;
 }
+
+.landing-code-rain {
+  top: -12%;
+  animation-name: landing-code-rain-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  text-shadow: 0 0 16px rgba(125, 211, 252, 0.35);
+}
+
+@keyframes landing-code-rain-fall {
+  from {
+    transform: translate3d(0, -18vh, 0) rotate(90deg);
+  }
+  to {
+    transform: translate3d(0, 124vh, 0) rotate(90deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-code-rain {
+    animation: none;
+    opacity: 0.22;
+  }
+}
