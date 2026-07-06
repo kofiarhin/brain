@@ -107,7 +107,7 @@ export function AppLayout() {
     };
   }, [isMenuOpen]);
 
-  return <div className="min-h-screen bg-app text-text-primary md:flex">
+  return <div className="min-h-screen bg-app text-text-primary">
     <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border-subtle bg-app/95 px-4 py-3 backdrop-blur md:hidden">
       <Brand />
       <button
@@ -121,7 +121,7 @@ export function AppLayout() {
       </button>
     </header>
 
-    <aside aria-label="Desktop sidebar" className={`hidden border-r border-border-subtle bg-panel/80 p-4 transition-[width] duration-300 ease-in-out md:block md:min-h-screen md:shrink-0 ${isSidebarCollapsed ? 'md:w-[72px]' : 'md:w-64'}`}>
+    <aside aria-label="Desktop sidebar" className={`fixed inset-y-0 left-0 z-30 hidden overflow-y-auto border-r border-border-subtle bg-panel/80 p-4 transition-[width] duration-300 ease-in-out md:block ${isSidebarCollapsed ? 'md:w-[72px]' : 'md:w-64'}`}>
       <div className={`flex items-start ${isSidebarCollapsed ? 'flex-col gap-3' : 'justify-between gap-4'}`}>
         <Brand collapsed={isSidebarCollapsed} />
         <button
@@ -183,7 +183,7 @@ export function AppLayout() {
       </aside>
     </div>}
 
-    <main className="relative min-w-0 flex-1 px-4 py-5 sm:px-6 md:p-8">
+    <main className={`relative min-w-0 px-4 py-5 transition-[margin-left] duration-300 ease-in-out sm:px-6 md:p-8 ${isSidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-64'}`}>
       <Outlet />
       <GlobalPageLoadingOverlay />
     </main>
