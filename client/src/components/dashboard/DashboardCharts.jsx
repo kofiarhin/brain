@@ -67,7 +67,7 @@ export function StackedFocusBar({ data }) {
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {data.map((item) => <div className="flex items-center justify-between gap-3 text-sm" key={item.label}>
           <span className="flex items-center gap-2 text-slate-300"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
-          <span className="font-semibold text-slate-100">{(item.minutes / 60).toFixed(1)}h · {Math.round((item.minutes / total) * 100)}%</span>
+          <span className="font-semibold text-slate-100">{(item.minutes / total) * 100}%</span>
         </div>)}
       </div>
     </> : <p className="text-sm text-slate-500">No schedule blocks to categorize.</p>}
@@ -121,7 +121,7 @@ export function RadarChart({ data }) {
     const valueRadius = radius * (item.value / 100);
     return { ...item, x: center + Math.cos(angle) * valueRadius, y: center + Math.sin(angle) * valueRadius, lx: center + Math.cos(angle) * (radius + 28), ly: center + Math.sin(angle) * (radius + 28) };
   });
-  return <Card title="Life Radar">
+  return <Card title="Brain Globe">
     <div className="flex flex-col items-center gap-4 md:flex-row">
       <svg viewBox={`0 0 ${size} ${size}`} className="h-64 w-64 max-w-full">
         {[0.33, 0.66, 1].map((level) => <polygon key={level} points={data.map((_, index) => {
