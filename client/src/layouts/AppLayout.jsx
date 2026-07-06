@@ -17,10 +17,12 @@ const icons = {
   reviews: 'M4 5h16M4 12h16M4 19h10',
   reports: 'M4 19V5m5 14v-7m5 7V8m5 11v-4',
   posts: 'M4 4h16v16H4V4Zm4 5h8M8 13h8M8 17h5',
+  chat: 'M4 5h16v10H7l-3 3V5Z',
 };
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: 'dashboard' },
+  { to: '/chat', label: 'Chat', icon: 'chat' },
   { to: '/notes', label: 'Notes', icon: 'notes' },
   { to: '/day-plan', label: 'Day Plan', icon: 'calendar' },
   { to: '/tasks', label: 'Tasks', icon: 'tasks' },

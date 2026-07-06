@@ -4,11 +4,11 @@ A full-stack MERN Personal Operating System where MongoDB is memory, Codex CLI i
 
 ## Architecture
 
-- **Frontend:** CRUD only. Saves data, retrieves data, and displays generated data.
+- **Frontend:** CRUD-focused. Saves data, retrieves data, displays generated data, and exposes one authenticated read-only chat UI backed by `/api/chat`.
 - **MongoDB:** Source of truth for notes, tasks, plans, reviews, goals, projects, ideas, context, and deliverables.
 - **Codex CLI:** AI layer. Run commands such as `update life`, `update brain`, `refresh brain`, `plan my day`, and `morning briefing` manually from Codex. Codex reads MongoDB, reasons over the data, and writes updates back to MongoDB.
 
-The application does **not** expose AI routes such as `/api/update-life`, `/api/plan-day`, or `/api/brain/*`.
+The application exposes one authenticated AI route, `/api/chat`, for read-only conversational access to MongoDB-backed Brain App context. Write operations remain CRUD-only and Codex-command-driven unless explicitly implemented later.
 
 ## Setup
 
@@ -31,6 +31,9 @@ CLIENT_URL=http://localhost:5173
 AUTH_USERNAME=
 AUTH_PASSWORD=
 JWT_SECRET=
+HUGGINGFACE_API_KEY=
+HUGGINGFACE_MODEL=mistralai/Mistral-7B-Instruct-v0.3
+HUGGINGFACE_API_URL=https://api-inference.huggingface.co/models
 ```
 
 The frontend API base URL is:
@@ -57,6 +60,9 @@ CLIENT_URL=https://YOUR_HEROKU_APP.herokuapp.com
 AUTH_USERNAME=
 AUTH_PASSWORD=
 JWT_SECRET=
+HUGGINGFACE_API_KEY=
+HUGGINGFACE_MODEL=mistralai/Mistral-7B-Instruct-v0.3
+HUGGINGFACE_API_URL=https://api-inference.huggingface.co/models
 ```
 
 Do not set `PORT`; Heroku provides it. Do not set `VITE_API_URL`; the production frontend defaults to `/api` on the same Heroku app.
@@ -123,6 +129,12 @@ CRUD endpoints are available for:
 - `/api/day-plans`
 - `/api/brain-update-reports`
 - `/api/generated-posts`
+
+AI endpoint:
+
+- `POST /api/chat`
+- `GET /api/chat/conversations`
+- `GET /api/chat/conversations/:id/messages`
 
 Utility endpoints:
 
@@ -208,3 +220,4 @@ No frontend AI generation is part of this loop.
 # Live Demo
 
 [Live demo](https://brain-pi-black.vercel.app/)
+

@@ -17,6 +17,7 @@ import { Preferences } from './pages/Preferences';
 import { Reviews } from './pages/Reviews';
 import { Reports } from './pages/Reports';
 import { GeneratedPosts } from './pages/GeneratedPosts';
+import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
 import './index.css';
 
@@ -35,6 +36,7 @@ const router = createBrowserRouter([
       { path: 'preferences', element: <Preferences /> },
       { path: 'reviews', element: <Reviews /> },
       { path: 'reports', element: <Reports /> },
+      { path: 'chat', element: <Chat /> },
       { path: 'generated-posts', element: <GeneratedPosts /> }
     ]}
   ]}
