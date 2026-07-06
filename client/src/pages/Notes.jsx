@@ -78,7 +78,7 @@ export function Notes() {
       <div className="w-full max-w-3xl rounded-2xl border border-border bg-elevated p-4 text-text-primary shadow-2xl sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-4">
           <h2 id="note-modal-title" className="text-xl font-bold">Note Details</h2>
-          <button type="button" className="rounded-lg px-3 py-1 text-text-muted hover:bg-surface" onClick={closeNote} aria-label="Close note modal">x</button>
+          <button type="button" className="rounded-lg px-3 py-1 text-text-muted hover:bg-surface" onClick={closeNote} aria-label="Close note modal">&times;</button>
         </div>
 
         <textarea aria-label="Edit selected note" className="min-h-80 w-full rounded-xl border border-border bg-surface p-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-accent sm:text-base" value={modalContent} onChange={(e) => setModalContent(e.target.value)} autoFocus />
