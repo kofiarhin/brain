@@ -70,7 +70,7 @@ export function MissionHero({ dashboard }) {
       </div>
 
       <div>
-        <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Today\'s Mission</p>
+        <p className="text-xs font-black uppercase tracking-[0.32em] text-cyan-300">Today's Mission</p>
         <h1 className="mt-3 max-w-3xl text-3xl font-black leading-tight text-slate-50 sm:text-4xl">{focusText}</h1>
         <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MiniMetric label="Focus" value={formatPercent(score)} progress={score} />
@@ -216,7 +216,7 @@ export function ProductivityPulse({ data = EMPTY_ARRAY }) {
 
   return <ChartPanel eyebrow="Productivity pulse" title="Activity heatmap" className="xl:col-span-2">
     {data.length ? <>
-      <div className="grid grid-cols-14 gap-2 overflow-hidden">
+      <div className="grid grid-cols-7 gap-2 overflow-hidden sm:[grid-template-columns:repeat(14,minmax(0,1fr))]">
         {data.map((item, index) => {
           const value = Number(item.value) || 0;
           const opacity = value ? 0.24 + (value / max) * 0.76 : 0.08;
