@@ -136,25 +136,25 @@ export function EntityPage({ name, title, fields, statusActions = false, editAct
       </div>
     </Card>
 
-    {selectedItem && <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface/80 p-4" onClick={() => setSelectedItem(null)}>
+    {selectedItem && <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 sm:py-12" onClick={() => setSelectedItem(null)}>
       <section
         aria-modal="true"
         role="dialog"
         aria-labelledby="entity-details-title"
-        className="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
+        className="my-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-border p-5">
-          <div>
+        <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+          <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-text-muted">{title} details</p>
-            <h2 id="entity-details-title" className="mt-1 break-words text-xl font-bold text-text-primary">{getItemTitle(selectedItem, title)}</h2>
+            <h2 id="entity-details-title" className="mt-1 break-words text-lg font-bold text-text-primary sm:text-xl">{getItemTitle(selectedItem, title)}</h2>
           </div>
-          <button type="button" className="rounded-lg border border-border px-3 py-1.5 text-sm text-text-secondary hover:bg-accent-soft" onClick={() => setSelectedItem(null)}>Close</button>
+          <button type="button" className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm text-text-secondary hover:bg-accent-soft" onClick={() => setSelectedItem(null)}>Close</button>
         </header>
-        <dl className="max-h-[65vh] space-y-4 overflow-y-auto p-5">
-          {details.map(([key, value]) => <div key={key} className="rounded-xl bg-elevated p-4">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-text-muted">{formatLabel(key)}</dt>
-            <dd className="mt-2 whitespace-pre-wrap break-words text-sm text-text-secondary">{formatValue(value)}</dd>
+        <dl className="max-h-[70vh] space-y-3 overflow-y-auto px-5 py-4 text-sm">
+          {details.map(([key, value]) => <div key={key} className="rounded-xl bg-elevated p-3">
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{formatLabel(key)}</dt>
+            <dd className="mt-1.5 whitespace-pre-wrap break-words leading-relaxed text-text-secondary">{formatValue(value)}</dd>
           </div>)}
         </dl>
       </section>
