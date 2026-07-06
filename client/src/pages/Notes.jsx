@@ -22,11 +22,12 @@ export function Notes() {
   const [modalContent, setModalContent] = useState('');
   const [copyStatus, setCopyStatus] = useState('idle');
   const notes = useResource('notes');
+  const selectedNoteId = selectedNote?._id;
 
   useEffect(() => {
-    if (!selectedNote) return;
+    if (!selectedNoteId) return;
 
-    const currentNote = notes.data?.find((note) => note._id === selectedNote._id);
+    const currentNote = notes.data?.find((note) => note._id === selectedNoteId);
     if (!currentNote) {
       setSelectedNote(null);
       setModalContent('');
@@ -35,7 +36,7 @@ export function Notes() {
     }
 
     setSelectedNote(currentNote);
-  }, [notes.data, selectedNote]);
+  }, [notes.data, selectedNoteId]);
 
   useEffect(() => {
     if (copyStatus !== 'copied') return undefined;
@@ -110,28 +111,28 @@ export function Notes() {
     </Card>
 
     {selectedNote && <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
-      <div className="w-full max-w-3xl rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-2xl sm:p-6">
+      <div className="w-full max-w-3xl rounded-2xl border border-border bg-elevated p-4 text-text-primary shadow-2xl sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <h2 id="note-modal-title" className="text-xl font-bold">Note Details</h2>
-            <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50" onClick={copyNote} disabled={!modalContent} aria-label="Copy note text" title={copyStatus === 'copied' ? 'Copied' : 'Copy note text'}>
-              {copyStatus === 'copied' ? <span aria-hidden="true" className="text-sm font-bold">✓</span> : <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-text-muted transition hover:bg-surface hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50" onClick={copyNote} disabled={!modalContent} aria-label="Copy note text" title={copyStatus === 'copied' ? 'Copied' : 'Copy note text'}>
+              {copyStatus === 'copied' ? <span aria-hidden="true" className="text-sm font-bold">OK</span> : <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="9" width="10" height="10" rx="2" />
                 <path d="M5 15V7a2 2 0 0 1 2-2h8" />
               </svg>}
             </button>
-            {copyStatus === 'failed' && <span className="text-xs text-red-300">Copy failed</span>}
+            {copyStatus === 'failed' && <span className="text-xs text-danger">Copy failed</span>}
           </div>
-          <button type="button" className="rounded-lg px-3 py-1 text-slate-300 hover:bg-slate-800" onClick={closeNote} aria-label="Close note modal">&times;</button>
+          <button type="button" className="rounded-lg px-3 py-1 text-text-muted hover:bg-surface" onClick={closeNote} aria-label="Close note modal">x</button>
         </div>
 
-        <AutoResizeTextarea aria-label="Edit selected note" className="min-h-80 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm leading-relaxed sm:text-base" value={modalContent} onChange={(e) => setModalContent(e.target.value)} autoFocus />
+        <AutoResizeTextarea aria-label="Edit selected note" className="min-h-80 w-full rounded-xl border border-border bg-surface p-3 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-accent sm:text-base" value={modalContent} onChange={(e) => setModalContent(e.target.value)} autoFocus />
 
         <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button type="button" className="rounded-lg px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-950/40" onClick={deleteNote} disabled={notes.remove.isPending}>Delete</button>
+          <button type="button" className="rounded-lg px-4 py-2 text-sm font-medium text-danger hover:bg-surface" onClick={deleteNote} disabled={notes.remove.isPending}>Delete</button>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <button type="button" className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium hover:bg-slate-800" onClick={closeNote}>Cancel</button>
-            <button type="button" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60" onClick={saveChanges} disabled={!modalContent.trim() || notes.update.isPending}>Save changes</button>
+            <button type="button" className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface" onClick={closeNote}>Cancel</button>
+            <button type="button" className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text-inverted hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60" onClick={saveChanges} disabled={!modalContent.trim() || notes.update.isPending}>Save changes</button>
           </div>
         </div>
       </div>
