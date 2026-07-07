@@ -72,6 +72,18 @@ button {
   text-shadow: 0 0 16px rgba(125, 211, 252, 0.35);
 }
 
+.landing-brain-aura {
+  animation: landing-brain-breathe 4.8s ease-in-out infinite;
+}
+
+.landing-orbit {
+  animation: landing-orbit-spin 18s linear infinite;
+}
+
+.landing-orbit-slow {
+  animation: landing-orbit-spin 32s linear infinite reverse;
+}
+
 @keyframes landing-code-rain-fall {
   from {
     transform: translate3d(0, -18vh, 0) rotate(90deg);
@@ -81,9 +93,36 @@ button {
   }
 }
 
+@keyframes landing-brain-breathe {
+  0%,
+  100% {
+    opacity: 0.58;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+
+@keyframes landing-orbit-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .landing-code-rain {
+  .landing-code-rain,
+  .landing-brain-aura,
+  .landing-orbit,
+  .landing-orbit-slow {
     animation: none;
+  }
+
+  .landing-code-rain {
     opacity: 0.22;
   }
 }
