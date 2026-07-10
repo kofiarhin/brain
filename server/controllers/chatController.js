@@ -3,7 +3,7 @@ import { ChatConversation } from '../models/ChatConversation.js';
 import { ChatMessage } from '../models/ChatMessage.js';
 import { buildBrainContext } from '../services/brainContextBuilder.js';
 import { buildChatPrompt } from '../services/chatPrompt.js';
-import { generateChatCompletion, HuggingFaceProviderError } from '../services/huggingFaceClient.js';
+import { generateChatCompletion, getGrokModel, GrokProviderError } from '../services/grokClient.js';
 import { buildLocalChatFallback } from '../services/localChatFallback.js';
 
 function titleFrom(message) { return (message || '').slice(0, 60).trim() || 'New Chat'; }
@@ -24,13 +24,13 @@ export async function sendChatMessage(req, res, next) {
     const contextBundle = await buildBrainContext({ message, conversationId: conversation._id });
     const prompt = buildChatPrompt({ message, contextBundle });
     let content;
-    let provider = 'huggingface';
-    let model = process.env.HUGGINGFACE_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3';
+    let provider = 'grok';
+    let model = getGrokModel();
 
     try {
       content = await generateChatCompletion({ prompt });
     } catch (error) {
-      if (!(error instanceof HuggingFaceProviderError)) throw error;
+      if (!(error instanceof GrokProviderError)) throw error;
       console.warn(`Brain chat provider unavailable: ${error.message}`);
       content = buildLocalChatFallback({ message, contextBundle });
       provider = 'local-fallback';

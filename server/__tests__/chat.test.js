@@ -4,8 +4,8 @@ import { jest } from '@jest/globals';
 process.env.AUTH_USERNAME = 'admin';
 process.env.AUTH_PASSWORD = 'password';
 process.env.JWT_SECRET = 'test-secret';
-process.env.HUGGINGFACE_API_KEY = 'test-key';
-process.env.HUGGINGFACE_MODEL = 'test-model';
+process.env.XAI_API_KEY = 'test-key';
+process.env.GROK_MODEL = 'test-model';
 
 function fakeModel(name) {
   let records = [];
@@ -53,7 +53,8 @@ const GeneratedPost = fakeModel('generatedPost');
 const BrainUpdateReport = fakeModel('brainUpdateReport');
 
 const generateChatCompletion = jest.fn(async () => 'Mock assistant response');
-class HuggingFaceProviderError extends Error {}
+const getGrokModel = jest.fn(() => process.env.GROK_MODEL || 'grok-4.3');
+class GrokProviderError extends Error {}
 
 jest.unstable_mockModule('../models/ChatConversation.js', () => ({ ChatConversation }));
 jest.unstable_mockModule('../models/ChatMessage.js', () => ({ ChatMessage }));
@@ -69,7 +70,7 @@ jest.unstable_mockModule('../models/Review.js', () => ({ Review }));
 jest.unstable_mockModule('../models/Deliverable.js', () => ({ Deliverable }));
 jest.unstable_mockModule('../models/GeneratedPost.js', () => ({ GeneratedPost }));
 jest.unstable_mockModule('../models/BrainUpdateReport.js', () => ({ BrainUpdateReport }));
-jest.unstable_mockModule('../services/huggingFaceClient.js', () => ({ generateChatCompletion, HuggingFaceProviderError }));
+jest.unstable_mockModule('../services/grokClient.js', () => ({ generateChatCompletion, getGrokModel, GrokProviderError }));
 
 const { createApp } = await import('../app.js');
 const { createToken } = await import('../services/auth.js');
@@ -104,9 +105,9 @@ test('POST /api/chat creates conversation and saves user/assistant messages with
   ]));
 });
 
-test('POST /api/chat falls back to local context when Hugging Face fails', async () => {
+test('POST /api/chat falls back to local context when Grok fails', async () => {
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-  generateChatCompletion.mockRejectedValueOnce(new HuggingFaceProviderError('fail'));
+  generateChatCompletion.mockRejectedValueOnce(new GrokProviderError('fail'));
   await Task.create({ title: 'Ship chat fallback', priority: 'high', status: 'open' });
   const response = await authed().send({ message: 'hello' }).expect(200);
   expect(response.body.message.content).toContain('hosted AI provider is unavailable');

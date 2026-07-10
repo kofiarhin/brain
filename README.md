@@ -31,9 +31,9 @@ CLIENT_URL=http://localhost:5173
 AUTH_USERNAME=
 AUTH_PASSWORD=
 JWT_SECRET=
-HUGGINGFACE_API_KEY=
-HUGGINGFACE_MODEL=mistralai/Mistral-7B-Instruct-v0.3
-HUGGINGFACE_API_URL=https://api-inference.huggingface.co/models
+XAI_API_KEY=
+GROK_MODEL=grok-4.3
+XAI_API_URL=https://api.x.ai/v1
 ```
 
 The frontend API base URL is:
@@ -60,9 +60,9 @@ CLIENT_URL=https://YOUR_HEROKU_APP.herokuapp.com
 AUTH_USERNAME=
 AUTH_PASSWORD=
 JWT_SECRET=
-HUGGINGFACE_API_KEY=
-HUGGINGFACE_MODEL=mistralai/Mistral-7B-Instruct-v0.3
-HUGGINGFACE_API_URL=https://api-inference.huggingface.co/models
+XAI_API_KEY=
+GROK_MODEL=grok-4.3
+XAI_API_URL=https://api.x.ai/v1
 ```
 
 Do not set `PORT`; Heroku provides it. Do not set `VITE_API_URL`; the production frontend defaults to `/api` on the same Heroku app.
