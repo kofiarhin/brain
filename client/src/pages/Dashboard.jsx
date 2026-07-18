@@ -16,6 +16,13 @@ function findStat(stats = EMPTY_ARRAY, label) {
   return stats.find((item) => item.label === label)?.value || 0;
 }
 
+function DashboardState({ title, children }) {
+  return <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 text-slate-100">
+    <h1 className="text-2xl font-bold">{title}</h1>
+    <p className="mt-2 text-sm text-slate-400">{children}</p>
+  </div>;
+}
+
 function buildDashboardView(summary) {
   if (!summary) return null;
 
@@ -61,10 +68,12 @@ function buildDashboardView(summary) {
 }
 
 export function Dashboard() {
-  const { data, isLoading } = useQuery({ queryKey: ['dashboard', 'summary'], queryFn: api.dashboard.summary });
+  const { data, error, isError, isLoading } = useQuery({ queryKey: ['dashboard', 'summary'], queryFn: api.dashboard.summary });
   const dashboard = useMemo(() => buildDashboardView(data), [data]);
 
-  if (isLoading || !dashboard) return null;
+  if (isLoading) return <DashboardState title="Loading dashboard">Fetching your latest brain snapshot.</DashboardState>;
+  if (isError) return <DashboardState title="Dashboard unavailable">{error?.message || 'Could not load dashboard data.'}</DashboardState>;
+  if (!dashboard) return <DashboardState title="No dashboard data">Capture notes, tasks, projects, or a day plan to populate Mission Control.</DashboardState>;
 
   return <div className="relative -m-3 min-h-screen overflow-hidden rounded-[2rem] bg-slate-950 p-3 sm:-m-6 sm:p-6">
     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(34,211,238,0.16),transparent_30%),radial-gradient(circle_at_82%_38%,rgba(139,92,246,0.14),transparent_28%)]" />

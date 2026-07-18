@@ -21,6 +21,12 @@ const CATEGORY_COLORS = {
   Learning: '#2dd4bf',
   Other: '#64748b',
 };
+const londonTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/London',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
 
 function asArray(value) {
   return Array.isArray(value) ? value : EMPTY_ARRAY;
@@ -66,10 +72,19 @@ function startOfDay(date = new Date()) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function isTodayOrEarlier(value) {
+function londonDateKey(value) {
   const date = toDate(value);
-  if (!date) return false;
-  return date <= new Date(startOfDay().getTime() + DAY_MS - 1);
+  return date ? getLondonDateKey(date) : '';
+}
+
+function londonNowMinutes(date = new Date()) {
+  const parts = Object.fromEntries(londonTimeFormatter.formatToParts(date).map((part) => [part.type, part.value]));
+  return Number(parts.hour) * 60 + Number(parts.minute);
+}
+
+function isTodayOrEarlier(value, todayKey = getLondonDateKey(new Date())) {
+  const dateKey = londonDateKey(value);
+  return Boolean(dateKey && dateKey <= todayKey);
 }
 
 function dateForItem(item) {
@@ -137,7 +152,8 @@ function buildSummary(data) {
   const reviews = asArray(data.reviews);
   const goals = asArray(data.goals);
   const schedule = asArray(plan?.schedule);
-  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
+  const todayKey = getLondonDateKey(new Date());
+  const nowMinutes = londonNowMinutes();
 
   const openTasks = tasks.filter(isOpen);
   const completedTasks = tasks.filter(isComplete);
@@ -145,8 +161,8 @@ function buildSummary(data) {
   const completedTaskOutputs = deliverables.filter(isComplete);
   const activeProjects = projects.filter((project) => isOpen(project) && normalizeStatus(project.status || 'active') !== 'inactive');
   const waitingItems = [...openTasks, ...openTaskOutputs, ...activeProjects, ...asArray(plan?.forgotten)].filter(isWaiting);
-  const dueTasks = openTasks.filter((task) => isTodayOrEarlier(task.dueDate || task.date));
-  const reviewsDue = reviews.filter((review) => isOpen(review) || isTodayOrEarlier(review.dueDate || review.date));
+  const dueTasks = openTasks.filter((task) => isTodayOrEarlier(task.dueDate || task.date, todayKey));
+  const reviewsDue = reviews.filter((review) => isOpen(review) || isTodayOrEarlier(review.dueDate || review.date, todayKey));
 
   const scheduleRanges = schedule.map((block) => ({ block, range: parseScheduleRange(block?.time) }));
   const remainingRanges = scheduleRanges.filter(({ range }) => range && range.end > nowMinutes);
@@ -170,8 +186,8 @@ function buildSummary(data) {
   const heatmap = taskTrend.map((day, index) => ({ ...day, value: day.value + taskOutputTrend[index].value + noteTrend[index].value }));
 
   const todayScore = clamp(62
-    + completedTasks.filter((item) => dateForItem(item) && dateForItem(item) >= startOfDay()).length * 6
-    + completedTaskOutputs.filter((item) => dateForItem(item) && dateForItem(item) >= startOfDay()).length * 8
+    + completedTasks.filter((item) => dateForItem(item) && londonDateKey(dateForItem(item)) === todayKey).length * 6
+    + completedTaskOutputs.filter((item) => dateForItem(item) && londonDateKey(dateForItem(item)) === todayKey).length * 8
     + (schedule.length ? 8 : -10)
     + (asArray(plan?.winCondition).length ? 6 : -8)
     - dueTasks.length * 5
