@@ -3,7 +3,8 @@ import { ChatConversation } from '../models/ChatConversation.js';
 import { ChatMessage } from '../models/ChatMessage.js';
 import { buildBrainContext } from '../services/brainContextBuilder.js';
 import { buildChatPrompt } from '../services/chatPrompt.js';
-import { generateChatCompletion, HuggingFaceProviderError } from '../services/huggingFaceClient.js';
+import { generateChatCompletion, NvidiaProviderError } from '../services/nvidiaClient.js';
+import { getAiConfig } from '../config/ai.js';
 import { buildLocalChatFallback } from '../services/localChatFallback.js';
 
 function titleFrom(message) { return (message || '').slice(0, 60).trim() || 'New Chat'; }
@@ -24,13 +25,13 @@ export async function sendChatMessage(req, res, next) {
     const contextBundle = await buildBrainContext({ message, conversationId: conversation._id });
     const prompt = buildChatPrompt({ message, contextBundle });
     let content;
-    let provider = 'huggingface';
-    let model = process.env.HUGGINGFACE_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3';
+    let provider = 'nvidia';
+    let model = getAiConfig().chatModel;
 
     try {
-      content = await generateChatCompletion({ prompt });
+      content = await generateChatCompletion({ messages: [{ role: 'user', content: prompt }], maxTokens: getAiConfig().maxAnswerTokens });
     } catch (error) {
-      if (!(error instanceof HuggingFaceProviderError)) throw error;
+      if (!(error instanceof NvidiaProviderError)) throw error;
       console.warn(`Brain chat provider unavailable: ${error.message}`);
       content = buildLocalChatFallback({ message, contextBundle });
       provider = 'local-fallback';
@@ -42,6 +43,10 @@ export async function sendChatMessage(req, res, next) {
       role: 'assistant',
       content,
       contextUsed: contextBundle.contextUsed,
+      retrieval: {
+        ...contextBundle.retrieval,
+        sources: (contextBundle.relevantNotes || []).map((note) => ({ type: 'note', id: String(note.id || note._id), score: Number(note.score || 0) })),
+      },
       model,
       provider,
     });
@@ -50,6 +55,12 @@ export async function sendChatMessage(req, res, next) {
       conversationId: String(conversation._id),
       message: { role: assistantMessage.role, content: assistantMessage.content, createdAt: assistantMessage.createdAt },
       contextUsed: contextBundle.contextUsed,
+      retrieval: {
+        ...contextBundle.retrieval,
+        sources: (contextBundle.relevantNotes || []).map((note) => ({
+          type: 'note', id: String(note.id || note._id), score: Number(note.score || 0),
+        })),
+      },
     });
   } catch (error) { return next(error); }
 }

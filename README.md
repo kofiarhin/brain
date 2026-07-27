@@ -31,10 +31,25 @@ CLIENT_URL=http://localhost:5173
 AUTH_USERNAME=
 AUTH_PASSWORD=
 JWT_SECRET=
-HUGGINGFACE_API_KEY=
-HUGGINGFACE_MODEL=mistralai/Mistral-7B-Instruct-v0.3
-HUGGINGFACE_API_URL=https://api-inference.huggingface.co/models
+NVIDIA_API_KEY=
+NVIDIA_CHAT_MODEL=meta/llama-3.1-70b-instruct
+NVIDIA_EMBEDDING_MODEL=nvidia/llama-3.2-nv-embedqa-1b-v2
+NVIDIA_RERANK_MODEL=nvidia/llama-3.2-nv-rerankqa-1b-v2
+NVIDIA_EMBEDDING_DIMENSIONS=2048
 ```
+
+## NVIDIA retrieval
+
+Create an Atlas Vector Search index named by `NVIDIA_VECTOR_INDEX` on `notes.embedding`. Its dimensions must match `NVIDIA_EMBEDDING_DIMENSIONS`, use cosine similarity, and include filters for `embeddingStatus` and `embeddingModel`.
+
+Backfill existing notes after configuring the index and server environment:
+
+```bash
+npm run brain:backfill-embeddings -- --dry-run
+npm run brain:backfill-embeddings
+```
+
+The API falls back to keyword note retrieval when embeddings or Atlas Vector Search are unavailable, and to the existing local read-only response when NVIDIA chat is unavailable. Keep `NVIDIA_API_KEY` server-side; never use a `VITE_` prefix.
 
 The frontend API base URL is:
 
@@ -220,4 +235,3 @@ No frontend AI generation is part of this loop.
 # Live Demo
 
 [Live demo](https://brain-pi-black.vercel.app/)
-

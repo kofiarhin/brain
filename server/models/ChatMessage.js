@@ -6,7 +6,7 @@ const chatMessageSchema = new mongoose.Schema({
   content: { type: String, required: true },
   contextUsed: { type: mongoose.Schema.Types.Mixed, default: {} },
   model: { type: String, default: '' },
-  provider: { type: String, default: 'huggingface' },
+  provider: { type: String, default: '' },
   error: { type: String, default: '' },
 }, { timestamps: true });
 
