@@ -54,15 +54,31 @@ const readHeader = (response, name) => {
 };
 
 /**
+ * Classify a failed response by status so the caller — and the smoke test —
+ * can tell a wrong URL or a retired model apart from a generic provider fault.
+ * A retired model answers 410 on its own route; an unknown route answers 404.
+ */
+export function errorCodeForStatus(status) {
+  if (status === 429) return 'NVIDIA_RATE_LIMITED';
+  if (status === 404) return 'NVIDIA_ENDPOINT_NOT_FOUND';
+  if (status === 410) return 'NVIDIA_MODEL_RETIRED';
+  return 'NVIDIA_HTTP_ERROR';
+}
+
+/**
  * Perform one POST against the NVIDIA API with bounded retries.
+ *
+ * `baseUrl` overrides the default host: reranking is served by a different host
+ * from chat and embeddings.
  *
  * Control-flow guarantee: this function either returns a parsed provider payload
  * or throws an `NvidiaProviderError`. Every loop exit is explicit and the final
  * `throw` after the loop is unreachable-by-construction but retained so no code
  * path can fall through to `undefined` regardless of configuration.
  */
-async function request(path, body, operation, fetchImpl = fetch) {
+async function request(path, body, operation, fetchImpl = fetch, baseUrl = null) {
   const config = getAiConfig();
+  const origin = baseUrl || config.baseUrl;
 
   if (!config.enabled || !config.apiKey) {
     throw new NvidiaProviderError('NVIDIA AI is not configured', { code: 'NVIDIA_NOT_CONFIGURED', operation });
@@ -81,7 +97,7 @@ async function request(path, body, operation, fetchImpl = fetch) {
     const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
 
     try {
-      const response = await fetchImpl(`${config.baseUrl}${path}`, {
+      const response = await fetchImpl(`${origin}${path}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -103,7 +119,7 @@ async function request(path, body, operation, fetchImpl = fetch) {
 
       const retryable = RETRYABLE_STATUSES.has(response.status);
       const error = new NvidiaProviderError('NVIDIA request failed', {
-        code: response.status === 429 ? 'NVIDIA_RATE_LIMITED' : 'NVIDIA_HTTP_ERROR',
+        code: errorCodeForStatus(response.status),
         retryable,
         status: response.status,
         operation,
@@ -193,17 +209,44 @@ export async function createEmbedding({ input, inputType = 'passage', fetchImpl 
   return { embedding, model: config.embeddingModel, dimensions: embedding.length };
 }
 
+/**
+ * Build the reranking route for a model.
+ *
+ * The retrieval host gives every reranking model its own path and encodes dots in
+ * the model name as underscores:
+ *
+ *   nvidia/llama-nemotron-rerank-1b-v2   -> /v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking
+ *   nvidia/llama-3.2-nv-rerankqa-1b-v2   -> /v1/retrieval/nvidia/llama-3_2-nv-rerankqa-1b-v2/reranking
+ *
+ * The dotted form is a different, non-existent route (404), so the substitution is
+ * required rather than cosmetic. Segments are URL-encoded because the model name
+ * comes from the environment and lands in a request path.
+ */
+export function rerankingPath(model) {
+  const [vendor, name, ...rest] = String(model || '').split('/');
+
+  if (!vendor || !name || rest.length > 0) {
+    throw new NvidiaProviderError('Invalid NVIDIA rerank model', {
+      code: 'NVIDIA_RERANK_MODEL_INVALID', operation: 'rerank',
+    });
+  }
+
+  const slug = encodeURIComponent(name.replace(/\./g, '_'));
+  return `/v1/retrieval/${encodeURIComponent(vendor)}/${slug}/reranking`;
+}
+
 export async function rerankDocuments({ query, documents, topN, fetchImpl } = {}) {
   const config = getAiConfig();
   const sources = Array.isArray(documents) ? documents : [];
   const limit = topN || config.results;
 
-  const data = await request('/v1/ranking', {
+  // The reranking API rejects unknown fields, `top_n` among them: it always ranks
+  // every passage. The caller-visible limit is applied to the response below.
+  const data = await request(rerankingPath(config.rerankModel), {
     model: config.rerankModel,
     query: { text: String(query || '') },
     passages: sources.map((text) => ({ text: String(text || '') })),
-    top_n: limit,
-  }, 'rerank', fetchImpl);
+  }, 'rerank', fetchImpl, config.rerankBaseUrl);
 
   const rows = data?.rankings || data?.results;
   if (!Array.isArray(rows)) {

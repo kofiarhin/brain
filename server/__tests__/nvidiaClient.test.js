@@ -2,10 +2,12 @@ import { jest } from '@jest/globals';
 import {
   backoffDelay,
   createEmbedding,
+  errorCodeForStatus,
   generateChatCompletion,
   NvidiaProviderError,
   parseRetryAfter,
   rerankDocuments,
+  rerankingPath,
 } from '../services/nvidiaClient.js';
 import { resolveMaxRetries, DEFAULT_MAX_RETRIES, MAX_RETRIES_CEILING } from '../config/ai.js';
 
@@ -132,12 +134,14 @@ describe('retry policy', () => {
 
   test('does not retry a non-retryable 4xx', async () => {
     process.env.NVIDIA_MAX_RETRIES = '3';
-    for (const status of [400, 401, 403, 404, 422]) {
+    // 404 and 410 keep their own codes (wrong route / retired model); the rest are generic.
+    for (const status of [400, 401, 403, 404, 410, 422]) {
       const fetchImpl = jest.fn(async () => response({}, status));
       await expect(createEmbedding({ input: 'x', fetchImpl }))
-        .rejects.toMatchObject({ code: 'NVIDIA_HTTP_ERROR', retryable: false, status });
+        .rejects.toMatchObject({ code: errorCodeForStatus(status), retryable: false, status });
       expect(fetchImpl).toHaveBeenCalledTimes(1);
     }
+    expect(errorCodeForStatus(400)).toBe('NVIDIA_HTTP_ERROR');
   });
 
   test('retries a network failure then exhausts with a typed error', async () => {
@@ -242,6 +246,102 @@ describe('rerank validation', () => {
       query: 'q', documents: ['a'], topN: 1,
       fetchImpl: async () => response({ rankings: 'nope' }),
     })).rejects.toMatchObject({ code: 'NVIDIA_INVALID_RERANK' });
+  });
+});
+
+/**
+ * Reranking is not served by the OpenAI-compatible gateway used for chat and
+ * embeddings. Posting the ranking payload to that host returns 404, which is how
+ * the live smoke test failed after retrieval succeeded.
+ */
+describe('rerank routing', () => {
+  const capture = (data = { rankings: [{ index: 0, logit: 1 }] }) => {
+    const calls = [];
+    const fetchImpl = jest.fn(async (url, init) => {
+      calls.push({ url, body: JSON.parse(init.body) });
+      return response(data);
+    });
+    return { calls, fetchImpl };
+  };
+
+  test('builds a per-model route on the retrieval host', () => {
+    expect(rerankingPath('nvidia/llama-nemotron-rerank-1b-v2'))
+      .toBe('/v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking');
+  });
+
+  test('encodes dots in the model name as underscores', () => {
+    // The dotted form is a different route entirely and answers 404.
+    expect(rerankingPath('nvidia/llama-3.2-nv-rerankqa-1b-v2'))
+      .toBe('/v1/retrieval/nvidia/llama-3_2-nv-rerankqa-1b-v2/reranking');
+  });
+
+  test('rejects a malformed model instead of building a nonsense path', () => {
+    for (const model of ['', null, 'no-vendor', 'too/many/segments']) {
+      expect(() => rerankingPath(model)).toThrow(NvidiaProviderError);
+      expect(() => rerankingPath(model)).toThrow(/rerank model/i);
+    }
+  });
+
+  test('posts to the retrieval host, not the chat and embedding gateway', async () => {
+    process.env.NVIDIA_RERANK_MODEL = 'nvidia/llama-nemotron-rerank-1b-v2';
+    const { calls, fetchImpl } = capture();
+
+    await rerankDocuments({ query: 'q', documents: ['a'], topN: 1, fetchImpl });
+
+    expect(calls[0].url).toBe(
+      'https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking',
+    );
+    expect(calls[0].url).not.toContain('integrate.api.nvidia.com');
+  });
+
+  test('honours an overridden rerank host without a trailing slash', async () => {
+    process.env.NVIDIA_RERANK_BASE_URL = 'https://rerank.internal/';
+    process.env.NVIDIA_RERANK_MODEL = 'nvidia/llama-nemotron-rerank-1b-v2';
+    const { calls, fetchImpl } = capture();
+
+    await rerankDocuments({ query: 'q', documents: ['a'], topN: 1, fetchImpl });
+
+    expect(calls[0].url)
+      .toBe('https://rerank.internal/v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking');
+  });
+
+  test('omits top_n, which the API rejects as an unknown field', async () => {
+    const { calls, fetchImpl } = capture();
+
+    await rerankDocuments({ query: 'q', documents: ['a', 'b'], topN: 1, fetchImpl });
+
+    expect(calls[0].body).not.toHaveProperty('top_n');
+    expect(calls[0].body).toMatchObject({
+      model: expect.any(String),
+      query: { text: 'q' },
+      passages: [{ text: 'a' }, { text: 'b' }],
+    });
+  });
+
+  test('applies the caller limit to the full ranking the API returns', async () => {
+    // The API always ranks every passage, so the limit is enforced client-side.
+    const { fetchImpl } = capture({
+      rankings: [{ index: 2, logit: 9 }, { index: 0, logit: 3 }, { index: 1, logit: 1 }],
+    });
+
+    const ranked = await rerankDocuments({ query: 'q', documents: ['a', 'b', 'c'], topN: 2, fetchImpl });
+
+    expect(ranked).toEqual([{ index: 2, score: 9 }, { index: 0, score: 3 }]);
+  });
+
+  test('reports a wrong route and a retired model as distinct, non-retryable failures', async () => {
+    expect(errorCodeForStatus(404)).toBe('NVIDIA_ENDPOINT_NOT_FOUND');
+    expect(errorCodeForStatus(410)).toBe('NVIDIA_MODEL_RETIRED');
+    expect(errorCodeForStatus(429)).toBe('NVIDIA_RATE_LIMITED');
+    expect(errorCodeForStatus(500)).toBe('NVIDIA_HTTP_ERROR');
+
+    for (const [status, code] of [[404, 'NVIDIA_ENDPOINT_NOT_FOUND'], [410, 'NVIDIA_MODEL_RETIRED']]) {
+      const fetchImpl = jest.fn(async () => response({}, status));
+      await expect(rerankDocuments({ query: 'q', documents: ['a'], topN: 1, fetchImpl }))
+        .rejects.toMatchObject({ code, status, operation: 'rerank', retryable: false });
+      // A permanent failure must not burn quota on retries.
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    }
   });
 });
 

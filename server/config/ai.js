@@ -31,9 +31,13 @@ export function getAiConfig() {
     rerankEnabled: envBoolean('NVIDIA_RERANK_ENABLED', true),
     apiKey: process.env.NVIDIA_API_KEY || '',
     baseUrl: (process.env.NVIDIA_API_BASE_URL || 'https://integrate.api.nvidia.com').replace(/\/+$/, ''),
+    // Reranking is NOT served by the OpenAI-compatible gateway that handles chat
+    // and embeddings. It lives on the retrieval host, where each model has its own
+    // route (see rerankingPath in services/nvidiaClient.js).
+    rerankBaseUrl: (process.env.NVIDIA_RERANK_BASE_URL || 'https://ai.api.nvidia.com').replace(/\/+$/, ''),
     chatModel: process.env.NVIDIA_CHAT_MODEL || 'meta/llama-3.1-70b-instruct',
-    embeddingModel: process.env.NVIDIA_EMBEDDING_MODEL || 'nvidia/llama-3.2-nv-embedqa-1b-v2',
-    rerankModel: process.env.NVIDIA_RERANK_MODEL || 'nvidia/llama-3.2-nv-rerankqa-1b-v2',
+    embeddingModel: process.env.NVIDIA_EMBEDDING_MODEL || 'nvidia/llama-nemotron-embed-1b-v2',
+    rerankModel: process.env.NVIDIA_RERANK_MODEL || 'nvidia/llama-nemotron-rerank-1b-v2',
     embeddingDimensions: envInteger('NVIDIA_EMBEDDING_DIMENSIONS', { fallback: 2048, min: 1, max: 16384 }),
     vectorIndex: process.env.NVIDIA_VECTOR_INDEX || 'note_embedding_vector_index',
     timeoutMs: envInteger('NVIDIA_REQUEST_TIMEOUT_MS', { fallback: 30000, min: 1000, max: 120000 }),
