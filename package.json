@@ -23,7 +23,8 @@
     "brain:import": "node scripts/importKnowledgeBase.js",
     "seed:context": "node scripts/seedContext.js",
     "brain:generate-post": "node server/scripts/generatePost.js",
-    "brain:backfill-embeddings": "node server/scripts/backfillNoteEmbeddings.js"
+    "brain:backfill-embeddings": "node server/scripts/backfillNoteEmbeddings.js",
+    "brain:smoke-test": "node server/scripts/nvidiaSmokeTest.js"
   },
   "engines": {
     "node": "22.x"
@@ -32,6 +33,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "helmet": "^8.3.0",
     "mongoose": "^8.9.5"
   },
   "devDependencies": {
