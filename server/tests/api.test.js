@@ -277,8 +277,10 @@ jest.unstable_mockModule('../models/Review.js', () => ({ Review }));
 jest.unstable_mockModule('../models/DayPlan.js', () => ({ DayPlan }));
 jest.unstable_mockModule('../models/BrainUpdateReport.js', () => ({ BrainUpdateReport }));
 jest.unstable_mockModule('../models/GeneratedPost.js', () => ({ GeneratedPost }));
+const enqueueNoteEmbedding = jest.fn(async () => 'enqueued');
 jest.unstable_mockModule('../services/noteEmbeddings.js', () => ({
   embedNote: jest.fn(async (note) => note),
+  enqueueNoteEmbedding,
 }));
 
 const { createApp } = await import('../app.js');
