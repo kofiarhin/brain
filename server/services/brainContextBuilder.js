@@ -11,6 +11,7 @@ import { Deliverable } from '../models/Deliverable.js';
 import { GeneratedPost } from '../models/GeneratedPost.js';
 import { BrainUpdateReport } from '../models/BrainUpdateReport.js';
 import { ChatMessage } from '../models/ChatMessage.js';
+import { retrieveRelevantNotes } from './semanticRetrieval.js';
 
 function keywordsFrom(message = '') {
   return [...new Set(message.toLowerCase().match(/[a-z0-9]{3,}/g) || [])].slice(0, 8);
@@ -27,7 +28,7 @@ async function safeFind(promise, fallback = []) {
 export async function buildBrainContext({ message, conversationId } = {}) {
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const soon = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const [stableContext, preferences, activeGoals, activeProjects, openTasks, activeDayPlan, fallbackDayPlan, relevantNotes, relevantIdeas, reviews, deliverables, generatedPosts, brainUpdateReports, recentMessagesRaw] = await Promise.all([
+  const [stableContext, preferences, activeGoals, activeProjects, openTasks, activeDayPlan, fallbackDayPlan, noteResult, relevantIdeas, reviews, deliverables, generatedPosts, brainUpdateReports, recentMessagesRaw] = await Promise.all([
     safeFind(Context.find({}).sort({ updatedAt: -1 }).limit(50)),
     safeFind(Preference.find({ active: true }).sort({ updatedAt: -1 }).limit(5)),
     safeFind(Goal.find({ status: 'active' }).sort({ updatedAt: -1 }).limit(20)),
@@ -35,7 +36,7 @@ export async function buildBrainContext({ message, conversationId } = {}) {
     safeFind(Task.find({ status: { $in: ['open'] } }).sort({ priority: 1, scheduledFor: 1, dueDate: 1, updatedAt: -1 }).limit(25)),
     safeFind(DayPlan.findOne({ status: 'active' }).sort({ startTime: -1, createdAt: -1 }), null),
     safeFind(DayPlan.findOne({}).sort({ date: -1, createdAt: -1 }), null),
-    safeFind(Note.find(regexQuery(['content'], message)).sort({ updatedAt: -1 }).limit(10)),
+    retrieveRelevantNotes({ message }),
     safeFind(Idea.find(regexQuery(['title', 'description'], message)).sort({ updatedAt: -1 }).limit(10)),
     safeFind(Review.find({}).sort({ date: -1, createdAt: -1 }).limit(3)),
     safeFind(Deliverable.find({}).sort({ date: -1, updatedAt: -1 }).limit(10)),
@@ -43,17 +44,19 @@ export async function buildBrainContext({ message, conversationId } = {}) {
     safeFind(BrainUpdateReport.find({}).sort({ runDate: -1, createdAt: -1 }).limit(5)),
     conversationId ? safeFind(ChatMessage.find({ conversationId }).sort({ createdAt: -1 }).limit(8)) : [],
   ]);
+  const relevantNotes = noteResult?.notes || [];
+  const retrieval = noteResult?.retrieval || { mode: 'none', selectedCount: 0, degraded: true };
   const recentMessages = [...recentMessagesRaw].reverse();
   return {
     profile: {}, stableContext, preferences, activeGoals, activeProjects, openTasks,
     todayOrLatestDayPlan: activeDayPlan || fallbackDayPlan, relevantNotes, relevantIdeas,
-    reviews, deliverables, generatedPosts, brainUpdateReports, recentMessages,
+    reviews, deliverables, generatedPosts, brainUpdateReports, recentMessages, retrieval,
     contextUsed: {
       context: stableContext.length, preferences: preferences.length, goals: activeGoals.length,
       projects: activeProjects.length, tasks: openTasks.length, dayPlans: activeDayPlan || fallbackDayPlan ? 1 : 0,
       notes: relevantNotes.length, ideas: relevantIdeas.length, reviews: reviews.length,
       deliverables: deliverables.length, generatedPosts: generatedPosts.length, brainUpdateReports: brainUpdateReports.length,
-      recentMessages: recentMessages.length,
+      recentMessages: recentMessages.length, retrievalMode: retrieval.mode,
     },
   };
 }

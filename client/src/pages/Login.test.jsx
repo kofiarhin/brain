@@ -32,7 +32,7 @@ describe('Login page', () => {
 
     await userEvent.type(screen.getByLabelText('Username'), 'admin');
     await userEvent.type(screen.getByLabelText('Password'), 'password');
-    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+    await userEvent.click(screen.getByRole('button', { name: /enter brain os/i }));
 
     expect(await screen.findByText(API_UNREACHABLE_MESSAGE)).toBeInTheDocument();
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(

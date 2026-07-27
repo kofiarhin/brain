@@ -3,7 +3,8 @@ import { ChatConversation } from '../models/ChatConversation.js';
 import { ChatMessage } from '../models/ChatMessage.js';
 import { buildBrainContext } from '../services/brainContextBuilder.js';
 import { buildChatPrompt } from '../services/chatPrompt.js';
-import { generateChatCompletion, getGrokModel, GrokProviderError } from '../services/grokClient.js';
+import { generateChatCompletion, NvidiaProviderError } from '../services/nvidiaClient.js';
+import { getAiConfig } from '../config/ai.js';
 import { buildLocalChatFallback } from '../services/localChatFallback.js';
 
 function titleFrom(message) { return (message || '').slice(0, 60).trim() || 'New Chat'; }
@@ -24,24 +25,40 @@ export async function sendChatMessage(req, res, next) {
     const contextBundle = await buildBrainContext({ message, conversationId: conversation._id });
     const prompt = buildChatPrompt({ message, contextBundle });
     let content;
-    let provider = 'grok';
-    let model = getGrokModel();
+    let provider = 'nvidia';
+    let model = getAiConfig().chatModel;
 
     try {
-      content = await generateChatCompletion({ prompt });
+      content = await generateChatCompletion({
+        messages: [
+          { role: 'system', content: prompt.system },
+          { role: 'user', content: prompt.user },
+        ],
+        maxTokens: getAiConfig().maxAnswerTokens,
+      });
     } catch (error) {
-      if (!(error instanceof GrokProviderError)) throw error;
+      if (!(error instanceof NvidiaProviderError)) throw error;
       console.warn(`Brain chat provider unavailable: ${error.message}`);
       content = buildLocalChatFallback({ message, contextBundle });
       provider = 'local-fallback';
       model = 'local-context-summary';
     }
 
+    // Grounding metadata is built once and used for both the persisted record and
+    // the response, so stored history cannot disagree with what the client was told.
+    const retrieval = {
+      ...contextBundle.retrieval,
+      sources: (contextBundle.relevantNotes || []).map((note) => ({
+        type: 'note', id: String(note.id || note._id), score: Number(note.score || 0),
+      })),
+    };
+
     const assistantMessage = await ChatMessage.create({
       conversationId: conversation._id,
       role: 'assistant',
       content,
       contextUsed: contextBundle.contextUsed,
+      retrieval,
       model,
       provider,
     });
@@ -50,6 +67,7 @@ export async function sendChatMessage(req, res, next) {
       conversationId: String(conversation._id),
       message: { role: assistantMessage.role, content: assistantMessage.content, createdAt: assistantMessage.createdAt },
       contextUsed: contextBundle.contextUsed,
+      retrieval,
     });
   } catch (error) { return next(error); }
 }
