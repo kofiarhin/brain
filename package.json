@@ -22,7 +22,8 @@
     "brain:clear": "node scripts/clearKnowledgeBase.js",
     "brain:import": "node scripts/importKnowledgeBase.js",
     "seed:context": "node scripts/seedContext.js",
-    "brain:generate-post": "node server/scripts/generatePost.js"
+    "brain:generate-post": "node server/scripts/generatePost.js",
+    "brain:backfill-embeddings": "node server/scripts/backfillNoteEmbeddings.js"
   },
   "engines": {
     "node": "22.x"
