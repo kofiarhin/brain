@@ -10,6 +10,9 @@
 
 import { getAuthRateLimitConfig, getChatRateLimitConfig, rateLimitMaxKeys } from '../../config/rateLimit.js';
 import { createMemoryRateLimitStore, createRateLimitStore } from './store.js';
+import { registerUpstashRateLimitStoreAdapter } from './upstash.js';
+
+registerUpstashRateLimitStoreAdapter();
 
 const state = {
   auth: { store: createMemoryRateLimitStore(), degraded: false, requested: 'memory' },
@@ -45,9 +48,13 @@ export async function initializeRateLimitStores() {
   const maxKeys = rateLimitMaxKeys();
   const auth = getAuthRateLimitConfig();
   const chat = getChatRateLimitConfig();
+  const sharedOptions = {
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  };
 
-  state.auth = await createRateLimitStore({ storeName: auth.storeName, maxKeys });
-  state.chat = await createRateLimitStore({ storeName: chat.storeName, maxKeys });
+  state.auth = await createRateLimitStore({ storeName: auth.storeName, maxKeys, ...sharedOptions });
+  state.chat = await createRateLimitStore({ storeName: chat.storeName, maxKeys, ...sharedOptions });
 
   return describeRateLimitStores();
 }
