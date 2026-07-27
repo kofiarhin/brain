@@ -277,6 +277,9 @@ jest.unstable_mockModule('../models/Review.js', () => ({ Review }));
 jest.unstable_mockModule('../models/DayPlan.js', () => ({ DayPlan }));
 jest.unstable_mockModule('../models/BrainUpdateReport.js', () => ({ BrainUpdateReport }));
 jest.unstable_mockModule('../models/GeneratedPost.js', () => ({ GeneratedPost }));
+jest.unstable_mockModule('../services/noteEmbeddings.js', () => ({
+  embedNote: jest.fn(async (note) => note),
+}));
 
 const { createApp } = await import('../app.js');
 const { createToken } = await import('../services/auth.js');

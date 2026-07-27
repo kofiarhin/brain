@@ -21,10 +21,12 @@ router.post('/', async (req, res, next) => {
 });
 router.patch('/:id', async (req, res, next) => {
   try {
-    const note = await Note.findById(req.params.id).select('+embedding');
+    const note = await Note.findByIdAndUpdate(
+      req.params.id,
+      { content: req.body?.content },
+      { new: true, runValidators: true, select: '+embedding' },
+    );
     if (!note) return res.status(404).json({ message: 'Not found' });
-    if (req.body?.content !== undefined) note.content = req.body.content;
-    await note.save();
     await embedNote(note);
     return res.json(note);
   } catch (error) { return next(error); }
