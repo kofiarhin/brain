@@ -11,8 +11,21 @@ import { createLogger } from './services/observability/logger.js';
 const port = process.env.PORT || 5000;
 const log = createLogger('startup');
 
+/** MongoDB error code for reading a namespace that does not exist yet. */
+const NAMESPACE_NOT_FOUND = 26;
+
 async function relaxLegacyDayPlanIndexes() {
-  const indexes = await DayPlan.collection.indexes();
+  // A fresh database has no dayplans collection, so listing its indexes fails
+  // with NamespaceNotFound rather than returning an empty list. There is no
+  // legacy index to relax in that case; createIndexes below creates both the
+  // collection and its current indexes.
+  let indexes = [];
+  try {
+    indexes = await DayPlan.collection.indexes();
+  } catch (error) {
+    if (error?.code !== NAMESPACE_NOT_FOUND) throw error;
+  }
+
   const legacyLondonDateIndex = indexes.find((index) => (
     index.unique
     && index.key
