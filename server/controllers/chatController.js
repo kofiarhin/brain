@@ -7,8 +7,23 @@ import { generateChatCompletion, NvidiaProviderError } from '../services/nvidiaC
 import { getAiConfig } from '../config/ai.js';
 import { buildLocalChatFallback } from '../services/localChatFallback.js';
 
-function titleFrom(message) { return (message || '').slice(0, 60).trim() || 'New Chat'; }
-function isValidId(id) { return !id || mongoose.Types.ObjectId.isValid(id) || typeof id === 'string'; }
+function titleFrom(message) {
+  return (message || '').slice(0, 60).trim() || 'New Chat';
+}
+
+function isValidId(id) {
+  return !id || mongoose.Types.ObjectId.isValid(id);
+}
+
+function serializeMessage(message, extras = {}) {
+  return {
+    _id: String(message._id),
+    role: message.role,
+    content: message.content,
+    createdAt: message.createdAt,
+    ...extras,
+  };
+}
 
 export async function sendChatMessage(req, res, next) {
   try {
@@ -21,7 +36,7 @@ export async function sendChatMessage(req, res, next) {
     if (conversationId && !conversation) return res.status(404).json({ message: 'Conversation not found' });
     if (!conversation) conversation = await ChatConversation.create({ title: titleFrom(message), lastMessageAt: new Date() });
 
-    await ChatMessage.create({ conversationId: conversation._id, role: 'user', content: message, provider: '' });
+    const userMessage = await ChatMessage.create({ conversationId: conversation._id, role: 'user', content: message, provider: '' });
     const contextBundle = await buildBrainContext({ message, conversationId: conversation._id });
     const prompt = buildChatPrompt({ message, contextBundle });
     let content;
@@ -63,27 +78,40 @@ export async function sendChatMessage(req, res, next) {
       provider,
     });
     await ChatConversation.findByIdAndUpdate(conversation._id, { lastMessageAt: new Date(), contextSnapshotSummary: JSON.stringify(contextBundle.contextUsed) });
+
     return res.json({
       conversationId: String(conversation._id),
-      message: { role: assistantMessage.role, content: assistantMessage.content, createdAt: assistantMessage.createdAt },
+      userMessage: serializeMessage(userMessage),
+      message: serializeMessage(assistantMessage, {
+        contextUsed: contextBundle.contextUsed,
+        retrieval,
+      }),
       contextUsed: contextBundle.contextUsed,
       retrieval,
     });
-  } catch (error) { return next(error); }
+  } catch (error) {
+    return next(error);
+  }
 }
 
 export async function listChatConversations(_req, res, next) {
   try {
     const conversations = await ChatConversation.find({ archivedAt: null }).sort({ lastMessageAt: -1 }).limit(50);
     return res.json(conversations);
-  } catch (error) { return next(error); }
+  } catch (error) {
+    return next(error);
+  }
 }
 
 export async function listChatMessages(req, res, next) {
   try {
     const conversation = await ChatConversation.findById(req.params.id);
     if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
-    const messages = await ChatMessage.find({ conversationId: req.params.id }).sort({ createdAt: 1 }).limit(100);
-    return res.json(messages);
-  } catch (error) { return next(error); }
+
+    // Fetch the newest window, then restore chronological order for rendering.
+    const latestMessages = await ChatMessage.find({ conversationId: req.params.id }).sort({ createdAt: -1 }).limit(100);
+    return res.json([...latestMessages].reverse());
+  } catch (error) {
+    return next(error);
+  }
 }
