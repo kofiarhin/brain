@@ -10,9 +10,9 @@ process.env.NVIDIA_CHAT_MODEL = 'test-model';
 function fakeModel(name) {
   let records = [];
   const clone = (x) => (x ? { ...x } : x);
-  const valueAt = (item, path) => path.split('.').reduce((v, k) => v?.[k], item);
+  const valueAt = (item, path) => path.split('.').reduce((value, key) => value?.[key], item);
   const match = (item, query = {}) => Object.entries(query).every(([key, expected]) => {
-    if (key === '$or') return expected.some((q) => match(item, q));
+    if (key === '$or') return expected.some((nestedQuery) => match(item, nestedQuery));
     const actual = valueAt(item, key);
     if (expected instanceof RegExp) return expected.test(actual || '');
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
@@ -22,18 +22,54 @@ function fakeModel(name) {
     }
     return String(actual) === String(expected);
   });
-  const chain = (items) => ({
-    sort() { return this; }, limit(n) { items = items.slice(0, n); return this; },
-    then(resolve, reject) { return Promise.resolve(items.map(clone)).then(resolve, reject); },
-  });
+  const compare = (left, right) => {
+    const leftTime = new Date(left).getTime();
+    const rightTime = new Date(right).getTime();
+    if (!Number.isNaN(leftTime) && !Number.isNaN(rightTime)) return leftTime - rightTime;
+    return String(left ?? '').localeCompare(String(right ?? ''));
+  };
+  const chain = (initialItems) => {
+    let items = [...initialItems];
+    return {
+      sort(spec = {}) {
+        const [path, direction] = Object.entries(spec)[0] || [];
+        if (path) {
+          items.sort((left, right) => compare(valueAt(left, path), valueAt(right, path)) * (Number(direction) < 0 ? -1 : 1));
+        }
+        return this;
+      },
+      limit(count) {
+        items = items.slice(0, count);
+        return this;
+      },
+      then(resolve, reject) {
+        return Promise.resolve(items.map(clone)).then(resolve, reject);
+      },
+    };
+  };
   return class FakeModel {
     static reset() { records = []; }
     static all() { return records; }
-    static async create(payload) { const item = { _id: `${name}-${records.length + 1}`, ...payload, createdAt: new Date(), updatedAt: new Date() }; records.push(item); return clone(item); }
+    static async create(payload) {
+      const now = new Date();
+      const item = {
+        _id: `${name}-${records.length + 1}`,
+        ...payload,
+        createdAt: payload.createdAt || now,
+        updatedAt: payload.updatedAt || now,
+      };
+      records.push(item);
+      return clone(item);
+    }
     static find(query = {}) { return chain(records.filter((item) => match(item, query))); }
     static findOne(query = {}) { return { sort: async () => clone(records.find((item) => match(item, query)) || null) }; }
     static async findById(id) { return clone(records.find((item) => String(item._id) === String(id)) || null); }
-    static async findByIdAndUpdate(id, payload) { const index = records.findIndex((item) => String(item._id) === String(id)); if (index < 0) return null; records[index] = { ...records[index], ...payload, updatedAt: new Date() }; return clone(records[index]); }
+    static async findByIdAndUpdate(id, payload) {
+      const index = records.findIndex((item) => String(item._id) === String(id));
+      if (index < 0) return null;
+      records[index] = { ...records[index], ...payload, updatedAt: new Date() };
+      return clone(records[index]);
+    }
   };
 }
 
@@ -83,12 +119,13 @@ const app = createApp();
 const authHeader = `Bearer ${createToken('admin').token}`;
 
 beforeEach(() => {
-  [ChatConversation, ChatMessage, Context, Preference, Goal, Project, Task, DayPlan, Note, Idea, Review, Deliverable, GeneratedPost, BrainUpdateReport].forEach((m) => m.reset());
+  [ChatConversation, ChatMessage, Context, Preference, Goal, Project, Task, DayPlan, Note, Idea, Review, Deliverable, GeneratedPost, BrainUpdateReport].forEach((model) => model.reset());
   generateChatCompletion.mockResolvedValue('Mock assistant response');
   resetChatRateLimits();
 });
 
 const authed = () => supertest(app).post('/api/chat').set('Authorization', authHeader);
+const authedGet = (path) => supertest(app).get(path).set('Authorization', authHeader);
 
 test('POST /api/chat rejects unauthenticated request', async () => {
   await supertest(app).post('/api/chat').send({ message: 'hello' }).expect(401);
@@ -98,11 +135,21 @@ test('POST /api/chat rejects empty message', async () => {
   await authed().send({ message: '   ' }).expect(400, { message: 'Message is required' });
 });
 
-test('POST /api/chat creates conversation and saves user/assistant messages with contextUsed', async () => {
+test('POST /api/chat creates conversation and returns persisted user and assistant messages', async () => {
   await Context.create({ category: 'work', value: 'Brain App matters' });
   const response = await authed().send({ message: 'What should I focus on?' }).expect(200);
+
   expect(response.body.conversationId).toBe('conversation-1');
-  expect(response.body.message.content).toBe('Mock assistant response');
+  expect(response.body.userMessage).toEqual(expect.objectContaining({
+    _id: 'message-1',
+    role: 'user',
+    content: 'What should I focus on?',
+  }));
+  expect(response.body.message).toEqual(expect.objectContaining({
+    _id: 'message-2',
+    role: 'assistant',
+    content: 'Mock assistant response',
+  }));
   expect(response.body.contextUsed.context).toBe(1);
   expect(ChatConversation.all()).toHaveLength(1);
   expect(ChatMessage.all()).toEqual(expect.arrayContaining([
@@ -116,6 +163,7 @@ test('POST /api/chat falls back to local context when NVIDIA fails', async () =>
   generateChatCompletion.mockRejectedValueOnce(new NvidiaProviderError('fail'));
   await Task.create({ title: 'Ship chat fallback', priority: 'high', status: 'open' });
   const response = await authed().send({ message: 'hello' }).expect(200);
+
   expect(response.body.message.content).toContain('hosted AI provider is unavailable');
   expect(response.body.message.content).toContain('Ship chat fallback');
   expect(ChatMessage.all()).toEqual(expect.arrayContaining([
@@ -125,8 +173,12 @@ test('POST /api/chat falls back to local context when NVIDIA fails', async () =>
   warn.mockRestore();
 });
 
-test('POST /api/chat returns 404 for invalid conversationId', async () => {
+test('POST /api/chat returns 404 for a malformed conversationId', async () => {
   await authed().send({ message: 'hello', conversationId: 'missing' }).expect(404, { message: 'Conversation not found' });
+});
+
+test('POST /api/chat returns 404 for a valid but unknown conversationId', async () => {
+  await authed().send({ message: 'hello', conversationId: '507f1f77bcf86cd799439011' }).expect(404, { message: 'Conversation not found' });
 });
 
 test('POST /api/chat sends safety instructions in a system role, separate from context', async () => {
@@ -139,9 +191,6 @@ test('POST /api/chat sends safety instructions in a system role, separate from c
   const [system, user] = messages;
   expect(system.role).toBe('system');
   expect(user.role).toBe('user');
-
-  // The read-only guardrail must live in the system role, not inside the same
-  // block as retrieved note text, which is untrusted data.
   expect(system.content).toContain('You are currently read-only.');
   expect(user.content).not.toContain('You are currently read-only.');
   expect(user.content).toContain('UNTRUSTED DATA');
@@ -150,13 +199,29 @@ test('POST /api/chat sends safety instructions in a system role, separate from c
 test('POST /api/chat persists grounding metadata matching the response', async () => {
   await authed().send({ message: 'What should I focus on?' }).expect(200);
 
-  const assistant = ChatMessage.all().find((m) => m.role === 'assistant');
-  // Query embedding is mocked to fail, so retrieval must degrade to keywords
-  // and must never be recorded as vector-grounded.
+  const assistant = ChatMessage.all().find((message) => message.role === 'assistant');
   expect(assistant.retrieval).toEqual(expect.objectContaining({
     mode: expect.any(String),
     degraded: true,
     sources: expect.any(Array),
   }));
   expect(assistant.retrieval.mode).not.toBe('vector');
+});
+
+test('GET /api/chat/conversations/:id/messages returns the latest 100 in chronological order', async () => {
+  const conversation = await ChatConversation.create({ title: 'Long chat', lastMessageAt: new Date() });
+  for (let index = 0; index < 105; index += 1) {
+    await ChatMessage.create({
+      conversationId: conversation._id,
+      role: index % 2 ? 'assistant' : 'user',
+      content: `Message ${index}`,
+      createdAt: new Date(Date.UTC(2026, 6, 29, 0, 0, index)),
+    });
+  }
+
+  const response = await authedGet(`/api/chat/conversations/${conversation._id}/messages`).expect(200);
+
+  expect(response.body).toHaveLength(100);
+  expect(response.body[0].content).toBe('Message 5');
+  expect(response.body[99].content).toBe('Message 104');
 });
