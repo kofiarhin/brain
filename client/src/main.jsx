@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
+import { ChatLayout } from './layouts/ChatLayout';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { Landing } from './pages/Landing';
@@ -25,23 +26,45 @@ import './index.css';
 const router = createBrowserRouter([
   { path: '/', element: <Landing /> },
   { path: '/login', element: <Login /> },
-  { element: <ProtectedRoute />, children: [
-    { path: '/', element: <AppLayout />, children: [
-      { path: 'dashboard', element: <Dashboard /> },
-      { path: 'notes', element: <Notes /> },
-      { path: 'day-plan', element: <DayPlan /> },
-      { path: 'tasks', element: <Tasks /> },
-      { path: 'tasks/:id', element: <TaskDetails /> },
-      { path: 'projects', element: <Projects /> },
-      { path: 'goals-ideas', element: <GoalsIdeas /> },
-      { path: 'context', element: <ContextPage /> },
-      { path: 'preferences', element: <Preferences /> },
-      { path: 'reviews', element: <Reviews /> },
-      { path: 'reports', element: <Reports /> },
-      { path: 'chat', element: <Chat /> },
-      { path: 'generated-posts', element: <GeneratedPosts /> }
-    ]}
-  ]}
+  {
+    element: <ProtectedRoute />,
+    children: [
+      {
+        element: <ChatLayout />,
+        children: [
+          { path: 'chat', element: <Chat /> },
+        ],
+      },
+      {
+        path: '/',
+        element: <AppLayout />,
+        children: [
+          { path: 'dashboard', element: <Dashboard /> },
+          { path: 'notes', element: <Notes /> },
+          { path: 'day-plan', element: <DayPlan /> },
+          { path: 'tasks', element: <Tasks /> },
+          { path: 'tasks/:id', element: <TaskDetails /> },
+          { path: 'projects', element: <Projects /> },
+          { path: 'goals-ideas', element: <GoalsIdeas /> },
+          { path: 'context', element: <ContextPage /> },
+          { path: 'preferences', element: <Preferences /> },
+          { path: 'reviews', element: <Reviews /> },
+          { path: 'reports', element: <Reports /> },
+          { path: 'generated-posts', element: <GeneratedPosts /> },
+        ],
+      },
+    ],
+  },
 ]);
 
-createRoot(document.getElementById('root')).render(<React.StrictMode><QueryClientProvider client={new QueryClient()}><AuthProvider><RouterProvider router={router} /></AuthProvider></QueryClientProvider></React.StrictMode>);
+const queryClient = new QueryClient();
+
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </QueryClientProvider>
+  </React.StrictMode>,
+);
